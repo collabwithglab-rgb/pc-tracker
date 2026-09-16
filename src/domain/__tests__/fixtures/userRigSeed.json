@@ -233,9 +233,9 @@
       "brand": "Logitech",
       "model": "G413 TKL SE (Switch tattili, formato compatto TKL)",
       "category": "peripherals",
-      "notes": "Tastiera meccanica TKL con telaio in alluminio spazzolato. Sostituita a Settembre 2026 con AULA F75 MAX.",
+      "notes": "Tastiera meccanica TKL con telaio in alluminio spazzolato. Sostituita a Settembre 2026 con AULA F75 MAX e venduta a Marco per 20,00 €.",
       "createdAt": "2024-06-02T10:00:00.000Z",
-      "updatedAt": "2026-09-06T10:00:00.000Z"
+      "updatedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": "comp-periph-ajazz-ak820-pro",
@@ -700,6 +700,15 @@
       "reason": "upgrade",
       "notes": "Sostituita a Settembre 2026 con AULA F75 MAX"
     },
+    {
+      "id": "ev-sale-periph-logi-g413",
+      "componentId": "comp-periph-logitech-g413-tkl",
+      "date": "2026-09-17",
+      "type": "SALE",
+      "price": 20.0,
+      "buyer": "Marco",
+      "notes": "Venduta a Marco per 20,00 €"
+    },
 
     {
       "id": "ev-pur-periph-ajazz-ak820",
@@ -862,7 +871,7 @@
       "category": "peripherals",
       "oldComponentId": "comp-periph-logitech-g413-tkl",
       "newComponentId": "comp-periph-aula-f75-max",
-      "notes": "Upgrade tastiera da Logitech G413 TKL SE a EPOMAKER x AULA F75 MAX Wireless con switch Reaper."
+      "notes": "Upgrade tastiera da Logitech G413 TKL SE a EPOMAKER x AULA F75 MAX Wireless con switch Reaper. Vecchia tastiera venduta a Marco per 20,00 €."
     },
     {
       "id": "upgrade-headset-2026-09-06",

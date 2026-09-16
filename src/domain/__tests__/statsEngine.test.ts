@@ -311,23 +311,26 @@ describe('statsEngine pure functions and domain logic', () => {
 
     // 1. Totali Finanziari
     expect(stats.financial.totalPurchased).toBe(2832.55);
-    expect(stats.financial.totalRecovered).toBe(45.0);
-    expect(stats.financial.historicalNetCost).toBe(2787.55);
+    expect(stats.financial.totalRecovered).toBe(65.0);
+    expect(stats.financial.historicalNetCost).toBe(2767.55);
     expect(stats.financial.currentRigCost).toBe(2659.59);
 
-    // 2. Vendite (Thermaltake)
-    expect(stats.financial.soldComponentsCount).toBe(1);
-    expect(stats.financial.totalCostOfSold).toBe(51.0);
-    expect(stats.financial.recoveryRateOnSold).toBe(88.2);
+    // 2. Vendite (Thermaltake + Logitech)
+    expect(stats.financial.soldComponentsCount).toBe(2);
+    expect(stats.financial.totalCostOfSold).toBe(90.99);
+    expect(stats.financial.recoveryRateOnSold).toBe(71.4);
     expect(stats.soldComponents[0].name).toBe('Thermaltake TR2 S 700W');
     expect(stats.soldComponents[0].recoveryPercentage).toBe(88.2);
     expect(stats.soldComponents[0].deltaBalance).toBe(-6.0);
+    expect(stats.soldComponents[1].name).toBe('Logitech G413 TKL SE');
+    expect(stats.soldComponents[1].recoveryPercentage).toBe(50.0);
+    expect(stats.soldComponents[1].deltaBalance).toBe(-19.99);
 
     // 3. Upgrades
     expect(stats.upgrades.totalUpgrades).toBe(5);
     expect(stats.upgrades.totalInvested).toBe(358.08);
-    expect(stats.upgrades.totalRecovered).toBe(45.0);
-    expect(stats.upgrades.totalNetCost).toBe(313.08);
+    expect(stats.upgrades.totalRecovered).toBe(65.0);
+    expect(stats.upgrades.totalNetCost).toBe(293.08);
     expect(stats.upgrades.mostUpgradedCategory).toBe('peripherals');
     expect(stats.upgrades.categoryCount.peripherals).toBe(3);
     expect(stats.upgrades.categoryCount.psu).toBe(1);

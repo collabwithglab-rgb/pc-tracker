@@ -16,9 +16,9 @@ describe('User Rig Real Data Verification', () => {
   const events = schema.events;
   const upgrades = schema.upgrades;
 
-  it('contains exactly 29 components, 62 events and 5 upgrades', () => {
+  it('contains exactly 29 components, 63 events and 5 upgrades', () => {
     expect(components.length).toBe(29);
-    expect(events.length).toBe(62);
+    expect(events.length).toBe(63);
     expect(upgrades.length).toBe(5);
   });
 
@@ -44,11 +44,11 @@ describe('User Rig Real Data Verification', () => {
     // Totale Acquistato Storico: € 2832.55
     expect(totalPurchased).toBeCloseTo(2832.55, 2);
 
-    // Totale Recuperato dalle Vendite: € 45.00 (Alimentatore Thermaltake)
-    expect(totalRecovered).toBeCloseTo(45.0, 2);
+    // Totale Recuperato dalle Vendite: € 65.00 (Alimentatore Thermaltake € 45 + Tastiera Logitech € 20)
+    expect(totalRecovered).toBeCloseTo(65.0, 2);
 
-    // Costo Netto Storico: € 2787.55
-    expect(historicalNetCost).toBeCloseTo(2787.55, 2);
+    // Costo Netto Storico: € 2767.55
+    expect(historicalNetCost).toBeCloseTo(2767.55, 2);
 
     // Valore Totale Setup Attivo nel PC / Postazione (22 pezzi IN_USE):
     // 1970.57 (interno) + 356.24 (display) + 332.78 (periferiche) = 2659.59 €
@@ -56,16 +56,21 @@ describe('User Rig Real Data Verification', () => {
   });
 
   it('verifies correct derived states for sold, stored and active components', () => {
-    // 1 pezzo VENDUTO
+    // 2 pezzi VENDUTI (PSU Thermaltake + Tastiera Logitech G413)
     const psuThermaltake = components.find((c) => c.id === 'comp-psu-thermaltake-tr2s-700w')!;
     const psuEvents = events.filter((e) => e.componentId === psuThermaltake.id);
     expect(computeComponentStatus(psuEvents)).toBe('SOLD');
     const psuState = computeComponentComputedState(psuThermaltake, psuEvents);
     expect(psuState.netCost).toBe(6.0); // 51.00 - 45.00 = 6.00 € delta spesa
 
-    // 6 pezzi IN MAGAZZINO / SCORTA
+    const logiKeyboard = components.find((c) => c.id === 'comp-periph-logitech-g413-tkl')!;
+    const logiEvents = events.filter((e) => e.componentId === logiKeyboard.id);
+    expect(computeComponentStatus(logiEvents)).toBe('SOLD');
+    const logiState = computeComponentComputedState(logiKeyboard, logiEvents);
+    expect(logiState.netCost).toBeCloseTo(19.99, 2); // 39.99 - 20.00 = 19.99 €
+
+    // 5 pezzi IN MAGAZZINO / SCORTA
     const storageIds = [
-      'comp-periph-logitech-g413-tkl',
       'comp-periph-ajazz-ak820-pro',
       'comp-periph-razer-blackshark-v2x',
       'comp-periph-dacoity-gaming-rgb',
