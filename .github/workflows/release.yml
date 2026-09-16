@@ -10,6 +10,7 @@ on:
         description: 'Release version tag (e.g. v0.1.0)'
         required: false
         default: 'v0.1.0'
+        type: string
 
 permissions:
   contents: write
@@ -36,7 +37,7 @@ jobs:
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: 'src-tauri'
 
       - name: Install Node Dependencies
         run: npm ci
