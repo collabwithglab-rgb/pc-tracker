@@ -20,6 +20,8 @@ pnpm-debug.log*
 .eslintcache
 .stylelintcache
 scratch/
+user-backups/
+*.personal.json
 
 # Local test screenshots / debug images
 *.png
