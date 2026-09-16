@@ -1,0 +1,295 @@
+:root {
+  /* Sfondi e Superfici — Sophisticated Dark Hardware */
+  --bg-app: #080c14;
+  --bg-surface: #0f1626;
+  --bg-surface-elevated: #151f32;
+  --bg-surface-hover: #1a273f;
+  --bg-surface-subtle: rgba(255, 255, 255, 0.02);
+  --bg-overlay: rgba(6, 10, 18, 0.85);
+
+  /* Bordi e Divisori Deliberati */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.14);
+  --border-focus: var(--accent-primary);
+  --border-highlight: rgba(var(--accent-primary-rgb), 0.35);
+
+  /* Tipografia & Contrasto */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-tertiary: #475569;
+  --text-inverse: #080c14;
+
+  /* Font Families Base */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Outfit', var(--font-sans);
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Scala Tipografica */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+
+  /* Accento Interattivo Primario (Default: Electric Cyan) */
+  --accent-primary: #38bdf8;
+  --accent-primary-hover: #7dd3fc;
+  --accent-primary-active: #0284c7;
+  --accent-primary-subtle: rgba(56, 189, 248, 0.08);
+  --accent-primary-subtle-hover: rgba(56, 189, 248, 0.14);
+  --accent-primary-border: rgba(56, 189, 248, 0.28);
+  --accent-primary-rgb: 56, 189, 248;
+  --accent-primary-glow: rgba(56, 189, 248, 0.3);
+  --accent-primary-contrast: #060b13;
+
+  /* Aliasing legacy/component per mantenere compatibilità e coerenza */
+  --accent-cyan: var(--accent-primary);
+  --accent-cyan-subtle: var(--accent-primary-subtle);
+  --accent-cyan-border: var(--accent-primary-border);
+  --accent-cyan-rgb: var(--accent-primary-rgb);
+
+  /* Colori Semantici Hardware & Finanze (Invariati e Indipendenti dalla Palette) */
+  --accent-emerald: #10b981;
+  --accent-emerald-subtle: rgba(16, 185, 129, 0.08);
+  --accent-emerald-border: rgba(16, 185, 129, 0.28);
+  --accent-emerald-rgb: 16, 185, 129;
+
+  --accent-ruby: #f43f5e;
+  --accent-ruby-subtle: rgba(244, 63, 94, 0.08);
+  --accent-ruby-border: rgba(244, 63, 94, 0.28);
+  --accent-ruby-rgb: 244, 63, 94;
+
+  --accent-amber: #f59e0b;
+  --accent-amber-subtle: rgba(245, 158, 11, 0.08);
+  --accent-amber-border: rgba(245, 158, 11, 0.28);
+  --accent-amber-rgb: 245, 158, 11;
+
+  --accent-indigo: #818cf8;
+  --accent-indigo-subtle: rgba(129, 140, 248, 0.08);
+  --accent-indigo-border: rgba(129, 140, 248, 0.28);
+  --accent-indigo-rgb: 129, 140, 248;
+
+  /* Spaziature Sistematiche */
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Raggi di Curvatura Unificati */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+
+  /* Ombre Diffuse e Calibrate (Niente bagliori violenti) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  /* Token di Movimento & Apple-Style Easing */
+  --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-apple-spring: cubic-bezier(0.175, 0.885, 0.32, 1.15);
+  --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-apple-fast: 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-apple-normal: 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-apple-smooth: 380ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Primitive Motion Foundation (Roadmap 11.1 — Calm Precision) */
+  --motion-press: 90ms cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-lift: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-focus: 120ms ease-out;
+  --motion-modal-in: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-modal-out: 140ms ease-in;
+  --motion-toast-in: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-toast-out: 140ms ease-in;
+  --motion-page-fade: 120ms ease-out;
+}
+
+/* ==========================================================================
+   PALETTE ACCENT CURATE (SOLO ACCENT IDENTITY — DARK HARDWARE INVARIATO)
+   ========================================================================== */
+
+/* 1. Electric Cyan (Default esplicito) */
+html[data-accent="cyan"],
+:root[data-accent="cyan"] {
+  --accent-primary: #38bdf8;
+  --accent-primary-hover: #7dd3fc;
+  --accent-primary-active: #0284c7;
+  --accent-primary-subtle: rgba(56, 189, 248, 0.08);
+  --accent-primary-subtle-hover: rgba(56, 189, 248, 0.14);
+  --accent-primary-border: rgba(56, 189, 248, 0.28);
+  --accent-primary-rgb: 56, 189, 248;
+  --accent-primary-glow: rgba(56, 189, 248, 0.3);
+  --accent-primary-contrast: #060b13;
+}
+
+/* 2. Arctic Blue */
+html[data-accent="arctic"],
+:root[data-accent="arctic"] {
+  --accent-primary: #60a5fa;
+  --accent-primary-hover: #93c5fd;
+  --accent-primary-active: #2563eb;
+  --accent-primary-subtle: rgba(96, 165, 250, 0.08);
+  --accent-primary-subtle-hover: rgba(96, 165, 250, 0.14);
+  --accent-primary-border: rgba(96, 165, 250, 0.28);
+  --accent-primary-rgb: 96, 165, 250;
+  --accent-primary-glow: rgba(96, 165, 250, 0.3);
+  --accent-primary-contrast: #060b13;
+}
+
+/* 3. Nebula Violet */
+html[data-accent="violet"],
+:root[data-accent="violet"] {
+  --accent-primary: #c084fc;
+  --accent-primary-hover: #d8b4fe;
+  --accent-primary-active: #9333ea;
+  --accent-primary-subtle: rgba(192, 132, 252, 0.08);
+  --accent-primary-subtle-hover: rgba(192, 132, 252, 0.14);
+  --accent-primary-border: rgba(192, 132, 252, 0.28);
+  --accent-primary-rgb: 192, 132, 252;
+  --accent-primary-glow: rgba(192, 132, 252, 0.3);
+  --accent-primary-contrast: #060b13;
+}
+
+/* 4. Emerald Matrix */
+html[data-accent="emerald"],
+:root[data-accent="emerald"] {
+  --accent-primary: #10b981;
+  --accent-primary-hover: #34d399;
+  --accent-primary-active: #059669;
+  --accent-primary-subtle: rgba(16, 185, 129, 0.08);
+  --accent-primary-subtle-hover: rgba(16, 185, 129, 0.14);
+  --accent-primary-border: rgba(16, 185, 129, 0.28);
+  --accent-primary-rgb: 16, 185, 129;
+  --accent-primary-glow: rgba(16, 185, 129, 0.3);
+  --accent-primary-contrast: #060b13;
+}
+
+/* 5. Cyber Amber */
+html[data-accent="amber"],
+:root[data-accent="amber"] {
+  --accent-primary: #f59e0b;
+  --accent-primary-hover: #fbbf24;
+  --accent-primary-active: #d97706;
+  --accent-primary-subtle: rgba(245, 158, 11, 0.08);
+  --accent-primary-subtle-hover: rgba(245, 158, 11, 0.14);
+  --accent-primary-border: rgba(245, 158, 11, 0.28);
+  --accent-primary-rgb: 245, 158, 11;
+  --accent-primary-glow: rgba(245, 158, 11, 0.3);
+  --accent-primary-contrast: #060b13;
+}
+
+/* 6. Crimson Red */
+html[data-accent="crimson"],
+:root[data-accent="crimson"] {
+  --accent-primary: #fb7185;
+  --accent-primary-hover: #fda4af;
+  --accent-primary-active: #e11d48;
+  --accent-primary-subtle: rgba(251, 113, 133, 0.08);
+  --accent-primary-subtle-hover: rgba(251, 113, 133, 0.14);
+  --accent-primary-border: rgba(251, 113, 133, 0.28);
+  --accent-primary-rgb: 251, 113, 133;
+  --accent-primary-glow: rgba(251, 113, 133, 0.3);
+  --accent-primary-contrast: #060b13;
+}
+
+/* ==========================================================================
+   PRESET TIPOGRAFICI CURATI (ZERO-BUNDLE, ZERO NETWORK)
+   ========================================================================== */
+
+/* 1. Default / Enthusiast: Outfit headings + Inter body + JetBrains Mono */
+html[data-typography="default"],
+:root[data-typography="default"] {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Outfit', var(--font-sans);
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* 2. Minimal Clean: Inter headings + Inter body + JetBrains Mono */
+html[data-typography="minimal"],
+:root[data-typography="minimal"] {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* 3. System Native: 100% OS Native typography stack (zero network latency) */
+html[data-typography="system"],
+:root[data-typography="system"] {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+/* ==========================================================================
+   AMBIENTE CROMATICO CURATO (BACKGROUND & SUPERFICI SCURE RAFFINATE)
+   ========================================================================== */
+
+/* 1. Obsidian (Default esplicito: Nero titanio profondo) */
+html[data-environment="obsidian"],
+:root[data-environment="obsidian"] {
+  --bg-app: #080c14;
+  --bg-surface: #0f1626;
+  --bg-surface-elevated: #151f32;
+  --bg-surface-hover: #1a273f;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.14);
+}
+
+/* 2. Graphite (Antracite neutro, zero dominante) */
+html[data-environment="graphite"],
+:root[data-environment="graphite"] {
+  --bg-app: #0c0d10;
+  --bg-surface: #14161d;
+  --bg-surface-elevated: #1c1f28;
+  --bg-surface-hover: #232733;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.14);
+}
+
+/* 3. Slate (Ardesia fredda industriale) */
+html[data-environment="slate"],
+:root[data-environment="slate"] {
+  --bg-app: #090d13;
+  --bg-surface: #101721;
+  --bg-surface-elevated: #172130;
+  --bg-surface-hover: #1d2a3c;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.14);
+}
+
+/* 4. Midnight (Blu notte abissale) */
+html[data-environment="midnight"],
+:root[data-environment="midnight"] {
+  --bg-app: #050811;
+  --bg-surface: #0c1222;
+  --bg-surface-elevated: #121a30;
+  --bg-surface-hover: #17223e;
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-default: rgba(255, 255, 255, 0.15);
+}
+
+/* 5. Carbon (OLED pitch black, puro carbone) */
+html[data-environment="carbon"],
+:root[data-environment="carbon"] {
+  --bg-app: #070707;
+  --bg-surface: #111111;
+  --bg-surface-elevated: #181818;
+  --bg-surface-hover: #222222;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.13);
+}
+
+

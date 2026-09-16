@@ -1,0 +1,88 @@
+name: Release Desktop Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v0.1.0)'
+        required: false
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Tauri Windows x64 & Publish Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Run Domain Test Suite
+        run: npm test -- --run
+
+      - name: Run TypeScript Strict Typecheck
+        run: node ./node_modules/typescript/bin/tsc --noEmit
+
+      - name: Build Web Assets (Vite)
+        run: npm run build
+
+      - name: Run Privacy & Data-Leak Audit Gate
+        run: npm run audit:privacy
+
+      - name: Build Tauri Desktop Application (NSIS)
+        run: npx @tauri-apps/cli build
+
+      - name: Calculate Checksums (SHA-256)
+        id: checksums
+        shell: pwsh
+        run: |
+          $installer = Get-Item "src-tauri/target/release/bundle/nsis/*.exe" | Select-Object -First 1
+          if (-not $installer) {
+            Write-Error "Installer .exe not found in bundle directory!"
+            exit 1
+          }
+          $hash = (Get-FileHash -Path $installer.FullName -Algorithm SHA256).Hash
+          "$hash  $($installer.Name)" | Out-File -FilePath "SHA256SUMS.txt" -Encoding utf8
+          Write-Output "Installer: $($installer.FullName)"
+          Write-Output "SHA256: $hash"
+          Write-Output "installer_path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Output "installer_name=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          Write-Output "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release & Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "PC Tracker ${{ github.ref_name }}"
+          tag_name: ${{ github.ref_name }}
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            SHA256SUMS.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

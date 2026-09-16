@@ -1,0 +1,876 @@
+{
+  "schemaVersion": 1,
+  "appVersion": "1.0.0",
+  "lastModified": "2026-09-06T22:30:00.000Z",
+  "settings": {
+    "currencySymbol": "€",
+    "dateFormat": "DD/MM/YYYY"
+  },
+  "components": [
+    {
+      "id": "comp-cpu-i5-14500",
+      "name": "Intel Core i5-14500",
+      "brand": "Intel",
+      "model": "Core i5-14500 (14 Core: 6P + 8E, fino a 5.0 GHz)",
+      "category": "cpu",
+      "notes": "Socket LGA 1700, 14 Core (6P+8E, 20 thread), cache 24MB, TDP 65W/154W",
+      "createdAt": "2024-06-02T10:00:00.000Z",
+      "updatedAt": "2024-06-02T10:00:00.000Z"
+    },
+    {
+      "id": "comp-gpu-rtx-4070",
+      "name": "MSI GeForce RTX 4070",
+      "brand": "MSI",
+      "model": "GeForce RTX 4070 (12 GB GDDR6X)",
+      "category": "gpu",
+      "notes": "12 GB GDDR6X, architettura Ada Lovelace, DLSS 3 e Ray Tracing",
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-mobo-z790-s",
+      "name": "MSI PRO Z790-S WIFI",
+      "brand": "MSI",
+      "model": "PRO Z790-S WIFI (LGA 1700, ATX, Wi-Fi 6E)",
+      "category": "motherboard",
+      "notes": "Chipset Z790, supporto DDR5 fino a 7200+ MHz (OC), Wi-Fi 6E, 2x M.2 PCIe 4.0",
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-ram-corsair-ddr5-32gb",
+      "name": "Corsair Vengeance RGB DDR5 32GB",
+      "brand": "Corsair",
+      "model": "Vengeance RGB DDR5 32GB (2x16GB) 6000MHz CL30",
+      "category": "ram",
+      "notes": "Kit 32GB (2x16GB), 6000 MHz, CL30-36-36-76, Intel XMP 3.0, illuminazione RGB",
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-storage-crucial-p3-1tb",
+      "name": "Crucial P3 Plus 1TB NVMe PCIe 4.0",
+      "brand": "Crucial",
+      "model": "P3 Plus 1TB NVMe PCIe 4.0 (5000 MB/s)",
+      "category": "storage",
+      "notes": "Storage Primario (OS) - M.2 NVMe PCIe 4.0 con velocità di lettura fino a 5000 MB/s",
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-storage-samsung-990-pro-2tb",
+      "name": "Samsung 990 PRO 2TB NVMe M.2",
+      "brand": "Samsung",
+      "model": "990 PRO 2TB NVMe M.2 PCIe 4.0",
+      "category": "storage",
+      "notes": "Storage Secondario - M.2 NVMe PCIe 4.0 con lettura fino a 7450 MB/s e scrittura fino a 6900 MB/s",
+      "createdAt": "2026-08-23T10:00:00.000Z",
+      "updatedAt": "2026-08-23T10:00:00.000Z"
+    },
+    {
+      "id": "comp-cooler-thermalright-pa120",
+      "name": "Thermalright Peerless Assassin 120 SE ARGB",
+      "brand": "Thermalright",
+      "model": "Peerless Assassin 120 SE ARGB (Doppia torre ad aria)",
+      "category": "cooling",
+      "notes": "Doppia torre ad aria, 6 heatpipe da 6mm in rame, 2x ventole TL-C12C-S PWM ARGB 120mm",
+      "createdAt": "2026-02-01T10:00:00.000Z",
+      "updatedAt": "2026-02-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-cooler-arctic-m2-pro",
+      "name": "ARCTIC M2 Pro Nero",
+      "brand": "ARCTIC",
+      "model": "M2 Pro Nero (Dissipatore passivo in alluminio)",
+      "category": "cooling",
+      "notes": "Dissipatore passivo in alluminio per SSD M.2 2280 con pad termici ad alta conducibilità (In arrivo)",
+      "createdAt": "2026-09-06T10:00:00.000Z",
+      "updatedAt": "2026-09-06T10:00:00.000Z"
+    },
+    {
+      "id": "comp-acc-usb3-adapter-90",
+      "name": "Adattatore 90° USB 3.0 19-pin a Type-E Key-A",
+      "brand": "AliExpress / Generico",
+      "model": "Adattatore 90° USB 3.0 19-pin a Type-E Key-A (per porta USB-C frontale)",
+      "category": "accessories",
+      "notes": "Adattatore per collegare il cavo frontale USB-C del case NZXT H5 Flow (In arrivo da AliExpress)",
+      "createdAt": "2026-09-05T10:00:00.000Z",
+      "updatedAt": "2026-09-05T10:00:00.000Z"
+    },
+    {
+      "id": "comp-psu-nzxt-c750",
+      "name": "NZXT C750 Gold Core",
+      "brand": "NZXT",
+      "model": "C750 Gold Core (750W, ATX 3.1, 80 Plus Gold, Full Modulare)",
+      "category": "psu",
+      "notes": "750W, conforme standard ATX 3.1 e PCIe 5.0, certificazione 80 Plus Gold, Full Modulare",
+      "createdAt": "2026-01-31T10:00:00.000Z",
+      "updatedAt": "2026-01-31T10:00:00.000Z"
+    },
+    {
+      "id": "comp-case-nzxt-h5-flow",
+      "name": "NZXT H5 Flow Black",
+      "brand": "NZXT",
+      "model": "H5 Flow Black (Mid-Tower ad alto flusso d’aria)",
+      "category": "case",
+      "notes": "Chassis Mid-Tower con pannello frontale forato mesh, ventola dedicata GPU inclinata sul fondo",
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-acc-nzxt-fan-controller-v2",
+      "name": "NZXT RGB & Fan Controller V2",
+      "brand": "NZXT",
+      "model": "RGB & Fan Controller V2 (Gestione curve ventole interne)",
+      "category": "accessories",
+      "notes": "Controller digitale con canali ventole PWM e canali RGB gestiti tramite software NZXT CAM",
+      "createdAt": "2024-06-12T10:00:00.000Z",
+      "updatedAt": "2024-06-12T10:00:00.000Z"
+    },
+    {
+      "id": "comp-acc-cerrxian-argb-controller",
+      "name": "CERRXIAN 5V 3-pin SATA",
+      "brand": "CERRXIAN",
+      "model": "5V 3-pin SATA (Controllo manuale luci CPU)",
+      "category": "accessories",
+      "notes": "Mini controller manuale ARGB a 3 pin 5V con alimentazione SATA diretta",
+      "createdAt": "2024-06-19T10:00:00.000Z",
+      "updatedAt": "2024-06-19T10:00:00.000Z"
+    },
+    {
+      "id": "comp-monitor-lg-27gr75q",
+      "name": "LG UltraGear 27GR75Q",
+      "brand": "LG",
+      "model": "27GR75Q (27\" QHD 1440p, IPS, 165Hz, 1ms, G-Sync/FreeSync)",
+      "category": "monitor",
+      "notes": "Monitor Principale - 27 pollici QHD 2560x1440, pannello IPS, 165Hz, 1ms (GtG), compatibile G-Sync",
+      "createdAt": "2024-06-04T10:00:00.000Z",
+      "updatedAt": "2024-06-04T10:00:00.000Z"
+    },
+    {
+      "id": "comp-monitor-msi-mp243x",
+      "name": "MSI PRO MP243X",
+      "brand": "MSI",
+      "model": "PRO MP243X (23.8\" FHD 1080p, IPS, 100Hz)",
+      "category": "monitor",
+      "notes": "Monitor Secondario - 23.8 pollici Full HD 1920x1080, pannello IPS antiriflesso, 100Hz",
+      "createdAt": "2026-01-18T10:00:00.000Z",
+      "updatedAt": "2026-01-18T10:00:00.000Z"
+    },
+    {
+      "id": "comp-acc-grifema-arm",
+      "name": "Grifema GB2003-1",
+      "brand": "Grifema",
+      "model": "GB2003-1 (A gas, attacco VESA per schermo secondario)",
+      "category": "accessories",
+      "notes": "Braccio meccanico a gas con attacco VESA 75x75 / 100x100 e morsetto da scrivania",
+      "createdAt": "2026-01-18T10:00:00.000Z",
+      "updatedAt": "2026-01-18T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-aula-f75-max",
+      "name": "EPOMAKER x AULA F75 MAX",
+      "brand": "EPOMAKER / AULA",
+      "model": "F75 MAX (Wireless Tri-Mode, LEOBOG Reaper Switch, Black Side-Printed)",
+      "category": "peripherals",
+      "notes": "Tastiera Principale - Formato compatto 75%, Tri-Mode (2.4GHz/BT/USB-C), switch lineari LEOBOG Reaper (In arrivo da AliExpress)",
+      "createdAt": "2026-09-06T10:00:00.000Z",
+      "updatedAt": "2026-09-06T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-ajazz-aj179-apex",
+      "name": "AJAZZ AJ179 APEX White",
+      "brand": "AJAZZ",
+      "model": "AJ179 APEX White (Sensore PixArt PAW3950, Wireless Tri-Mode, dock magnetica)",
+      "category": "peripherals",
+      "notes": "Mouse Principale - Sensore ottico PixArt PAW3950 top di gamma, dock di ricarica magnetica con display (In arrivo da AliExpress)",
+      "createdAt": "2026-09-01T10:00:00.000Z",
+      "updatedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-beyerdynamic-dt270-pro",
+      "name": "beyerdynamic DT 270 PRO",
+      "brand": "beyerdynamic",
+      "model": "DT 270 PRO (Isolamento passivo, cavo rimovibile)",
+      "category": "peripherals",
+      "notes": "Cuffie Studio / Monitoraggio - Design chiuso ad alto isolamento acustico passivo con cavo rimovibile (In arrivo)",
+      "createdAt": "2026-09-06T10:00:00.000Z",
+      "updatedAt": "2026-09-06T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-steinberg-ur12",
+      "name": "Steinberg UR12",
+      "brand": "Steinberg",
+      "model": "UR12 (24-bit / 192 kHz, dedicata a input chitarra)",
+      "category": "peripherals",
+      "notes": "Interfaccia audio USB 2.0 a 2 canali, 24-bit/192 kHz con preamplificatore D-PRE e ingresso Hi-Z chitarra (Acquistata usata)",
+      "createdAt": "2025-12-02T10:00:00.000Z",
+      "updatedAt": "2025-12-02T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-emeet-c960",
+      "name": "EMEET C960",
+      "brand": "EMEET",
+      "model": "C960 (FHD 1080p / 30fps, doppio microfono)",
+      "category": "peripherals",
+      "notes": "Webcam Full HD 1080p a 30fps con correzione automatica della luce e 2 microfoni omnidirezionali",
+      "createdAt": "2025-01-11T10:00:00.000Z",
+      "updatedAt": "2025-01-11T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-sony-dualshock-4",
+      "name": "Sony DualShock 4 V2",
+      "brand": "Sony",
+      "model": "DualShock 4 V2 (Cablato USB)",
+      "category": "peripherals",
+      "notes": "Controller Gamepad originale PlayStation DualShock 4 v2 connesso stabilmente via cavo USB",
+      "createdAt": "2023-11-28T10:00:00.000Z",
+      "updatedAt": "2023-11-28T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-logitech-g413-tkl",
+      "name": "Logitech G413 TKL SE",
+      "brand": "Logitech",
+      "model": "G413 TKL SE (Switch tattili, formato compatto TKL)",
+      "category": "peripherals",
+      "notes": "Tastiera meccanica TKL con telaio in alluminio spazzolato. Sostituita a Settembre 2026 con AULA F75 MAX.",
+      "createdAt": "2024-06-02T10:00:00.000Z",
+      "updatedAt": "2026-09-06T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-ajazz-ak820-pro",
+      "name": "AJAZZ AK820 PRO Wireless",
+      "brand": "AJAZZ",
+      "model": "AK820 PRO Wireless (Gift Switch Black, schermo TFT/Manopola)",
+      "category": "peripherals",
+      "notes": "Ordine del 01/09/2026 (valore ordine 57,22 €). Rimborsata e consegnata (Costo netto: 0,00 €). Nuova, tenuta come scorta a magazzino.",
+      "createdAt": "2026-09-01T10:00:00.000Z",
+      "updatedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-razer-blackshark-v2x",
+      "name": "Razer BlackShark V2 X",
+      "brand": "Razer",
+      "model": "BlackShark V2 X (Driver 50mm, cablate Jack 3.5mm)",
+      "category": "peripherals",
+      "notes": "Cuffie gaming cablate con driver TriForce da 50mm. Sostituite a Settembre 2026 con beyerdynamic DT 270 PRO.",
+      "createdAt": "2024-06-12T10:00:00.000Z",
+      "updatedAt": "2026-09-06T10:00:00.000Z"
+    },
+    {
+      "id": "comp-periph-dacoity-gaming-rgb",
+      "name": "Dacoity Gaming RGB",
+      "brand": "Dacoity",
+      "model": "Gaming RGB (Sensore ottico 8000 DPI, cablato)",
+      "category": "peripherals",
+      "notes": "Mouse gaming ottico cablato. Sostituito a Settembre 2026 con AJAZZ AJ179 APEX.",
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-psu-thermaltake-tr2s-700w",
+      "name": "Thermaltake TR2 S 700W",
+      "brand": "Thermaltake",
+      "model": "TR2 S 700W (80 Plus Standard, non modulare)",
+      "category": "psu",
+      "notes": "Alimentatore 700W 80 Plus Standard non modulare. Sostituito il 31/01/2026 con NZXT C750 e venduto a 45,00 € (Delta spesa: -6,00 €).",
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2026-01-31T10:00:00.000Z"
+    },
+    {
+      "id": "comp-cooler-cooler-master-i70c",
+      "name": "Cooler Master i70C",
+      "brand": "Cooler Master",
+      "model": "i70C (Low profile, 120mm)",
+      "category": "cooling",
+      "notes": "Dissipatore aftermarket low profile con ventola da 120mm. Smontato il 01/02/2026 per passaggio a Peerless Assassin. Conservato e funzionante.",
+      "createdAt": "2024-06-04T10:00:00.000Z",
+      "updatedAt": "2026-02-01T10:00:00.000Z"
+    },
+    {
+      "id": "comp-cooler-intel-laminar-rm1",
+      "name": "Intel Laminar RM1",
+      "brand": "Intel",
+      "model": "Laminar RM1 (Incluso con i5-14500)",
+      "category": "cooling",
+      "notes": "Dissipatore stock boxed Intel fornito nella confezione del processore i5-14500. Non utilizzato, conservato come scorta a magazzino.",
+      "createdAt": "2024-06-02T10:00:00.000Z",
+      "updatedAt": "2024-06-02T10:00:00.000Z"
+    }
+  ],
+  "events": [
+    {
+      "id": "ev-pur-cpu-14500",
+      "componentId": "comp-cpu-i5-14500",
+      "date": "2024-06-02",
+      "type": "PURCHASE",
+      "price": 257.0,
+      "condition": "new",
+      "notes": "Acquisto processore Core i5-14500"
+    },
+    {
+      "id": "ev-inst-cpu-14500",
+      "componentId": "comp-cpu-i5-14500",
+      "date": "2024-06-02",
+      "type": "INSTALL",
+      "slotOrLocation": "Socket LGA 1700"
+    },
+
+    {
+      "id": "ev-pur-gpu-rtx4070",
+      "componentId": "comp-gpu-rtx-4070",
+      "date": "2024-06-01",
+      "type": "PURCHASE",
+      "price": 605.0,
+      "condition": "new",
+      "notes": "Acquisto MSI GeForce RTX 4070 12GB"
+    },
+    {
+      "id": "ev-inst-gpu-rtx4070",
+      "componentId": "comp-gpu-rtx-4070",
+      "date": "2024-06-01",
+      "type": "INSTALL",
+      "slotOrLocation": "PCIe 4.0 x16 Slot 1"
+    },
+
+    {
+      "id": "ev-pur-mobo-z790s",
+      "componentId": "comp-mobo-z790-s",
+      "date": "2024-06-01",
+      "type": "PURCHASE",
+      "price": 191.78,
+      "condition": "new",
+      "notes": "Acquisto MSI PRO Z790-S WIFI"
+    },
+    {
+      "id": "ev-inst-mobo-z790s",
+      "componentId": "comp-mobo-z790-s",
+      "date": "2024-06-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Chassis ATX Mount"
+    },
+
+    {
+      "id": "ev-pur-ram-corsair",
+      "componentId": "comp-ram-corsair-ddr5-32gb",
+      "date": "2024-06-01",
+      "type": "PURCHASE",
+      "price": 127.99,
+      "condition": "new",
+      "notes": "Acquisto Corsair Vengeance RGB DDR5 32GB"
+    },
+    {
+      "id": "ev-inst-ram-corsair",
+      "componentId": "comp-ram-corsair-ddr5-32gb",
+      "date": "2024-06-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Slot DIMM 2 & 4"
+    },
+
+    {
+      "id": "ev-pur-crucial-p3",
+      "componentId": "comp-storage-crucial-p3-1tb",
+      "date": "2024-06-01",
+      "type": "PURCHASE",
+      "price": 92.99,
+      "condition": "new",
+      "notes": "Acquisto Crucial P3 Plus 1TB NVMe PCIe 4.0"
+    },
+    {
+      "id": "ev-inst-crucial-p3",
+      "componentId": "comp-storage-crucial-p3-1tb",
+      "date": "2024-06-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Slot M.2_1 (CPU Direct)"
+    },
+
+    {
+      "id": "ev-pur-samsung-990pro",
+      "componentId": "comp-storage-samsung-990-pro-2tb",
+      "date": "2026-08-23",
+      "type": "PURCHASE",
+      "price": 373.04,
+      "condition": "new",
+      "notes": "Acquisto Samsung 990 PRO 2TB NVMe M.2"
+    },
+    {
+      "id": "ev-inst-samsung-990pro",
+      "componentId": "comp-storage-samsung-990-pro-2tb",
+      "date": "2026-08-23",
+      "type": "INSTALL",
+      "slotOrLocation": "Slot M.2_2 (Chipset)"
+    },
+
+    {
+      "id": "ev-pur-cooler-pa120",
+      "componentId": "comp-cooler-thermalright-pa120",
+      "date": "2026-02-01",
+      "type": "PURCHASE",
+      "price": 37.19,
+      "condition": "new",
+      "notes": "Acquisto Thermalright Peerless Assassin 120 SE ARGB"
+    },
+    {
+      "id": "ev-inst-cooler-pa120",
+      "componentId": "comp-cooler-thermalright-pa120",
+      "date": "2026-02-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Socket LGA 1700"
+    },
+
+    {
+      "id": "ev-pur-cooler-arctic",
+      "componentId": "comp-cooler-arctic-m2-pro",
+      "date": "2026-09-06",
+      "type": "PURCHASE",
+      "price": 5.79,
+      "condition": "new",
+      "notes": "In arrivo"
+    },
+    {
+      "id": "ev-inst-cooler-arctic",
+      "componentId": "comp-cooler-arctic-m2-pro",
+      "date": "2026-09-06",
+      "type": "INSTALL",
+      "slotOrLocation": "Slot M.2 Samsung 990 PRO"
+    },
+
+    {
+      "id": "ev-pur-acc-usb3-adapter",
+      "componentId": "comp-acc-usb3-adapter-90",
+      "date": "2026-09-05",
+      "type": "PURCHASE",
+      "price": 5.29,
+      "store": "AliExpress",
+      "condition": "new",
+      "notes": "In arrivo da AliExpress"
+    },
+    {
+      "id": "ev-inst-acc-usb3-adapter",
+      "componentId": "comp-acc-usb3-adapter-90",
+      "date": "2026-09-05",
+      "type": "INSTALL",
+      "slotOrLocation": "Header USB 3.0 Motherboard"
+    },
+
+    {
+      "id": "ev-pur-psu-nzxt-c750",
+      "componentId": "comp-psu-nzxt-c750",
+      "date": "2026-01-31",
+      "type": "PURCHASE",
+      "price": 108.0,
+      "condition": "new",
+      "notes": "Acquisto NZXT C750 Gold Core Full Modulare ATX 3.1"
+    },
+    {
+      "id": "ev-inst-psu-nzxt-c750",
+      "componentId": "comp-psu-nzxt-c750",
+      "date": "2026-01-31",
+      "type": "INSTALL",
+      "slotOrLocation": "Vano PSU Inferiore Chassis"
+    },
+
+    {
+      "id": "ev-pur-case-h5flow",
+      "componentId": "comp-case-nzxt-h5-flow",
+      "date": "2024-06-01",
+      "type": "PURCHASE",
+      "price": 115.0,
+      "condition": "new",
+      "notes": "Acquisto NZXT H5 Flow Black"
+    },
+    {
+      "id": "ev-inst-case-h5flow",
+      "componentId": "comp-case-nzxt-h5-flow",
+      "date": "2024-06-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Desk Setup"
+    },
+
+    {
+      "id": "ev-pur-acc-fan-controller",
+      "componentId": "comp-acc-nzxt-fan-controller-v2",
+      "date": "2024-06-12",
+      "type": "PURCHASE",
+      "price": 41.01,
+      "condition": "new",
+      "notes": "Acquisto NZXT RGB & Fan Controller V2"
+    },
+    {
+      "id": "ev-inst-acc-fan-controller",
+      "componentId": "comp-acc-nzxt-fan-controller-v2",
+      "date": "2024-06-12",
+      "type": "INSTALL",
+      "slotOrLocation": "Retro vassoio scheda madre"
+    },
+
+    {
+      "id": "ev-pur-acc-argb-controller",
+      "componentId": "comp-acc-cerrxian-argb-controller",
+      "date": "2024-06-19",
+      "type": "PURCHASE",
+      "price": 10.49,
+      "condition": "new",
+      "notes": "Acquisto CERRXIAN 5V 3-pin SATA"
+    },
+    {
+      "id": "ev-inst-acc-argb-controller",
+      "componentId": "comp-acc-cerrxian-argb-controller",
+      "date": "2024-06-19",
+      "type": "INSTALL",
+      "slotOrLocation": "Interno Chassis"
+    },
+
+    {
+      "id": "ev-pur-monitor-lg-27",
+      "componentId": "comp-monitor-lg-27gr75q",
+      "date": "2024-06-04",
+      "type": "PURCHASE",
+      "price": 249.99,
+      "condition": "new",
+      "notes": "Acquisto LG UltraGear 27GR75Q 27\" QHD 165Hz"
+    },
+    {
+      "id": "ev-inst-monitor-lg-27",
+      "componentId": "comp-monitor-lg-27gr75q",
+      "date": "2024-06-04",
+      "type": "INSTALL",
+      "slotOrLocation": "DisplayPort 1 (GPU)"
+    },
+
+    {
+      "id": "ev-pur-monitor-msi-24",
+      "componentId": "comp-monitor-msi-mp243x",
+      "date": "2026-01-18",
+      "type": "PURCHASE",
+      "price": 79.0,
+      "condition": "new",
+      "notes": "Acquisto MSI PRO MP243X 23.8\" FHD 100Hz"
+    },
+    {
+      "id": "ev-inst-monitor-msi-24",
+      "componentId": "comp-monitor-msi-mp243x",
+      "date": "2026-01-18",
+      "type": "INSTALL",
+      "slotOrLocation": "HDMI (GPU) su braccio Grifema"
+    },
+
+    {
+      "id": "ev-pur-acc-grifema-arm",
+      "componentId": "comp-acc-grifema-arm",
+      "date": "2026-01-18",
+      "type": "PURCHASE",
+      "price": 27.25,
+      "condition": "new",
+      "notes": "Acquisto Braccio Monitor Grifema GB2003-1"
+    },
+    {
+      "id": "ev-inst-acc-grifema-arm",
+      "componentId": "comp-acc-grifema-arm",
+      "date": "2026-01-18",
+      "type": "INSTALL",
+      "slotOrLocation": "Morsetto Scrivania Sinistra"
+    },
+
+    {
+      "id": "ev-pur-periph-aula-f75",
+      "componentId": "comp-periph-aula-f75-max",
+      "date": "2026-09-06",
+      "type": "PURCHASE",
+      "price": 67.41,
+      "store": "AliExpress",
+      "condition": "new",
+      "notes": "In arrivo da AliExpress"
+    },
+    {
+      "id": "ev-inst-periph-aula-f75",
+      "componentId": "comp-periph-aula-f75-max",
+      "date": "2026-09-06",
+      "type": "INSTALL",
+      "slotOrLocation": "Scrivania (Wireless 2.4GHz)"
+    },
+
+    {
+      "id": "ev-pur-periph-ajazz-aj179",
+      "componentId": "comp-periph-ajazz-aj179-apex",
+      "date": "2026-09-01",
+      "type": "PURCHASE",
+      "price": 46.48,
+      "store": "AliExpress",
+      "condition": "new",
+      "notes": "In arrivo da AliExpress"
+    },
+    {
+      "id": "ev-inst-periph-ajazz-aj179",
+      "componentId": "comp-periph-ajazz-aj179-apex",
+      "date": "2026-09-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Scrivania (Wireless Dock)"
+    },
+
+    {
+      "id": "ev-pur-periph-beyer-dt270",
+      "componentId": "comp-periph-beyerdynamic-dt270-pro",
+      "date": "2026-09-06",
+      "type": "PURCHASE",
+      "price": 99.0,
+      "condition": "new",
+      "notes": "In arrivo"
+    },
+    {
+      "id": "ev-inst-periph-beyer-dt270",
+      "componentId": "comp-periph-beyerdynamic-dt270-pro",
+      "date": "2026-09-06",
+      "type": "INSTALL",
+      "slotOrLocation": "Jack 6.35mm su Steinberg UR12"
+    },
+
+    {
+      "id": "ev-pur-periph-steinberg",
+      "componentId": "comp-periph-steinberg-ur12",
+      "date": "2025-12-02",
+      "type": "PURCHASE",
+      "price": 20.0,
+      "condition": "used",
+      "notes": "Acquisto scheda audio usata"
+    },
+    {
+      "id": "ev-inst-periph-steinberg",
+      "componentId": "comp-periph-steinberg-ur12",
+      "date": "2025-12-02",
+      "type": "INSTALL",
+      "slotOrLocation": "USB Posteriore Motherboard"
+    },
+
+    {
+      "id": "ev-pur-periph-emeet",
+      "componentId": "comp-periph-emeet-c960",
+      "date": "2025-01-11",
+      "type": "PURCHASE",
+      "price": 39.99,
+      "condition": "new",
+      "notes": "Acquisto Webcam EMEET C960 FHD"
+    },
+    {
+      "id": "ev-inst-periph-emeet",
+      "componentId": "comp-periph-emeet-c960",
+      "date": "2025-01-11",
+      "type": "INSTALL",
+      "slotOrLocation": "Montata sopra monitor LG"
+    },
+
+    {
+      "id": "ev-pur-periph-dualshock",
+      "componentId": "comp-periph-sony-dualshock-4",
+      "date": "2023-11-28",
+      "type": "PURCHASE",
+      "price": 59.9,
+      "condition": "new",
+      "notes": "Acquisto Controller Sony DualShock 4 V2"
+    },
+    {
+      "id": "ev-inst-periph-dualshock",
+      "componentId": "comp-periph-sony-dualshock-4",
+      "date": "2023-11-28",
+      "type": "INSTALL",
+      "slotOrLocation": "Postazione Gaming USB"
+    },
+
+    {
+      "id": "ev-pur-periph-logi-g413",
+      "componentId": "comp-periph-logitech-g413-tkl",
+      "date": "2024-06-02",
+      "type": "PURCHASE",
+      "price": 39.99,
+      "condition": "new",
+      "notes": "Acquisto Tastiera Logitech G413 TKL SE"
+    },
+    {
+      "id": "ev-inst-periph-logi-g413",
+      "componentId": "comp-periph-logitech-g413-tkl",
+      "date": "2024-06-02",
+      "type": "INSTALL",
+      "slotOrLocation": "Scrivania"
+    },
+    {
+      "id": "ev-uninst-periph-logi-g413",
+      "componentId": "comp-periph-logitech-g413-tkl",
+      "date": "2026-09-06",
+      "type": "UNINSTALL",
+      "reason": "upgrade",
+      "notes": "Sostituita a Settembre 2026 con AULA F75 MAX"
+    },
+
+    {
+      "id": "ev-pur-periph-ajazz-ak820",
+      "componentId": "comp-periph-ajazz-ak820-pro",
+      "date": "2026-09-01",
+      "type": "PURCHASE",
+      "price": 0.0,
+      "store": "AliExpress",
+      "condition": "new",
+      "notes": "Ordine 01/09/2026 (valore ordine 57,22 €), rimborsata e consegnata. Costo netto: 0,00 €. Nuova, tenuta come scorta."
+    },
+
+    {
+      "id": "ev-pur-periph-razer-v2x",
+      "componentId": "comp-periph-razer-blackshark-v2x",
+      "date": "2024-06-12",
+      "type": "PURCHASE",
+      "price": 48.99,
+      "condition": "new",
+      "notes": "Acquisto Razer BlackShark V2 X"
+    },
+    {
+      "id": "ev-inst-periph-razer-v2x",
+      "componentId": "comp-periph-razer-blackshark-v2x",
+      "date": "2024-06-12",
+      "type": "INSTALL",
+      "slotOrLocation": "Jack Scrivania"
+    },
+    {
+      "id": "ev-uninst-periph-razer-v2x",
+      "componentId": "comp-periph-razer-blackshark-v2x",
+      "date": "2026-09-06",
+      "type": "UNINSTALL",
+      "reason": "upgrade",
+      "notes": "Sostituite a Settembre 2026 con beyerdynamic DT 270 PRO"
+    },
+
+    {
+      "id": "ev-pur-periph-dacoity",
+      "componentId": "comp-periph-dacoity-gaming-rgb",
+      "date": "2024-06-01",
+      "type": "PURCHASE",
+      "price": 18.99,
+      "condition": "new",
+      "notes": "Acquisto Mouse Dacoity Gaming RGB"
+    },
+    {
+      "id": "ev-inst-periph-dacoity",
+      "componentId": "comp-periph-dacoity-gaming-rgb",
+      "date": "2024-06-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Scrivania USB"
+    },
+    {
+      "id": "ev-uninst-periph-dacoity",
+      "componentId": "comp-periph-dacoity-gaming-rgb",
+      "date": "2026-09-01",
+      "type": "UNINSTALL",
+      "reason": "upgrade",
+      "notes": "Sostituito a Settembre 2026 con AJAZZ AJ179 APEX"
+    },
+
+    {
+      "id": "ev-pur-psu-thermaltake",
+      "componentId": "comp-psu-thermaltake-tr2s-700w",
+      "date": "2024-06-01",
+      "type": "PURCHASE",
+      "price": 51.0,
+      "condition": "new",
+      "notes": "Acquisto Thermaltake TR2 S 700W"
+    },
+    {
+      "id": "ev-inst-psu-thermaltake",
+      "componentId": "comp-psu-thermaltake-tr2s-700w",
+      "date": "2024-06-01",
+      "type": "INSTALL",
+      "slotOrLocation": "Vano PSU Chassis"
+    },
+    {
+      "id": "ev-uninst-psu-thermaltake",
+      "componentId": "comp-psu-thermaltake-tr2s-700w",
+      "date": "2026-01-31",
+      "type": "UNINSTALL",
+      "reason": "upgrade",
+      "notes": "Smontato per upgrade a NZXT C750 Gold"
+    },
+    {
+      "id": "ev-sale-psu-thermaltake",
+      "componentId": "comp-psu-thermaltake-tr2s-700w",
+      "date": "2026-01-31",
+      "type": "SALE",
+      "price": 45.0,
+      "platform": "Privato",
+      "notes": "Venduto a 45,00 € (Delta spesa sostenuto: -6,00 €)"
+    },
+
+    {
+      "id": "ev-pur-cooler-i70c",
+      "componentId": "comp-cooler-cooler-master-i70c",
+      "date": "2024-06-04",
+      "type": "PURCHASE",
+      "price": 13.99,
+      "condition": "new",
+      "notes": "Acquisto Cooler Master i70C low profile"
+    },
+    {
+      "id": "ev-inst-cooler-i70c",
+      "componentId": "comp-cooler-cooler-master-i70c",
+      "date": "2024-06-04",
+      "type": "INSTALL",
+      "slotOrLocation": "Socket LGA 1700"
+    },
+    {
+      "id": "ev-uninst-cooler-i70c",
+      "componentId": "comp-cooler-cooler-master-i70c",
+      "date": "2026-02-01",
+      "type": "UNINSTALL",
+      "reason": "upgrade",
+      "notes": "Smontato per upgrade a Thermalright Peerless Assassin"
+    },
+
+    {
+      "id": "ev-pur-cooler-intel-rm1",
+      "componentId": "comp-cooler-intel-laminar-rm1",
+      "date": "2024-06-02",
+      "type": "PURCHASE",
+      "price": 0.0,
+      "condition": "new",
+      "notes": "Incluso nella confezione della CPU i5-14500 (Non utilizzato / Conservato)"
+    }
+  ],
+  "upgrades": [
+    {
+      "id": "upgrade-psu-2026-01-31",
+      "date": "2026-01-31",
+      "category": "psu",
+      "oldComponentId": "comp-psu-thermaltake-tr2s-700w",
+      "newComponentId": "comp-psu-nzxt-c750",
+      "notes": "Upgrade da Thermaltake TR2 S 700W a NZXT C750 Gold Core. Vecchio PSU venduto a 45,00 €."
+    },
+    {
+      "id": "upgrade-cooler-2026-02-01",
+      "date": "2026-02-01",
+      "category": "cooling",
+      "oldComponentId": "comp-cooler-cooler-master-i70c",
+      "newComponentId": "comp-cooler-thermalright-pa120",
+      "notes": "Upgrade da Cooler Master i70C a Thermalright Peerless Assassin 120 SE ARGB doppia torre."
+    },
+    {
+      "id": "upgrade-mouse-2026-09-01",
+      "date": "2026-09-01",
+      "category": "peripherals",
+      "oldComponentId": "comp-periph-dacoity-gaming-rgb",
+      "newComponentId": "comp-periph-ajazz-aj179-apex",
+      "notes": "Upgrade mouse da Dacoity Gaming RGB a AJAZZ AJ179 APEX White PAW3950."
+    },
+    {
+      "id": "upgrade-keyboard-2026-09-06",
+      "date": "2026-09-06",
+      "category": "peripherals",
+      "oldComponentId": "comp-periph-logitech-g413-tkl",
+      "newComponentId": "comp-periph-aula-f75-max",
+      "notes": "Upgrade tastiera da Logitech G413 TKL SE a EPOMAKER x AULA F75 MAX Wireless con switch Reaper."
+    },
+    {
+      "id": "upgrade-headset-2026-09-06",
+      "date": "2026-09-06",
+      "category": "peripherals",
+      "oldComponentId": "comp-periph-razer-blackshark-v2x",
+      "newComponentId": "comp-periph-beyerdynamic-dt270-pro",
+      "notes": "Upgrade audio da Razer BlackShark V2 X a cuffie da studio beyerdynamic DT 270 PRO."
+    }
+  ]
+}
