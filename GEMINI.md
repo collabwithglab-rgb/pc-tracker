@@ -272,14 +272,16 @@ Build Pc (All Components & Updates)- justpeppe_z/
 
 ## 10. Regole di Automazione Git & Release (Hands-Off per l'Utente)
 
-L'utente finale non deve eseguire manualmente comandi Git o preoccuparsi della gestione di repository, commit, tag e pipeline. L'assistente se ne occupa in piena autonomia secondo questa logica:
+L'utente finale non deve eseguire comandi Git o preoccuparsi della gestione di repository, commit, tag e pipeline. L'assistente se ne occupa in piena autonomia secondo questa logica permanente:
 
-1. **Commit e Push Automatico del Codice**:
-   - Al termine di ogni implementazione o modifica verificata con successo (con superamento di `npm test`, `tsc --noEmit` e `npm run audit:privacy`), l'assistente esegue automaticamente `git add`, `git commit` con messaggio convenzionale chiaro e `git push origin main`.
-   - Il repository remoto GitHub rimane costantemente aggiornato e sincronizzato.
+1. **Gestione del Flusso a Tranche vs Sezione Completa**:
+   - Quando un lavoro o una funzionalità viene suddivisa in più tranche (es. 1/5, 2/5, ecc.), **NON fare commit/push parziali per ogni singola micro-tranche**, evitando rumore nella cronologia e trigger inutili di CI.
+   - Solo al **completamento dell'intera sezione/milestone** (dopo aver verificato `npm test`, `tsc --noEmit` e `npm run audit:privacy`), l'assistente valuta autonomamente l'azione migliore:
+     - **Push Codice Sorgente (`git push origin main`)**: se si tratta di avanzamenti tecnici interni, pulizia o preparazioni architetturali.
+     - **Nuova Release Desktop Ufficiale (`vX.Y.Z` con push del Tag)**: se la sezione conclusa introduce nuove funzionalità visibili, miglioramenti d'uso o correzioni tangibili pronte per essere usate dagli utenti dell'applicazione desktop su Windows.
 
-2. **Creazione e Distribuzione di Nuove Release Desktop**:
-   - Quando l'utente richiede una nuova versione scaricabile per sé o per i suoi amici (es. *"Prepara una nuova versione"*, *"Rilascia l'aggiornamento"* o *"Pubblica la versione successiva"*), l'assistente:
+2. **Creazione e Distribuzione Autonoma di Nuove Release Desktop**:
+   - Sia in autonomia al termine di una sezione importante, sia quando l'utente richiede una nuova versione scaricabile per sé o per gli amici (es. *"Prepara una nuova versione"* o *"Rilascia l'aggiornamento"*), l'assistente:
      1. Incrementa la versione semver in modo coerente su tutti i file: `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` e `src/services/updaterService.ts`.
      2. Esegue la validazione locale completa (`test`, `tsc`, `audit:privacy`).
      3. Crea il commit di release, genera il tag Git corrispondente (es. `v0.1.2`) ed esegue il push sia del ramo `main` che del tag (`git push origin main --tags`).
