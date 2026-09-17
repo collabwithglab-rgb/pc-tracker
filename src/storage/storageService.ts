@@ -280,6 +280,12 @@ export {
   getCheckpointById,
   saveCheckpointAtomic,
   deleteCheckpointAtomic,
+  getAllReceipts,
+  getReceiptsByComponentId,
+  getReceiptById,
+  saveReceiptAtomic,
+  deleteReceiptAtomic,
+  deleteReceiptsByComponentId,
 } from './indexedDB';
 
 

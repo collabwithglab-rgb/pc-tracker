@@ -9,6 +9,11 @@ import {
   PurchaseEvent,
   SaleEvent,
   ExtraExpenseEvent,
+  ComponentReceipt,
+  ALLOWED_RECEIPT_MIME_TYPES,
+  AllowedReceiptMimeType,
+  MAX_RECEIPT_FILE_SIZE_BYTES,
+  MAX_TOTAL_RECEIPTS_BACKUP_BYTES,
 } from '../types';
 import {
   STORES,
@@ -71,6 +76,7 @@ export function sortDataDeterministically(data: {
   events: ComponentEvent[];
   upgrades?: Upgrade[];
   checkpoints?: Checkpoint[];
+  receipts?: ComponentReceipt[];
 }): void {
   data.components.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -94,6 +100,16 @@ export function sortDataDeterministically(data: {
     const sorted = sortCheckpointsChronologically(data.checkpoints, data.events);
     data.checkpoints.length = 0;
     data.checkpoints.push(...sorted);
+  }
+
+  if (data.receipts) {
+    data.receipts.sort((a, b) => {
+      const compComp = a.componentId.localeCompare(b.componentId);
+      if (compComp !== 0) return compComp;
+      const dateComp = a.uploadedAt.localeCompare(b.uploadedAt);
+      if (dateComp !== 0) return dateComp;
+      return a.id.localeCompare(b.id);
+    });
   }
 }
 
@@ -121,11 +137,21 @@ export async function exportDatabaseToJSON(): Promise<string> {
     getAllFromStore<{ key: string; value: unknown }>(STORES.METADATA),
   ]);
 
+  // Recupero sicuro delle ricevute (con fallback retrocompatibile per mock nei test)
+  let receipts: ComponentReceipt[] = [];
+  if (STORES.RECEIPTS) {
+    try {
+      receipts = await getAllFromStore<ComponentReceipt>(STORES.RECEIPTS);
+    } catch {
+      receipts = [];
+    }
+  }
+
   const settingsEntry = metadataList.find((m) => m.key === 'settings');
   const settings = normalizeSettings(settingsEntry?.value);
 
   // Ordinamento deterministico delle collezioni
-  sortDataDeterministically({ components, events, upgrades, checkpoints });
+  sortDataDeterministically({ components, events, upgrades, checkpoints, receipts });
 
   const exportTimestamp = new Date().toISOString();
 
@@ -141,6 +167,7 @@ export async function exportDatabaseToJSON(): Promise<string> {
     events,
     upgrades,
     checkpoints,
+    receipts: receipts.length > 0 ? receipts : undefined,
   };
 
   return JSON.stringify(payload, null, 2);
@@ -346,6 +373,71 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
       }
     }
 
+    // 8. Unicità ID Ricevute, Integrità Referenziale e Limiti Dimensione (Cassaforte Ricevute)
+    if (rawData.receipts !== undefined && !Array.isArray(rawData.receipts)) {
+      return {
+        isValid: false,
+        error: "La sezione 'receipts' del file non è un array valido.",
+      };
+    }
+
+    const receiptIds = new Set<string>();
+    let totalReceiptsBytes = 0;
+
+    for (const r of migratedData.receipts || []) {
+      if (!r.id || typeof r.id !== 'string' || r.id.trim().length === 0) {
+        return { isValid: false, error: 'Rilevata una ricevuta priva di ID univoco valido.' };
+      }
+      if (receiptIds.has(r.id)) {
+        return { isValid: false, error: `ID ricevuta duplicato rilevato nel backup: "${r.id}".` };
+      }
+      receiptIds.add(r.id);
+
+      if (!r.componentId || !compIds.has(r.componentId)) {
+        return {
+          isValid: false,
+          error: `Integrità referenziale violata: la ricevuta "${r.id}" fa riferimento a un componentId inesistente ("${r.componentId}").`,
+        };
+      }
+
+      if (!r.fileName || typeof r.fileName !== 'string' || r.fileName.trim().length === 0) {
+        return { isValid: false, error: `La ricevuta "${r.id}" non ha un nome file valido.` };
+      }
+
+      if (!r.fileType || !ALLOWED_RECEIPT_MIME_TYPES.includes(r.fileType as AllowedReceiptMimeType)) {
+        return {
+          isValid: false,
+          error: `Tipo file non supportato per la ricevuta "${r.fileName}" (${r.fileType}). Formati ammessi: PDF, PNG, JPEG, WebP.`,
+        };
+      }
+
+      if (typeof r.fileSize !== 'number' || isNaN(r.fileSize) || r.fileSize <= 0) {
+        return { isValid: false, error: `Dimensione non valida per la ricevuta "${r.fileName}".` };
+      }
+
+      if (r.fileSize > MAX_RECEIPT_FILE_SIZE_BYTES) {
+        return {
+          isValid: false,
+          error: `La ricevuta "${r.fileName}" supera il limite massimo consentito di 10MB (${(r.fileSize / (1024 * 1024)).toFixed(1)}MB).`,
+        };
+      }
+
+      totalReceiptsBytes += r.fileSize;
+      if (totalReceiptsBytes > MAX_TOTAL_RECEIPTS_BACKUP_BYTES) {
+        return {
+          isValid: false,
+          error: `Il totale degli allegati ricevute supera il limite di sicurezza di 50MB per il backup.`,
+        };
+      }
+
+      if (!r.dataUrl || typeof r.dataUrl !== 'string' || !r.dataUrl.startsWith('data:')) {
+        return {
+          isValid: false,
+          error: `Contenuto Data URL non valido o corrotto per la ricevuta "${r.fileName}".`,
+        };
+      }
+    }
+
     // Estrazione metadati opzionali di sintesi per la preview
     const rawSettings = (migratedData.settings || {}) as unknown as Record<string, unknown>;
     const settingsSummary = {
@@ -371,6 +463,7 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
         events: migratedData.events.length,
         upgrades: (migratedData.upgrades || []).length,
         checkpoints: (migratedData.checkpoints || []).length,
+        receipts: (migratedData.receipts || []).length,
       },
       settingsSummary,
       parsedData: migratedData,
@@ -395,6 +488,7 @@ export async function executeImport(data: DatabaseSchema): Promise<void> {
     events: data.events,
     upgrades: data.upgrades || [],
     checkpoints: data.checkpoints || [],
+    receipts: data.receipts || [],
     metadataItems: [
       { key: 'settings', value: normalizeSettings(data.settings) },
       { key: 'initialized', value: true },

@@ -1,8 +1,8 @@
-import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings } from '../types';
+import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings, ComponentReceipt } from '../types';
 import { validateCheckpoint } from '../domain/checkpointEngine';
 
 const DB_NAME = 'pc_tracker_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORES = {
   COMPONENTS: 'components',
@@ -10,6 +10,7 @@ export const STORES = {
   UPGRADES: 'upgrades',
   METADATA: 'metadata',
   CHECKPOINTS: 'checkpoints',
+  RECEIPTS: 'receipts',
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
@@ -57,6 +58,12 @@ export function openDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORES.CHECKPOINTS)) {
         const checkpointStore = db.createObjectStore(STORES.CHECKPOINTS, { keyPath: 'id' });
         checkpointStore.createIndex('referenceDate', 'referenceDate', { unique: false });
+      }
+
+      // Store: receipts (versione 3 - Cassaforte Ricevute)
+      if (!db.objectStoreNames.contains(STORES.RECEIPTS)) {
+        const receiptStore = db.createObjectStore(STORES.RECEIPTS, { keyPath: 'id' });
+        receiptStore.createIndex('componentId', 'componentId', { unique: false });
       }
     };
 
@@ -173,13 +180,32 @@ export async function clearStore(storeName: StoreName): Promise<void> {
 export async function deleteComponentCascade(componentId: string): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORES.COMPONENTS, STORES.EVENTS, STORES.UPGRADES], 'readwrite');
+    const storeNames: StoreName[] = [STORES.COMPONENTS, STORES.EVENTS, STORES.UPGRADES];
+    const hasReceiptsStore = db.objectStoreNames.contains(STORES.RECEIPTS);
+    if (hasReceiptsStore) {
+      storeNames.push(STORES.RECEIPTS);
+    }
+    const tx = db.transaction(storeNames, 'readwrite');
     const componentStore = tx.objectStore(STORES.COMPONENTS);
     const eventStore = tx.objectStore(STORES.EVENTS);
     const upgradeStore = tx.objectStore(STORES.UPGRADES);
 
     // Elimina il componente
     componentStore.delete(componentId);
+
+    // Elimina a cascata tutte le ricevute associate
+    if (hasReceiptsStore) {
+      const receiptStore = tx.objectStore(STORES.RECEIPTS);
+      const receiptIndex = receiptStore.index('componentId');
+      const receiptCursorRequest = receiptIndex.openCursor(IDBKeyRange.only(componentId));
+      receiptCursorRequest.onsuccess = () => {
+        const cursor = receiptCursorRequest.result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+    }
 
     // Elimina a cascata tutti gli eventi associati tramite indice 'componentId'
     const eventIndex = eventStore.index('componentId');
@@ -285,21 +311,31 @@ export interface ReplaceAllDataAtomicParams {
   upgrades: Upgrade[];
   metadataItems: { key: string; value: unknown }[];
   checkpoints?: Checkpoint[];
+  receipts?: ComponentReceipt[];
 }
 
 /**
  * Esegue la sostituzione atomica di tutti i dati del database in una singola transazione IDB multi-store.
- * Coinvolge: COMPONENTS, EVENTS, UPGRADES, METADATA, CHECKPOINTS.
+ * Coinvolge: COMPONENTS, EVENTS, UPGRADES, METADATA, CHECKPOINTS e RECEIPTS.
  * Se una qualsiasi scrittura o operazione fallisce, IndexedDB esegue il rollback automatico:
  * nessun dato nuovo viene persistito e il database precedente rimane intatto.
  */
 export async function replaceAllDataAtomic(params: ReplaceAllDataAtomicParams): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(
-      [STORES.COMPONENTS, STORES.EVENTS, STORES.UPGRADES, STORES.METADATA, STORES.CHECKPOINTS],
-      'readwrite'
-    );
+    const storeNames: StoreName[] = [
+      STORES.COMPONENTS,
+      STORES.EVENTS,
+      STORES.UPGRADES,
+      STORES.METADATA,
+      STORES.CHECKPOINTS,
+    ];
+    const hasReceiptsStore = db.objectStoreNames.contains(STORES.RECEIPTS);
+    if (hasReceiptsStore) {
+      storeNames.push(STORES.RECEIPTS);
+    }
+
+    const tx = db.transaction(storeNames, 'readwrite');
     const compStore = tx.objectStore(STORES.COMPONENTS);
     const eventStore = tx.objectStore(STORES.EVENTS);
     const upgradeStore = tx.objectStore(STORES.UPGRADES);
@@ -316,6 +352,16 @@ export async function replaceAllDataAtomic(params: ReplaceAllDataAtomicParams): 
       upgradeStore.clear();
       metaStore.clear();
       checkpointStore.clear();
+
+      if (hasReceiptsStore) {
+        const receiptStore = tx.objectStore(STORES.RECEIPTS);
+        receiptStore.clear();
+        if (params.receipts && params.receipts.length > 0) {
+          for (const r of params.receipts) {
+            receiptStore.put(r);
+          }
+        }
+      }
 
       for (const comp of params.components) {
         compStore.put(comp);
@@ -348,10 +394,19 @@ export async function replaceAllDataAtomic(params: ReplaceAllDataAtomicParams): 
 export async function resetDatabaseAtomic(): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(
-      [STORES.COMPONENTS, STORES.EVENTS, STORES.UPGRADES, STORES.METADATA, STORES.CHECKPOINTS],
-      'readwrite'
-    );
+    const storeNames: StoreName[] = [
+      STORES.COMPONENTS,
+      STORES.EVENTS,
+      STORES.UPGRADES,
+      STORES.METADATA,
+      STORES.CHECKPOINTS,
+    ];
+    const hasReceiptsStore = db.objectStoreNames.contains(STORES.RECEIPTS);
+    if (hasReceiptsStore) {
+      storeNames.push(STORES.RECEIPTS);
+    }
+
+    const tx = db.transaction(storeNames, 'readwrite');
     const compStore = tx.objectStore(STORES.COMPONENTS);
     const eventStore = tx.objectStore(STORES.EVENTS);
     const upgradeStore = tx.objectStore(STORES.UPGRADES);
@@ -368,6 +423,11 @@ export async function resetDatabaseAtomic(): Promise<void> {
       upgradeStore.clear();
       metaStore.clear();
       checkpointStore.clear();
+
+      if (hasReceiptsStore) {
+        tx.objectStore(STORES.RECEIPTS).clear();
+      }
+
       metaStore.put({ key: 'initialized', value: true });
     } catch (err) {
       tx.abort();
@@ -488,5 +548,79 @@ export async function saveBatchComponentsWithEventsAtomic(
       tx.abort();
       reject(err);
     }
+  });
+}
+
+/**
+ * Recupera tutte le ricevute memorizzate in IndexedDB.
+ */
+export async function getAllReceipts(): Promise<ComponentReceipt[]> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.RECEIPTS)) return [];
+  return getAllFromStore<ComponentReceipt>(STORES.RECEIPTS);
+}
+
+/**
+ * Recupera tutte le ricevute associate a uno specifico componente tramite indice 'componentId'.
+ */
+export async function getReceiptsByComponentId(componentId: string): Promise<ComponentReceipt[]> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.RECEIPTS)) return [];
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.RECEIPTS, 'readonly');
+    const store = tx.objectStore(STORES.RECEIPTS);
+    const index = store.index('componentId');
+    const request = index.getAll(IDBKeyRange.only(componentId));
+
+    request.onsuccess = () => resolve(request.result as ComponentReceipt[]);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Recupera una singola ricevuta per ID da IndexedDB.
+ */
+export async function getReceiptById(id: string): Promise<ComponentReceipt | undefined> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.RECEIPTS)) return undefined;
+  return getByIdFromStore<ComponentReceipt>(STORES.RECEIPTS, id);
+}
+
+/**
+ * Salva o aggiorna una ricevuta su IndexedDB in una transazione atomica.
+ */
+export async function saveReceiptAtomic(receipt: ComponentReceipt): Promise<void> {
+  await putItem(STORES.RECEIPTS, receipt);
+}
+
+/**
+ * Elimina una ricevuta per ID da IndexedDB.
+ */
+export async function deleteReceiptAtomic(id: string): Promise<void> {
+  await deleteItemFromStore(STORES.RECEIPTS, id);
+}
+
+/**
+ * Elimina tutte le ricevute collegate a un componente.
+ */
+export async function deleteReceiptsByComponentId(componentId: string): Promise<void> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.RECEIPTS)) return;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.RECEIPTS, 'readwrite');
+    const store = tx.objectStore(STORES.RECEIPTS);
+    const index = store.index('componentId');
+    const request = index.openCursor(IDBKeyRange.only(componentId));
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }

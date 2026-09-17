@@ -2,6 +2,7 @@ import { Component } from './component';
 import { ComponentEvent } from './events';
 import { Upgrade } from './upgrade';
 import { Checkpoint } from './checkpoint';
+import { ComponentReceipt } from './receipt';
 
 export type UIDensity = 'comfortable' | 'compact';
 export type ReducedMotionPreference = 'system' | 'always' | 'never';
@@ -56,6 +57,7 @@ export interface DatabaseSchema {
   events: ComponentEvent[];
   upgrades: Upgrade[];
   checkpoints?: Checkpoint[]; // Opzionale per retrocompatibilità con backup legacy
+  receipts?: ComponentReceipt[]; // Opzionale per retrocompatibilità
 }
 
 export interface ImportPreview {
@@ -68,6 +70,7 @@ export interface ImportPreview {
     events: number;
     upgrades: number;
     checkpoints: number;
+    receipts?: number;
   };
   settingsSummary?: {
     rigName?: string;
@@ -92,6 +95,7 @@ export interface ValidationResult {
     events: number;
     upgrades: number;
     checkpoints?: number;
+    receipts?: number;
   };
 }
 
