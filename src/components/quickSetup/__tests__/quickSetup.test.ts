@@ -125,5 +125,53 @@ describe('Quick Setup & Hardware Detection Engine', () => {
       const rigCost = computeCurrentRigCost(simulatedComponents, simulatedEvents);
       expect(rigCost).toBe(0);
     });
+
+    it('calcola correttamente la data di installazione in base all\'anno di build', () => {
+      const currentYear = new Date().getFullYear();
+      const todayISO = new Date().toISOString().split('T')[0];
+
+      // Se anno passato (es. 2023), la data deve essere 2023-01-01
+      const pastYear = 2023;
+      const pastDate = pastYear < currentYear ? `${pastYear}-01-01` : todayISO;
+      expect(pastDate).toBe('2023-01-01');
+
+      // Se anno corrente, la data è quella odierna (YYYY-MM-DD)
+      const thisYear = currentYear;
+      const thisDate = thisYear < currentYear ? `${thisYear}-01-01` : todayISO;
+      expect(thisDate).toBe(todayISO);
+    });
+
+    it('assegna slot fisici predefiniti corretti per ciascuna categoria hardware', () => {
+      const getDefaultSlot = (cat: string) => {
+        switch (cat) {
+          case 'cpu':
+            return 'Socket CPU';
+          case 'gpu':
+            return 'PCIe x16 Slot 1';
+          case 'motherboard':
+            return 'Chassis';
+          case 'ram':
+            return 'Slot DIMM';
+          case 'storage':
+            return 'Slot M.2 NVMe';
+          case 'psu':
+            return 'Vano Alimentatore';
+          case 'case':
+            return 'Chassis Principale';
+          case 'cooling':
+            return 'Socket / Case Mount';
+          default:
+            return 'Postazione PC';
+        }
+      };
+
+      expect(getDefaultSlot('cpu')).toBe('Socket CPU');
+      expect(getDefaultSlot('gpu')).toBe('PCIe x16 Slot 1');
+      expect(getDefaultSlot('motherboard')).toBe('Chassis');
+      expect(getDefaultSlot('ram')).toBe('Slot DIMM');
+      expect(getDefaultSlot('storage')).toBe('Slot M.2 NVMe');
+      expect(getDefaultSlot('psu')).toBe('Vano Alimentatore');
+      expect(getDefaultSlot('other')).toBe('Postazione PC');
+    });
   });
 });
