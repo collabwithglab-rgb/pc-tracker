@@ -12,7 +12,7 @@
 | Sessione | Task / Funzionalità | Stato | Test Unitari | Rilascio |
 | :---: | :--- | :---: | :---: | :---: |
 | **Sessione 1** | 🛡️ **Task 1**: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault) | ✅ *Completata* | `358/358 pass` | Pronto per Release |
-| **Sessione 2** | 🏷️ **Task 2**: Generatore Automatico Annunci Vendita (Subito/eBay/Vinted) | ⏳ *In attesa* | `0/0` | - |
+| **Sessione 2** | 🏷️ **Task 2**: Generatore Automatico Annunci Vendita (Subito/eBay/Vinted) | ✅ *Completata* | `381/381 pass` | Pronto per Release |
 | **Sessione 3** | ⚡ **Task 3**: Power Budget & Stima Consumi / TDP del Rig Attuale | ⏳ *In attesa* | `0/0` | - |
 | **Sessione 4** | 🧰 **Task 4**: Registro Manutenzione (Pasta Termica) & Profili Tuning/UV | ⏳ *In attesa* | `0/0` | - |
 | **Sessione 5** | ⚡ **Task 5**: Command Palette (`Ctrl+K`) & Confronto Rig Affiancato | ⏳ *In attesa* | `0/0` | - |
@@ -52,25 +52,35 @@
 
 ---
 
-### 🏷️ SESSIONE 2 — Task 2: Generatore Automatico Annunci di Vendita
+### 🏷️ SESSIONE 2 — Task 2: Generatore Automatico Annunci di Vendita — [COMPLETATA ✅]
 **Obiettivo**: Consentire la messa in vendita istantanea di qualsiasi componente a magazzino (`IN_STORAGE`) con un clic.
 
-#### Specifiche Tecniche:
+#### Stato di Avanzamento:
+- [x] **Tranche 1**: Tipi di dominio (`listing.ts`), motore puro `listingEngine.ts` con calcolo tempo reale di utilizzo (`formatUsageDuration`), titoli ottimizzati con rispetto dei limiti di caratteri (Subito 100 char, eBay 80 char), template completi per Subito.it, eBay, Vinted e Super-Prompt per modelli IA di frontiera, 18 test unitari dedicati.
+- [x] **Tranche 2**: Componente modale interattivo `ListingGeneratorModal.tsx` con tab dedicate (Subito, eBay, Vinted, Prompt IA), opzioni reattive (condizione estetica, scatola originale, accessori, ambiente non fumatori/no mining, modalità consegna/città, prezzo, note), modifica manuale con pulsante "Ripristina" e stili Vanilla CSS "Less, but better".
+- [x] **Tranche 3**: Integrazione del pulsante "Genera Annuncio" nella scheda componente (`ComponentDetailPage.tsx`) per i pezzi a magazzino (`IN_STORAGE`), e 5 test di integrazione logica UI in `listingGeneratorModal.test.ts`.
+- [x] **Tranche 4**: Validazione globale, audit di privacy superato, 381/381 test passati (100% verdi).
+
+#### Specifiche Tecniche Completate:
 1. **Pulsante "Genera Annuncio" nella Scheda Componente**:
-   - Visibile per tutti i componenti in stato `IN_STORAGE`.
-2. **Generatore di Testo Intelligente per Marketplace**:
-   - **Titolo ottimizzato**: include Marca, Modello esatto, Categoria e specifiche chiave (es. *"ASUS ROG Strix RTX 4080 16GB - Perfetta con Scatola"*).
+   - Visibile e reattivo per tutti i componenti in stato `IN_STORAGE`.
+2. **Generatore di Testo Intelligente per Marketplace & Prompt IA**:
+   - **Titolo ottimizzato**: include Marca, Modello esatto, Categoria, highlight scatola e garanzia residua.
    - **Corpo annuncio precompilato**:
-     - Tempo reale e verificato di utilizzo calcolato dagli eventi (`"Usata per 11 mesi in ambiente non fumatori e senza overclock estremo"`).
-     - Stato della garanzia residua (*"Ancora in garanzia ufficiale fino al 15/11/2026"* con menzione presenza ricevuta).
-     - Stato estetico/funzionale e presenza di scatola originale / accessori.
-     - Formula di compravendita standard personalizzabile (*"Ritiro a mano o spedizione tracciata"*).
+     - Tempo reale e documentato di utilizzo dagli eventi (*"usato per circa 11 mesi in postazione desktop pulita, ambiente non fumatori e senza overclock"*).
+     - Stato garanzia residua ufficiale con data esatta di scadenza e menzione della disponibilità della ricevuta d'acquisto nella cassaforte locale.
+     - Stato estetico/funzionale, presenza di scatola originale integra e accessori completi.
+     - Formula di compravendita standard personalizzabile (*"Ritiro a mano o spedizione tracciata"* con indicazione città).
+     - Clausola di compravendita tra privati con formula *"visto e piaciuto"* a tutela dell'utente.
+   - **Super-Prompt per IA (ChatGPT / Claude / Gemini)**: prompt ingegnerizzato pronto da incollare con tutte le specifiche certificate per chi desidera copywriting personalizzato da modelli di frontiera (0 MB VRAM, zero API key richieste).
 3. **Formattazioni Specializzate**:
-   - Tab **Subito.it / Vinted** (testo pulito con elenchi puntati ad alta leggibilità).
-   - Tab **eBay** (descrizione formattata).
-   - Pulsante *"Copia Annuncio"* con feedback visivo immediato.
+   - Tab **Subito.it**: elenchi puntati ad alta leggibilità, emoji funzionali e sezioni ordinate.
+   - Tab **eBay**: struttura a blocchi tecnici con separatori formattati.
+   - Tab **Vinted**: testo sintetico, friendly e hashtag tematici hardware/gaming in calce.
+   - Pulsanti di copia con feedback visivo immediato (*"Copia Titolo"*, *"Copia Descrizione"*, *"Copia Titolo + Testo"*).
 4. **Criteri di Accettazione & Test**:
-   - Test unitari sul generatore del testo con vari scenari (con garanzia, senza garanzia, con scatola, ecc.).
+   - 23 test unitari e di integrazione dedicati (`listingEngine.test.ts` e `listingGeneratorModal.test.ts`).
+   - Suite complessiva portata a 381 test (100% passati).
 
 ---
 
