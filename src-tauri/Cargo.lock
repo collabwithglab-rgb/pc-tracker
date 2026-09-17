@@ -2358,9 +2358,7 @@ dependencies = [
 name = "pc-tracker"
 version = "0.1.1"
 dependencies = [
- "base64 0.22.1",
  "log",
- "minisign-verify",
  "serde",
  "serde_json",
  "tauri",
@@ -2370,6 +2368,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "winreg",
 ]
 
 [[package]]

@@ -185,7 +185,11 @@ const TYPOGRAPHY_PRESETS: TypographyPresetConfig[] = [
   },
 ];
 
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  onOpenQuickSetup?: () => void;
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenQuickSetup }) => {
   const {
     settings,
     updateSettings,
@@ -685,6 +689,19 @@ export const SettingsPage: React.FC = () => {
                   <CheckCircle2 size={15} />
                   <span>Salva Identità PC</span>
                 </button>
+
+                {onOpenQuickSetup && (
+                  <button
+                    type="button"
+                    onClick={onOpenQuickSetup}
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    title="Avvia o riesegui il Quick Setup per rilevare l'hardware Windows"
+                  >
+                    <Sparkles size={14} color="var(--accent-primary)" />
+                    <span>Rileva Hardware (Quick Setup)</span>
+                  </button>
+                )}
 
                 {isIdentitySaved && (
                   <span

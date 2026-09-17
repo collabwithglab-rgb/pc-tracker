@@ -18,6 +18,7 @@ export interface AppSettings {
   rigName: string; // default: ""
   rigDescription: string; // default: ""
   buildYear?: number; // default: undefined
+  quickSetupCompleted?: boolean; // default: false
 
   // Interfaccia & Visualizzazione Globale
   currencySymbol: string; // default: "€"

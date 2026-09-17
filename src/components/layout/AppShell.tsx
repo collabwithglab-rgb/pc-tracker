@@ -24,14 +24,19 @@ import {
   UpgradeWizardModal,
 } from '../components';
 import { CheckpointModal, PostUpgradePromptModal } from '../checkpoint';
+import { QuickSetupModal } from '../quickSetup';
 import { Toast } from '../common/Toast';
 import { Component, ComponentCategory, InstallEvent, Upgrade } from '../../types';
 import { isDesktopApp, checkForAppUpdates } from '../../services';
 
 export const AppShell: React.FC = () => {
-  const { settings, isLoading, showNotification } = usePCStore();
+  const { settings, components, isLoading, showNotification } = usePCStore();
   const [currentSection, setCurrentSection] = useState<NavSection>('dashboard');
   const [hasInitializedStartSection, setHasInitializedStartSection] = useState(false);
+
+  // Stato Quick Setup intelligente (Onboarding)
+  const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
+  const [hasCheckedQuickSetup, setHasCheckedQuickSetup] = useState(false);
 
   useEffect(() => {
     // Inizializza la schermata iniziale UNA SOLA VOLTA al completamento del caricamento iniziale da IndexedDB
@@ -42,6 +47,16 @@ export const AppShell: React.FC = () => {
       setHasInitializedStartSection(true);
     }
   }, [isLoading, hasInitializedStartSection, settings.defaultStartSection]);
+
+  // Trigger automatico Quick Setup al primo avvio su installazione vergine (0 componenti e non ancora completato)
+  useEffect(() => {
+    if (!isLoading && !hasCheckedQuickSetup) {
+      if (!settings.quickSetupCompleted && components.length === 0) {
+        setIsQuickSetupOpen(true);
+      }
+      setHasCheckedQuickSetup(true);
+    }
+  }, [isLoading, hasCheckedQuickSetup, settings.quickSetupCompleted, components.length]);
 
   // Controllo aggiornamenti silenzioso all'avvio su desktop
   useEffect(() => {
@@ -245,6 +260,7 @@ export const AppShell: React.FC = () => {
             onOpenCreateModal={() => setIsCreateModalOpen(true)}
             onOpenMovementSelector={handleOpenMovementSelector}
             onSelectComponent={handleSelectComponent}
+            onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
           />
         );
       case 'current-rig':
@@ -254,6 +270,7 @@ export const AppShell: React.FC = () => {
             onOpenInstallModal={(category) => handleOpenInstallModal(category)}
             onOpenUninstallModal={handleOpenUninstallModal}
             onOpenReplaceModal={handleOpenReplaceModal}
+            onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
           />
         );
       case 'time-travel':
@@ -278,7 +295,7 @@ export const AppShell: React.FC = () => {
       case 'stats':
         return <StatsPage onSelectComponent={handleSelectComponent} />;
       case 'settings':
-        return <SettingsPage />;
+        return <SettingsPage onOpenQuickSetup={() => setIsQuickSetupOpen(true)} />;
       default:
         return (
           <CurrentRigPage
@@ -286,6 +303,7 @@ export const AppShell: React.FC = () => {
             onOpenInstallModal={(category) => handleOpenInstallModal(category)}
             onOpenUninstallModal={handleOpenUninstallModal}
             onOpenReplaceModal={handleOpenReplaceModal}
+            onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
           />
         );
     }
@@ -459,6 +477,15 @@ export const AppShell: React.FC = () => {
         position={completedUpgrade ? { date: completedUpgrade.date, boundary: 'end_of_day' } : undefined}
         relatedUpgradeId={completedUpgrade?.id}
         trigger="suggested_upgrade"
+      />
+
+      {/* Modale Quick Setup Intelligente (Onboarding & Rilevamento Hardware) */}
+      <QuickSetupModal
+        isOpen={isQuickSetupOpen}
+        onClose={() => setIsQuickSetupOpen(false)}
+        onCompleted={() => {
+          setCurrentSection('current-rig');
+        }}
       />
 
       {/* Notifiche Toast */}

@@ -18,6 +18,7 @@ import {
   Sliders,
   Plus,
   TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
@@ -35,6 +36,7 @@ interface DashboardPageProps {
   onOpenCreateModal?: () => void;
   onOpenMovementSelector?: () => void;
   onSelectComponent?: (id: string) => void;
+  onOpenQuickSetup?: () => void;
 }
 
 const CATEGORY_PRIORITY: Record<ComponentCategory, number> = {
@@ -57,6 +59,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onOpenCreateModal,
   onOpenMovementSelector,
   onSelectComponent,
+  onOpenQuickSetup,
 }) => {
   const {
     components,
@@ -298,11 +301,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Non hai ancora montato componenti nel tuo PC attuale.
               </p>
               <button
-                onClick={() => onNavigate && onNavigate('current-rig')}
+                onClick={() => {
+                  if (onOpenQuickSetup) {
+                    onOpenQuickSetup();
+                  } else if (onNavigate) {
+                    onNavigate('current-rig');
+                  }
+                }}
                 className="btn btn-primary micro-press"
-                style={{ fontSize: '13px', margin: '0 auto' }}
+                style={{ fontSize: '13px', margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                Configura il tuo PC
+                <Sparkles size={14} />
+                <span>Configura il tuo PC (Quick Setup)</span>
               </button>
             </div>
           ) : (

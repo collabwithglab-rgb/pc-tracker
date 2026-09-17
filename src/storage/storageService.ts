@@ -21,6 +21,8 @@ import {
   saveEventsAtomic,
   resetDatabaseAtomic,
   saveComponentWithEventsAtomic,
+  saveBatchComponentsWithEventsAtomic,
+  BatchComponentWithEventsItem,
 } from './indexedDB';
 import { CURRENT_SCHEMA_VERSION } from './migrations';
 
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   rigName: '',
   rigDescription: '',
   buildYear: undefined,
+  quickSetupCompleted: false,
   currencySymbol: '€',
   dateFormat: 'DD/MM/YYYY',
   uiDensity: 'comfortable',
@@ -95,6 +98,7 @@ export function normalizeSettings(rawSettings: unknown): AppSettings {
     rigDescription:
       typeof s.rigDescription === 'string' ? s.rigDescription.trim() : DEFAULT_SETTINGS.rigDescription,
     buildYear,
+    quickSetupCompleted: typeof s.quickSetupCompleted === 'boolean' ? s.quickSetupCompleted : false,
     currencySymbol: '€', // PC Tracker rimane rigorosamente focalizzato sull'euro
     dateFormat: s.dateFormat === 'YYYY-MM-DD' ? 'YYYY-MM-DD' : 'DD/MM/YYYY',
     uiDensity: s.uiDensity === 'compact' ? 'compact' : 'comfortable',
@@ -231,6 +235,17 @@ export async function commitComponentWithEventsAtomic(
   events: ComponentEvent[] = []
 ): Promise<void> {
   await saveComponentWithEventsAtomic({ component, events });
+}
+
+/**
+ * Salva in un'unica transazione atomica ACID multipli componenti con i rispettivi eventi
+ * e opzionalmente aggiorna le impostazioni del setup (usato da Quick Setup).
+ */
+export async function commitBatchComponentsWithEventsAtomic(
+  items: BatchComponentWithEventsItem[],
+  settingsToUpdate?: AppSettings
+): Promise<void> {
+  await saveBatchComponentsWithEventsAtomic(items, settingsToUpdate);
 }
 
 /**

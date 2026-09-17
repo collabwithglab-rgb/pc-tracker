@@ -26,6 +26,7 @@ import {
   Zap,
   Bookmark,
   Sliders,
+  Sparkles,
 } from 'lucide-react';
 import { CheckpointModal } from '../components/checkpoint';
 
@@ -34,6 +35,7 @@ interface CurrentRigPageProps {
   onOpenInstallModal: (category?: ComponentCategory) => void;
   onOpenUninstallModal: (component: Component) => void;
   onOpenReplaceModal: (component: Component, lastInstallEvent?: InstallEvent) => void;
+  onOpenQuickSetup?: () => void;
 }
 
 interface CategoryGroup {
@@ -86,6 +88,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
   onOpenInstallModal,
   onOpenUninstallModal,
   onOpenReplaceModal,
+  onOpenQuickSetup,
 }) => {
   const { getInstalledComponents, isLoading, settings } = usePCStore();
   const [isSaveCheckpointOpen, setIsSaveCheckpointOpen] = React.useState<boolean>(false);
@@ -155,6 +158,18 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenQuickSetup && (
+            <button
+              onClick={onOpenQuickSetup}
+              className="btn btn-secondary micro-press"
+              style={{ fontSize: '13px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title="Avvia il Quick Setup con rilevamento automatico hardware"
+            >
+              <Sparkles size={14} color="var(--accent-primary)" />
+              <span>Quick Setup</span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsSaveCheckpointOpen(true)}
             className="btn btn-secondary micro-press"

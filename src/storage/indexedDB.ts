@@ -1,4 +1,4 @@
-import { Component, ComponentEvent, Upgrade, Checkpoint } from '../types';
+import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings } from '../types';
 import { validateCheckpoint } from '../domain/checkpointEngine';
 
 const DB_NAME = 'pc_tracker_db';
@@ -437,6 +437,50 @@ export async function saveComponentWithEventsAtomic(
       compStore.put(params.component);
       if (params.events && params.events.length > 0) {
         for (const ev of params.events) {
+          eventStore.put(ev);
+        }
+      }
+    } catch (err) {
+      tx.abort();
+      reject(err);
+    }
+  });
+}
+
+export interface BatchComponentWithEventsItem {
+  component: Component;
+  events: ComponentEvent[];
+}
+
+/**
+ * Salva in una singola transazione atomica ACID multipli componenti con i rispettivi eventi
+ * e opzionalmente aggiorna le impostazioni dell'applicazione (es. durante Quick Setup).
+ */
+export async function saveBatchComponentsWithEventsAtomic(
+  items: BatchComponentWithEventsItem[],
+  settingsToUpdate?: AppSettings
+): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const storeNames = settingsToUpdate
+      ? [STORES.COMPONENTS, STORES.EVENTS, STORES.METADATA]
+      : [STORES.COMPONENTS, STORES.EVENTS];
+    const tx = db.transaction(storeNames, 'readwrite');
+    const compStore = tx.objectStore(STORES.COMPONENTS);
+    const eventStore = tx.objectStore(STORES.EVENTS);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(new Error('Transazione atomica di batch salvataggio annullata. Rollback eseguito.'));
+
+    try {
+      if (settingsToUpdate) {
+        const metaStore = tx.objectStore(STORES.METADATA);
+        metaStore.put({ key: 'settings', value: settingsToUpdate });
+      }
+      for (const item of items) {
+        compStore.put(item.component);
+        for (const ev of item.events) {
           eventStore.put(ev);
         }
       }

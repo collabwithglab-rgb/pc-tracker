@@ -30,6 +30,8 @@ import {
   commitUpgradeTransaction,
   commitEventsAtomic,
   commitComponentWithEventsAtomic,
+  commitBatchComponentsWithEventsAtomic,
+  BatchComponentWithEventsItem,
   deleteComponent as dbDeleteComponent,
   deleteEvent as dbDeleteEvent,
   isDatabaseInitialized,
@@ -125,6 +127,21 @@ export interface DisposalInput {
   notes?: string;
 }
 
+export interface QuickSetupImportItem {
+  category: ComponentCategory;
+  brand: string;
+  model: string;
+  serialNumber?: string;
+  notes?: string;
+}
+
+export interface QuickSetupImportInput {
+  rigName: string;
+  rigDescription?: string;
+  buildYear: number;
+  components: QuickSetupImportItem[];
+}
+
 export interface StoreNotification {
   type: 'success' | 'error';
   message: string;
@@ -202,6 +219,7 @@ interface PCStoreState {
   // Azioni Impostazioni & Personalizzazione
   updateSettings: (updates: Partial<AppSettings>) => Promise<void>;
   resetSettingsToDefault: () => Promise<void>;
+  importQuickSetupData: (input: QuickSetupImportInput) => Promise<void>;
 
   // Checkpoint & Memoria Storica Congelata
   checkpoints: Checkpoint[];
@@ -1179,6 +1197,89 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     }
   };
 
+  const handleImportQuickSetupData = async (input: QuickSetupImportInput): Promise<void> => {
+    try {
+      const now = new Date().toISOString();
+      const currentDate = now.split('T')[0];
+      const currentYear = new Date().getFullYear();
+
+      const installDate =
+        input.buildYear === currentYear ? currentDate : `${input.buildYear}-01-01`;
+
+      const newSettings: AppSettings = {
+        ...data.settings,
+        rigName: input.rigName.trim() || 'Gaming PC',
+        rigDescription: input.rigDescription?.trim() || '',
+        buildYear: input.buildYear,
+        quickSetupCompleted: true,
+      };
+
+      const getDefaultSlot = (cat: ComponentCategory): string => {
+        switch (cat) {
+          case 'cpu':
+            return 'Socket CPU';
+          case 'gpu':
+            return 'PCIe x16 Slot 1';
+          case 'motherboard':
+            return 'Chassis';
+          case 'ram':
+            return 'Slot DIMM';
+          case 'storage':
+            return 'Slot M.2 NVMe';
+          case 'psu':
+            return 'Vano Alimentatore';
+          case 'case':
+            return 'Chassis Principale';
+          case 'cooling':
+            return 'Socket / Case Mount';
+          default:
+            return 'Postazione PC';
+        }
+      };
+
+      const batchItems: BatchComponentWithEventsItem[] = input.components.map((item) => {
+        const compId = generateId();
+        const comp: Component = {
+          id: compId,
+          name: `${item.brand} ${item.model}`.trim(),
+          brand: item.brand.trim() || 'Generic',
+          model: item.model.trim() || 'Hardware Component',
+          category: item.category,
+          serialNumber: item.serialNumber?.trim() || undefined,
+          notes: item.notes?.trim() || 'Configurazione iniziale Quick Setup',
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        const installEv: InstallEvent = {
+          id: generateId(),
+          componentId: compId,
+          type: 'INSTALL',
+          date: installDate,
+          slotOrLocation: getDefaultSlot(item.category),
+          notes: 'Installazione iniziale Quick Setup',
+          createdAt: now,
+        };
+
+        return {
+          component: comp,
+          events: [installEv],
+        };
+      });
+
+      await commitBatchComponentsWithEventsAtomic(batchItems, newSettings);
+      await reloadFromDB();
+      showNotification(
+        'success',
+        `Setup completato! ${input.components.length} componenti configurati nel tuo PC.`
+      );
+    } catch (err) {
+      const msg = `Errore durante il Quick Setup: ${(err as Error).message}`;
+      showNotification('error', msg);
+      throw err;
+    }
+  };
+
   const contextValue: PCStoreState = {
     components: data.components,
     events: data.events,
@@ -1220,6 +1321,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     updateComponentEvent: handleUpdateComponentEvent,
     updateSettings,
     resetSettingsToDefault,
+    importQuickSetupData: handleImportQuickSetupData,
     createCheckpointFromCurrent,
     createCheckpointFromPosition,
     updateCheckpoint: handleUpdateCheckpoint,
