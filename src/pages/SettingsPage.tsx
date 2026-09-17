@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   Cpu,
   Package,
+  RefreshCw,
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import {
@@ -30,8 +31,15 @@ import {
   getLastExportedAt,
   exportComponentsToCSV,
   exportEventsToCSV,
-  downloadFile,
 } from '../storage';
+import {
+  saveBackupFileWithDialog,
+  pickAndReadBackupFileWithDialog,
+  isDesktopApp,
+  checkForAppUpdates,
+  downloadAndInstallUpdate,
+  AppUpdateInfo,
+} from '../services';
 import { formatDate } from '../utils';
 import {
   AccentColorPreference,
@@ -219,6 +227,20 @@ export const SettingsPage: React.FC = () => {
   const [importFileName, setImportFileName] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Stato per Auto-Updater
+  const [updateState, setUpdateState] = useState<{
+    checking: boolean;
+    info: AppUpdateInfo | null;
+    downloading: boolean;
+    percent: number;
+    error?: string;
+  }>({
+    checking: false,
+    info: null,
+    downloading: false,
+    percent: 0,
+  });
+
   // Caricamento persistito di lastExportedAt da IndexedDB
   useEffect(() => {
     let mounted = true;
@@ -239,25 +261,30 @@ export const SettingsPage: React.FC = () => {
   const parsedYear = formBuildYear ? parseInt(formBuildYear, 10) : undefined;
   const validYear =
     parsedYear && !isNaN(parsedYear) && parsedYear >= 1990 && parsedYear <= currentYear;
-  const rigAgeYears = validYear ? currentYear - parsedYear : null;
+  const rigAgeYears = validYear ? currentYear - parsedYear! : null;
 
-  // Handler salvataggio Identità
-  const handleSaveIdentity = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Handler salvataggio identità PC
+  const handleSaveIdentity = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    let buildYearValue: number | undefined = undefined;
-    if (formBuildYear.trim()) {
-      const parsed = parseInt(formBuildYear.trim(), 10);
-      if (isNaN(parsed) || parsed < 1990 || parsed > currentYear + 1) {
-        showNotification('error', `L'anno di inizio build deve essere compreso tra 1990 e ${currentYear + 1}.`);
+    const buildYearValue =
+      formBuildYear.trim() === ''
+        ? undefined
+        : parseInt(formBuildYear.trim(), 10);
+
+    if (buildYearValue !== undefined) {
+      if (isNaN(buildYearValue) || buildYearValue < 1990 || buildYearValue > currentYear) {
+        setStatusMessage({
+          type: 'error',
+          text: `Anno di assemblaggio non valido (deve essere compreso tra 1990 e ${currentYear}).`,
+        });
         return;
       }
-      buildYearValue = parsed;
     }
 
     await updateSettings({
-      rigName: formRigName.trim(),
-      rigDescription: formRigDescription.trim(),
+      rigName: formRigName.trim() || undefined,
+      rigDescription: formRigDescription.trim() || undefined,
       buildYear: buildYearValue,
     });
 
@@ -271,33 +298,31 @@ export const SettingsPage: React.FC = () => {
     try {
       const json = await exportDatabaseToJSON();
       const today = new Date().toISOString().split('T')[0];
-      downloadFile(`pc-tracker-backup-${today}.json`, json, 'application/json');
+      const filename = `pc-tracker-backup-${today}.json`;
+      const saveRes = await saveBackupFileWithDialog(filename, json);
+      if (saveRes.canceled) return;
       const updatedLastExport = await getLastExportedAt();
       setLastExportedAtState(updatedLastExport);
-      setStatusMessage({ type: 'success', text: 'Backup JSON esportato con successo da IndexedDB!' });
+      setStatusMessage({ type: 'success', text: 'Backup JSON esportato con successo!' });
     } catch (err) {
       setStatusMessage({ type: 'error', text: `Errore durante l'esportazione: ${(err as Error).message}` });
     }
   };
 
-  // Handler selezione file JSON con validazione preventiva e apertura preview
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Elabora testo JSON di backup per validazione e apertura preview
+  const processImportText = (text: string, fileName: string) => {
     try {
-      const text = await file.text();
       const result = validateImportJSON(text);
 
       if (!result.isValid) {
         setStatusMessage({
           type: 'error',
-          text: `File di backup non valido (${file.name}): ${result.error}`,
+          text: `File di backup non valido (${fileName}): ${result.error}`,
         });
         return;
       }
 
-      setImportFileName(file.name);
+      setImportFileName(fileName);
       setImportPreviewData(result);
       setIsImportPreviewOpen(true);
     } catch (err) {
@@ -305,6 +330,35 @@ export const SettingsPage: React.FC = () => {
         type: 'error',
         text: `Errore durante la lettura del file: ${(err as Error).message}`,
       });
+    }
+  };
+
+  // Handler click su "Importa Backup JSON" (nativo su desktop, file input su web)
+  const handleImportClick = async () => {
+    if (isDesktopApp()) {
+      const result = await pickAndReadBackupFileWithDialog();
+      if (result.canceled) return;
+      if (result.success && result.content) {
+        processImportText(result.content, result.fileName || 'backup.json');
+        return;
+      }
+      if (result.error) {
+        setStatusMessage({ type: 'error', text: result.error });
+        return;
+      }
+    }
+    // Fallback web: trigger dell'input file nascosto
+    fileInputRef.current?.click();
+  };
+
+  // Handler selezione file JSON fallback da input HTML
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      processImportText(text, file.name);
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -340,14 +394,15 @@ export const SettingsPage: React.FC = () => {
   };
 
   // Handler esportazione CSV Componenti
-  const handleExportComponentsCSV = () => {
+  const handleExportComponentsCSV = async () => {
     try {
       const csv = exportComponentsToCSV(components, events);
       const today = new Date().toISOString().split('T')[0];
-      downloadFile(`pc-tracker-components-${today}.csv`, csv, 'text/csv;charset=utf-8;');
+      const filename = `pc-tracker-components-${today}.csv`;
+      await saveBackupFileWithDialog(filename, csv);
       setStatusMessage({
         type: 'success',
-        text: `CSV Componenti esportato (${components.length} componenti, RFC 4180 con BOM UTF-8)!`,
+        text: `CSV Componenti esportato (${components.length} componenti)!`,
       });
     } catch (err) {
       setStatusMessage({
@@ -358,20 +413,46 @@ export const SettingsPage: React.FC = () => {
   };
 
   // Handler esportazione CSV Eventi
-  const handleExportEventsCSV = () => {
+  const handleExportEventsCSV = async () => {
     try {
       const csv = exportEventsToCSV(events, components);
       const today = new Date().toISOString().split('T')[0];
-      downloadFile(`pc-tracker-events-${today}.csv`, csv, 'text/csv;charset=utf-8;');
+      const filename = `pc-tracker-events-${today}.csv`;
+      await saveBackupFileWithDialog(filename, csv);
       setStatusMessage({
         type: 'success',
-        text: `CSV Eventi Storici esportato (${events.length} eventi, RFC 4180 con BOM UTF-8)!`,
+        text: `CSV Eventi Storici esportato (${events.length} eventi)!`,
       });
     } catch (err) {
       setStatusMessage({
         type: 'error',
         text: `Errore durante l'esportazione CSV eventi: ${(err as Error).message}`,
       });
+    }
+  };
+
+  // Handlers Auto-Updater
+  const handleCheckForUpdates = async () => {
+    setUpdateState((prev) => ({ ...prev, checking: true, error: undefined }));
+    try {
+      const info = await checkForAppUpdates();
+      setUpdateState({ checking: false, info, downloading: false, percent: 0, error: info.error });
+    } catch (err) {
+      setUpdateState({ checking: false, info: null, downloading: false, percent: 0, error: (err as Error).message });
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    setUpdateState((prev) => ({ ...prev, downloading: true, percent: 0, error: undefined }));
+    try {
+      const res = await downloadAndInstallUpdate((_down, _tot, percent) => {
+        setUpdateState((prev) => ({ ...prev, percent }));
+      });
+      if (!res.success) {
+        setUpdateState((prev) => ({ ...prev, downloading: false, error: res.error }));
+      }
+    } catch (err) {
+      setUpdateState((prev) => ({ ...prev, downloading: false, error: (err as Error).message }));
     }
   };
 
@@ -1090,17 +1171,22 @@ export const SettingsPage: React.FC = () => {
                   <span>Esporta Backup JSON</span>
                 </button>
 
-                <label className="btn btn-secondary" style={{ cursor: 'pointer' }} id="btn-import-json">
+                <button
+                  type="button"
+                  onClick={handleImportClick}
+                  className="btn btn-secondary"
+                  id="btn-import-json"
+                >
                   <Upload size={15} />
                   <span>Importa Backup JSON</span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                  />
-                </label>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
               </div>
             </div>
 
@@ -1147,6 +1233,125 @@ export const SettingsPage: React.FC = () => {
                   <Download size={15} />
                   <span>Esporta Eventi CSV</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Gruppo 3: Aggiornamenti Software & Informazioni Build (Auto-Updater) */}
+            <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gridColumn: '1 / -1' }}>
+              <div>
+                <div className="settings-group-header">
+                  <h2 className="settings-group-title">
+                    <RefreshCw size={18} color="var(--accent-primary)" className={updateState.checking ? 'spin' : ''} />
+                    <span>Aggiornamenti Software & Canale di Rilascio</span>
+                  </h2>
+                  <p className="settings-group-desc">
+                    Verifica e installa le nuove versioni ufficiali di PC Tracker distribuite tramite GitHub Releases. Gli aggiornamenti sono firmati digitalmente per garantire sicurezza e integrità del codice.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '16px' }}>
+                  <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Versione Corrente
+                    </span>
+                    <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      v0.1.0
+                    </strong>
+                  </div>
+
+                  <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Ambiente Attivo
+                    </span>
+                    <strong style={{ fontSize: '13px', color: isDesktopApp() ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>
+                      {isDesktopApp() ? 'Windows Desktop (Tauri Nativo)' : 'Browser Web Locale'}
+                    </strong>
+                  </div>
+
+                  <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Canale Ufficiale GitHub
+                    </span>
+                    <a
+                      href="https://github.com/collabwithglab-rgb/pc-tracker/releases"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '13px', color: 'var(--accent-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <span>collabwithglab-rgb/pc-tracker</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Banner di notifica aggiornamento disponibile */}
+                {updateState.info?.available && (
+                  <div style={{ marginTop: '16px', padding: '14px 16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-status-success)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-status-success)', fontWeight: 600, fontSize: '14px' }}>
+                      <Sparkles size={16} />
+                      <span>Nuova versione disponibile: v{updateState.info.newVersion}!</span>
+                    </div>
+                    {updateState.info.releaseNotes && (
+                      <p style={{ marginTop: '6px', fontSize: '12.5px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
+                        {updateState.info.releaseNotes}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Banner di conferma: già all'ultima versione */}
+                {updateState.info && !updateState.info.available && !updateState.error && (
+                  <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={16} color="var(--color-status-success)" />
+                    <span>Sei all'ultima versione disponibile. Nessun aggiornamento in sospeso.</span>
+                  </div>
+                )}
+
+                {/* Banner errore */}
+                {updateState.error && (
+                  <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-status-danger)', color: 'var(--color-status-danger)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle size={16} />
+                    <span>{updateState.error}</span>
+                  </div>
+                )}
+
+                {/* Barra di avanzamento download */}
+                {updateState.downloading && (
+                  <div style={{ marginTop: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                      <span>Download e installazione in corso...</span>
+                      <span>{updateState.percent}%</span>
+                    </div>
+                    <div style={{ height: '6px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${updateState.percent}%`, backgroundColor: 'var(--accent-primary)', transition: 'width 0.2s ease' }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '18px' }}>
+                <button
+                  type="button"
+                  onClick={handleCheckForUpdates}
+                  disabled={updateState.checking || updateState.downloading}
+                  className="btn btn-secondary"
+                  id="btn-check-updates"
+                >
+                  <RefreshCw size={15} className={updateState.checking ? 'spin' : ''} />
+                  <span>{updateState.checking ? 'Controllo in corso...' : 'Verifica Aggiornamenti'}</span>
+                </button>
+
+                {updateState.info?.available && !updateState.downloading && (
+                  <button
+                    type="button"
+                    onClick={handleInstallUpdate}
+                    className="btn btn-primary"
+                    id="btn-install-update"
+                  >
+                    <Download size={15} />
+                    <span>Scarica e Riavvia (v{updateState.info.newVersion})</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

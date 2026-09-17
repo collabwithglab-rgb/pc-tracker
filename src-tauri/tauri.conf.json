@@ -30,6 +30,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "resources": {
       "resources/WebView2Loader.dll": ""
     },
@@ -45,6 +46,14 @@
       "nsis": {
         "installMode": "currentUser"
       }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE4MDAzQkZDNjk0RjY1NTUKUldSVlpVOXAvRHNBcUJ4QmZqbVpyNjNGN0l4ZFZONUplRjd4OU90M3BmbWIwbThzaE1CQjBMT1oK",
+      "endpoints": [
+        "https://github.com/collabwithglab-rgb/pc-tracker/releases/latest/download/latest.json"
+      ]
     }
   }
 }

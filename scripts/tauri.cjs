@@ -20,6 +20,22 @@ const env = {
 };
 
 const cwd = process.cwd();
+
+// Caricamento opzionale chiave privata locale per firma auto-updater se non passata da env
+if (!env.TAURI_SIGNING_PRIVATE_KEY) {
+  const keyFile = path.join(cwd, 'user-backups', 'tauri-updater-private-key.txt');
+  if (fs.existsSync(keyFile)) {
+    const lines = fs.readFileSync(keyFile, 'utf8').split('\n');
+    const keyLine = lines.find((l) => l.trim().startsWith('dW50'));
+    if (keyLine) {
+      env.TAURI_SIGNING_PRIVATE_KEY = keyLine.trim();
+    }
+  }
+}
+
+if (env.TAURI_SIGNING_PRIVATE_KEY && env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD === undefined) {
+  env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = '';
+}
 let runCwd = cwd;
 let mappedDrive = null;
 

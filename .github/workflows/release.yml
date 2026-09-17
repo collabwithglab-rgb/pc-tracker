@@ -56,8 +56,11 @@ jobs:
 
       - name: Build Tauri Desktop Application (NSIS)
         run: npx @tauri-apps/cli build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
 
-      - name: Calculate Checksums (SHA-256)
+      - name: Calculate Checksums (SHA-256) & Generate latest.json Manifest
         id: checksums
         shell: pwsh
         run: |
@@ -70,9 +73,30 @@ jobs:
           "$hash  $($installer.Name)" | Out-File -FilePath "SHA256SUMS.txt" -Encoding utf8
           Write-Output "Installer: $($installer.FullName)"
           Write-Output "SHA256: $hash"
-          Write-Output "installer_path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
-          Write-Output "installer_name=$($installer.Name)" >> $env:GITHUB_OUTPUT
-          Write-Output "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+          $sigFile = Get-Item "src-tauri/target/release/bundle/nsis/*.sig" | Select-Object -First 1
+          if ($sigFile) {
+            $sigContent = Get-Content -Raw -Path $sigFile.FullName
+            $versionTag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "v0.1.0" }
+            $rawVersion = $versionTag.TrimStart('v')
+            $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            $repo = $env:GITHUB_REPOSITORY
+            $downloadUrl = "https://github.com/$repo/releases/download/$versionTag/$($installer.Name)"
+            $latestObj = @{
+              version = $rawVersion
+              notes = "Aggiornamento automatico PC Tracker $versionTag"
+              pub_date = $pubDate
+              platforms = @{
+                "windows-x86_64" = @{
+                  signature = $sigContent.Trim()
+                  url = $downloadUrl
+                }
+              }
+            }
+            $latestJson = $latestObj | ConvertTo-Json -Depth 5
+            $latestJson | Out-File -FilePath "latest.json" -Encoding utf8
+            Write-Output "Generated latest.json for auto-updater"
+          }
 
       - name: Create GitHub Release & Upload Assets
         uses: softprops/action-gh-release@v2
@@ -81,7 +105,9 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.sig
             SHA256SUMS.txt
+            latest.json
           generate_release_notes: true
           draft: false
           prerelease: false

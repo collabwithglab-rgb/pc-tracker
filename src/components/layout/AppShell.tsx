@@ -26,9 +26,10 @@ import {
 import { CheckpointModal, PostUpgradePromptModal } from '../checkpoint';
 import { Toast } from '../common/Toast';
 import { Component, ComponentCategory, InstallEvent, Upgrade } from '../../types';
+import { isDesktopApp, checkForAppUpdates } from '../../services';
 
 export const AppShell: React.FC = () => {
-  const { settings, isLoading } = usePCStore();
+  const { settings, isLoading, showNotification } = usePCStore();
   const [currentSection, setCurrentSection] = useState<NavSection>('dashboard');
   const [hasInitializedStartSection, setHasInitializedStartSection] = useState(false);
 
@@ -41,6 +42,17 @@ export const AppShell: React.FC = () => {
       setHasInitializedStartSection(true);
     }
   }, [isLoading, hasInitializedStartSection, settings.defaultStartSection]);
+
+  // Controllo aggiornamenti silenzioso all'avvio su desktop
+  useEffect(() => {
+    if (!isLoading && isDesktopApp()) {
+      checkForAppUpdates().then((res) => {
+        if (res.available && res.newVersion) {
+          showNotification('success', `Nuova versione disponibile: v${res.newVersion}! Vai in Impostazioni per aggiornare.`);
+        }
+      });
+    }
+  }, [isLoading]);
 
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
 

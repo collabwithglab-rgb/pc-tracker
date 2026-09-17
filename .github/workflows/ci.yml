@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Vitest Suite (285 Domain Tests)
+      - name: Run Vitest Suite (291 Domain Tests)
         run: npm test -- --run
 
       - name: Run TypeScript Strict Typecheck

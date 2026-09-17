@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Download } from 'lucide-react';
 import { exportDatabaseToJSON } from '../../storage';
+import { saveBackupFileWithDialog } from '../../services';
 
 interface HeaderProps {
   title: string;
@@ -12,14 +13,9 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onNewMovement }
   const handleQuickBackup = async () => {
     try {
       const jsonString = await exportDatabaseToJSON();
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
       const today = new Date().toISOString().split('T')[0];
-      a.href = url;
-      a.download = `pc-tracker-backup-${today}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const filename = `pc-tracker-backup-${today}.json`;
+      await saveBackupFileWithDialog(filename, jsonString);
     } catch (err) {
       alert(`Errore durante il backup: ${(err as Error).message}`);
     }
