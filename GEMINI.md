@@ -270,21 +270,25 @@ Build Pc (All Components & Updates)- justpeppe_z/
 
 ---
 
-## 10. Regole di Automazione Git & Release (Hands-Off per l'Utente)
+## 10. Regole di Automazione Git & Release — Modello Ottimizzato a 3 Livelli (Hands-Off per l'Utente)
 
-L'utente finale non deve eseguire comandi Git o preoccuparsi della gestione di repository, commit, tag e pipeline. L'assistente se ne occupa in piena autonomia secondo questa logica permanente:
+L'utente finale non deve eseguire comandi Git o preoccuparsi della gestione di repository, commit, tag e pipeline. L'assistente adotta e applica in piena autonomia questo flusso a 3 livelli, calibrato per massima sicurezza, zero perdita dati e rispetto delle quote GitHub Actions:
 
-1. **Gestione del Flusso a Tranche vs Sezione Completa**:
-   - Quando un lavoro o una funzionalità viene suddivisa in più tranche (es. 1/5, 2/5, ecc.), **NON fare commit/push parziali per ogni singola micro-tranche**, evitando rumore nella cronologia e trigger inutili di CI.
-   - Solo al **completamento dell'intera sezione/milestone** (dopo aver verificato `npm test`, `tsc --noEmit` e `npm run audit:privacy`), l'assistente valuta autonomamente l'azione migliore:
-     - **Push Codice Sorgente (`git push origin main`)**: se si tratta di avanzamenti tecnici interni, pulizia o preparazioni architetturali.
-     - **Nuova Release Desktop Ufficiale (`vX.Y.Z` con push del Tag)**: se la sezione conclusa introduce nuove funzionalità visibili, miglioramenti d'uso o correzioni tangibili pronte per essere usate dagli utenti dell'applicazione desktop su Windows.
+1. **Livello 1 — Salvataggio Locale a Tranche (Safety Checkpoint)**:
+   - Durante lo sviluppo di funzionalità articolate in più tranche (es. 1/5, 2/5, ecc.), al termine di ciascuna tranche completata l'assistente esegue un **`git commit` locale** (senza push).
+   - *Scopo*: rete di sicurezza istantanea a costo zero. Non usa connessione internet, non consuma minuti di CI, ma garantisce che nessun progresso intermedio possa mai andare perso o danneggiato in caso di crash o interruzioni.
 
-2. **Creazione e Distribuzione Autonoma di Nuove Release Desktop**:
-   - Sia in autonomia al termine di una sezione importante, sia quando l'utente richiede una nuova versione scaricabile per sé o per gli amici (es. *"Prepara una nuova versione"* o *"Rilascia l'aggiornamento"*), l'assistente:
-     1. Incrementa la versione semver in modo coerente su tutti i file: `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` e `src/services/updaterService.ts`.
-     2. Esegue la validazione locale completa (`test`, `tsc`, `audit:privacy`).
-     3. Crea il commit di release, genera il tag Git corrispondente (es. `v0.1.2`) ed esegue il push sia del ramo `main` che del tag (`git push origin main --tags`).
-     4. GitHub Actions si attiva in automatico, compila l'installer Windows x64 NSIS, applica la firma crittografica Minisign Ed25519 e pubblica la nuova release con `latest.json`.
-     5. Tutti i PC con PC Tracker installato ricevono e applicano l'aggiornamento automatico senza alcun intervento manuale sul codice.
+2. **Livello 2 — Sincronizzazione Cloud a Sezione Conclusa (`git push origin main`)**:
+   - Solo al completamento dell'intera sezione/task (quando tutte le tranche sono chiuse), l'assistente esegue la validazione locale completa (`npm test`, `tsc --noEmit` e `npm run audit:privacy`).
+   - Se i test sono tutti verdi, esegue **`git push origin main`**.
+   - *Scopo*: il codice sorgente su GitHub è sempre aggiornato, pulito e integro nel cloud, attivando la CI standard in modo ordinato e senza sprechi.
+
+3. **Livello 3 — Release Desktop Ufficiale per gli Utenti (`vX.Y.Z` con push del Tag)**:
+   - La Release ufficiale con compilazione dell'installer Windows e generazione degli artefatti dell'auto-updater NON viene creata per ogni minima modifica (evita l'affaticamento da aggiornamenti continui per gli utenti e preserva la quota mensile 2x dei runner Windows su GitHub Actions).
+   - Viene generata **in autonomia al compimento di milestone consistenti e pronte per l'utente finale**, oppure **su richiesta esplicita dell'utente** (es. *"Prepara una nuova versione"* o *"Rilascia l'aggiornamento"*):
+     1. Incremento coordinato della versione semver su tutti i file (`package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `src/services/updaterService.ts`).
+     2. Validazione rigorosa locale (`test`, `tsc`, `audit:privacy`).
+     3. Creazione del commit di release, generazione del tag Git (`vX.Y.Z`) e push congiunto (`git push origin main --tags`).
+     4. GitHub Actions compila l'installer NSIS x64, applica la firma Minisign Ed25519 e pubblica la release con `latest.json`.
+     5. Tutte le installazioni attive di PC Tracker su Windows rilevano e applicano l'aggiornamento in totale trasparenza e sicurezza dei dati.
 
