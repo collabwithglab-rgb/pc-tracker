@@ -21,6 +21,10 @@ export const MOCK_DETECTED_HARDWARE: DetectedComponent[] = [
     source: 'Emulated Hardware Detection',
     confidence: 'HIGH',
     detectedAt: new Date().toISOString(),
+    extraDetails: {
+      logical_processors: '16',
+      frequency_mhz: '4200 MHz',
+    },
   },
   {
     category: 'motherboard',
@@ -29,14 +33,36 @@ export const MOCK_DETECTED_HARDWARE: DetectedComponent[] = [
     source: 'Emulated Hardware Detection',
     confidence: 'HIGH',
     detectedAt: new Date().toISOString(),
+    extraDetails: {
+      bios_version: '2403',
+      bios_date: '2024-05-10',
+    },
   },
   {
     category: 'gpu',
     manufacturer: 'NVIDIA',
     model: 'NVIDIA GeForce RTX 4070',
+    capacity: '12 GB',
     source: 'Emulated Hardware Detection',
     confidence: 'HIGH',
     detectedAt: new Date().toISOString(),
+    extraDetails: {
+      is_discrete: 'true',
+      is_integrated: 'false',
+      vram: '12 GB',
+    },
+  },
+  {
+    category: 'gpu',
+    manufacturer: 'AMD',
+    model: 'AMD Radeon Graphics (iGPU)',
+    source: 'Emulated Hardware Detection',
+    confidence: 'HIGH',
+    detectedAt: new Date().toISOString(),
+    extraDetails: {
+      is_discrete: 'false',
+      is_integrated: 'true',
+    },
   },
   {
     category: 'ram',
@@ -46,6 +72,9 @@ export const MOCK_DETECTED_HARDWARE: DetectedComponent[] = [
     source: 'Emulated Hardware Detection',
     confidence: 'HIGH',
     detectedAt: new Date().toISOString(),
+    extraDetails: {
+      total_bytes: '34359738368',
+    },
   },
   {
     category: 'storage',
@@ -55,6 +84,9 @@ export const MOCK_DETECTED_HARDWARE: DetectedComponent[] = [
     source: 'Emulated Hardware Detection',
     confidence: 'HIGH',
     detectedAt: new Date().toISOString(),
+    extraDetails: {
+      interface: 'NVMe',
+    },
   },
 ];
 

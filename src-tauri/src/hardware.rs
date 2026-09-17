@@ -204,20 +204,30 @@ mod windows_impl {
         let now_str = get_iso_timestamp();
 
         // 1. CPU
-        if let Ok(cpu_key) = hklm.open_subkey("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0") {
-            if let Ok(name_str) = cpu_key.get_value::<String, _>("ProcessorNameString") {
-                let (brand, model) = clean_cpu_name(&name_str);
-                components.push(DetectedComponent {
-                    category: "cpu".to_string(),
-                    manufacturer: brand,
-                    model,
-                    capacity: None,
-                    serial_number: None,
-                    source: "Windows Registry".to_string(),
-                    confidence: "HIGH".to_string(),
-                    detected_at: now_str.clone(),
-                    extra_details: None,
-                });
+        if let Ok(cpu_base) = hklm.open_subkey("HARDWARE\\DESCRIPTION\\System\\CentralProcessor") {
+            let logical_count = cpu_base.enum_keys().count();
+            if let Ok(cpu_key) = cpu_base.open_subkey("0") {
+                if let Ok(name_str) = cpu_key.get_value::<String, _>("ProcessorNameString") {
+                    let (brand, model) = clean_cpu_name(&name_str);
+                    let mut extra = HashMap::new();
+                    if logical_count > 0 {
+                        extra.insert("logical_processors".to_string(), logical_count.to_string());
+                    }
+                    if let Ok(mhz) = cpu_key.get_value::<u32, _>("~MHz") {
+                        extra.insert("frequency_mhz".to_string(), format!("{} MHz", mhz));
+                    }
+                    components.push(DetectedComponent {
+                        category: "cpu".to_string(),
+                        manufacturer: brand,
+                        model,
+                        capacity: None,
+                        serial_number: None,
+                        source: "Windows Registry".to_string(),
+                        confidence: "HIGH".to_string(),
+                        detected_at: now_str.clone(),
+                        extra_details: if extra.is_empty() { None } else { Some(extra) },
+                    });
+                }
             }
         }
 
@@ -225,11 +235,23 @@ mod windows_impl {
         if let Ok(bios_key) = hklm.open_subkey("HARDWARE\\DESCRIPTION\\System\\BIOS") {
             let mfg = bios_key.get_value::<String, _>("BaseBoardManufacturer").unwrap_or_default();
             let prod = bios_key.get_value::<String, _>("BaseBoardProduct").unwrap_or_default();
+            let bios_ver = bios_key.get_value::<String, _>("BIOSVersion").unwrap_or_default();
+            let bios_date = bios_key.get_value::<String, _>("BIOSReleaseDate").unwrap_or_default();
             
             let clean_mfg = clean_manufacturer(&mfg);
             let clean_prod = clean_string(&prod);
 
             if !clean_prod.is_empty() && !clean_prod.to_uppercase().contains("O.E.M.") {
+                let mut extra = HashMap::new();
+                let clean_ver = clean_string(&bios_ver);
+                let clean_date = clean_string(&bios_date);
+                if !clean_ver.is_empty() {
+                    extra.insert("bios_version".to_string(), clean_ver);
+                }
+                if !clean_date.is_empty() {
+                    extra.insert("bios_date".to_string(), clean_date);
+                }
+
                 components.push(DetectedComponent {
                     category: "motherboard".to_string(),
                     manufacturer: if clean_mfg.is_empty() { "Motherboard".to_string() } else { clean_mfg },
@@ -239,12 +261,12 @@ mod windows_impl {
                     source: "Windows Registry".to_string(),
                     confidence: "HIGH".to_string(),
                     detected_at: now_str.clone(),
-                    extra_details: None,
+                    extra_details: if extra.is_empty() { None } else { Some(extra) },
                 });
             }
         }
 
-        // 3. GPU
+        // 3. GPU (con VRAM e distinzione iGPU vs Dedicata)
         if let Ok(video_class) = hklm.open_subkey("SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}") {
             let mut detected_gpus: Vec<(bool, DetectedComponent)> = Vec::new();
 
@@ -274,17 +296,51 @@ mod windows_impl {
                                 sub.get_value("ProviderName").unwrap_or_else(|_| "GPU".to_string())
                             };
 
+                            // Lettura VRAM dedicata
+                            let mut vram_bytes: u64 = 0;
+                            if let Ok(qw) = sub.get_value::<u64, _>("HardwareInformation.qwMemorySize") {
+                                vram_bytes = qw;
+                            } else if let Ok(dw) = sub.get_value::<u32, _>("HardwareInformation.MemorySize") {
+                                vram_bytes = dw as u64;
+                            } else if let Ok(bin) = sub.get_raw_value("HardwareInformation.qwMemorySize") {
+                                if bin.bytes.len() >= 8 {
+                                    vram_bytes = u64::from_le_bytes(bin.bytes[0..8].try_into().unwrap_or_default());
+                                }
+                            } else if let Ok(bin) = sub.get_raw_value("HardwareInformation.MemorySize") {
+                                if bin.bytes.len() >= 4 {
+                                    vram_bytes = u32::from_le_bytes(bin.bytes[0..4].try_into().unwrap_or_default()) as u64;
+                                }
+                            }
+
+                            let capacity_str = if vram_bytes >= 512 * 1024 * 1024 {
+                                let gb = vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+                                if gb >= 1.0 {
+                                    Some(format!("{:.0} GB", gb.round()))
+                                } else {
+                                    Some(format!("{} MB", vram_bytes / (1024 * 1024)))
+                                }
+                            } else {
+                                None
+                            };
+
+                            let mut extra = HashMap::new();
+                            extra.insert("is_discrete".to_string(), if is_discrete { "true".to_string() } else { "false".to_string() });
+                            extra.insert("is_integrated".to_string(), if !is_discrete { "true".to_string() } else { "false".to_string() });
+                            if let Some(ref cap) = capacity_str {
+                                extra.insert("vram".to_string(), cap.clone());
+                            }
+
                             if !detected_gpus.iter().any(|(_, g)| g.model == desc_clean) {
                                 detected_gpus.push((is_discrete, DetectedComponent {
                                     category: "gpu".to_string(),
                                     manufacturer: brand,
                                     model: desc_clean,
-                                    capacity: None,
+                                    capacity: capacity_str,
                                     serial_number: None,
                                     source: "Windows Registry".to_string(),
                                     confidence: "HIGH".to_string(),
                                     detected_at: now_str.clone(),
-                                    extra_details: None,
+                                    extra_details: Some(extra),
                                 }));
                             }
                         }
@@ -302,6 +358,8 @@ mod windows_impl {
         // 4. RAM (Win32 GlobalMemoryStatusEx)
         if let Some(total_bytes) = get_total_ram_bytes() {
             let cap_str = format_bytes_to_human(total_bytes);
+            let mut extra = HashMap::new();
+            extra.insert("total_bytes".to_string(), total_bytes.to_string());
             components.push(DetectedComponent {
                 category: "ram".to_string(),
                 manufacturer: "RAM Kit".to_string(),
@@ -311,11 +369,11 @@ mod windows_impl {
                 source: "Windows Native API".to_string(),
                 confidence: "HIGH".to_string(),
                 detected_at: now_str.clone(),
-                extra_details: None,
+                extra_details: Some(extra),
             });
         }
 
-        // 5. Storage (Disk Enum da Registry)
+        // 5. Storage (Disk Enum da Registry con riconoscimento interfaccia NVMe vs SATA)
         if let Ok(disk_enum) = hklm.open_subkey("SYSTEM\\CurrentControlSet\\Services\\disk\\Enum") {
             let count: u32 = disk_enum.get_value("Count").unwrap_or(0);
             for i in 0..count {
@@ -333,6 +391,14 @@ mod windows_impl {
                         if !upper_path.contains("USBSTOR") && !upper_path.contains("VIRTUAL") {
                             let (brand, model) = clean_storage_model(&friendly_name, &hardware_id);
                             
+                            let upper_hw = hardware_id.to_uppercase();
+                            let is_nvme = upper_path.contains("NVME") || upper_hw.contains("NVME") || model.to_uppercase().contains("NVME");
+                            let is_sata = upper_path.contains("SATA") || upper_path.contains("SCSI") || upper_hw.contains("SATA") || upper_hw.contains("SCSI");
+                            let interface_str = if is_nvme { "NVMe" } else if is_sata { "SATA" } else { "Internal" };
+
+                            let mut extra = HashMap::new();
+                            extra.insert("interface".to_string(), interface_str.to_string());
+
                             if !components.iter().any(|c| c.category == "storage" && c.model == model) {
                                 components.push(DetectedComponent {
                                     category: "storage".to_string(),
@@ -343,7 +409,7 @@ mod windows_impl {
                                     source: "Windows Registry".to_string(),
                                     confidence: "HIGH".to_string(),
                                     detected_at: now_str.clone(),
-                                    extra_details: None,
+                                    extra_details: Some(extra),
                                 });
                             }
                         }

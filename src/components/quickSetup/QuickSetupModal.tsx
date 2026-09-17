@@ -11,8 +11,9 @@ import {
   ArrowRight,
   Monitor,
   Check,
+  Plus,
 } from 'lucide-react';
-import { ComponentCategory } from '../../types';
+import { ComponentCategory, Component } from '../../types';
 import { usePCStore, QuickSetupImportItem } from '../../store';
 import { detectHardware, DetectedComponent } from '../../services';
 
@@ -26,6 +27,18 @@ interface EditableDetectedItem extends DetectedComponent {
   id: string;
   selected: boolean;
   isEditing?: boolean;
+  alreadyInstalled?: boolean;
+  isIntegrated?: boolean;
+  purchasePrice?: string;
+}
+
+interface ManualComponentItem {
+  category: ComponentCategory;
+  label: string;
+  brand: string;
+  model: string;
+  price: string;
+  enabled: boolean;
 }
 
 const CATEGORY_LABELS: Record<ComponentCategory, string> = {
@@ -58,12 +71,42 @@ const CATEGORY_COLORS: Record<ComponentCategory, { bg: string; color: string; bo
   other: { bg: 'rgba(148, 163, 184, 0.12)', color: '#94a3b8', border: 'rgba(148, 163, 184, 0.3)' },
 };
 
+/**
+ * Funzione pura per Smart Diff: verifica se un componente candidato è già montato nel PC.
+ */
+function checkAlreadyInRig(candidate: DetectedComponent, installed: Component[]): boolean {
+  const normCandModel = candidate.model.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  return installed.some((comp) => {
+    if (comp.category !== candidate.category) return false;
+    const normCompModel = comp.model.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normCompName = comp.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (normCompModel.length >= 4 && normCandModel.length >= 4) {
+      if (normCompModel.includes(normCandModel) || normCandModel.includes(normCompModel)) {
+        return true;
+      }
+    }
+    if (normCompName.length >= 4 && normCandModel.length >= 4) {
+      if (normCompName.includes(normCandModel) || normCandModel.includes(normCompName)) {
+        return true;
+      }
+    }
+    if (candidate.category === 'ram' && comp.category === 'ram') {
+      if (candidate.capacity && (comp.name.includes(candidate.capacity) || comp.model.includes(candidate.capacity))) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
 export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   isOpen,
   onClose,
   onCompleted,
 }) => {
-  const { settings, updateSettings, importQuickSetupData } = usePCStore();
+  const { settings, updateSettings, importQuickSetupData, getInstalledComponents } = usePCStore();
 
   const currentYear = new Date().getFullYear();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -79,6 +122,14 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   const [importedCount, setImportedCount] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Componenti Manuali (Case, PSU, Dissipatore)
+  const [showManualSection, setShowManualSection] = useState(false);
+  const [manualItems, setManualItems] = useState<ManualComponentItem[]>([
+    { category: 'psu', label: 'Alimentatore (PSU)', brand: '', model: '', price: '', enabled: false },
+    { category: 'case', label: 'Case del PC', brand: '', model: '', price: '', enabled: false },
+    { category: 'cooling', label: 'Dissipatore CPU', brand: '', model: '', price: '', enabled: false },
+  ]);
+
   // Reset dello stato quando il modale si apre
   useEffect(() => {
     if (isOpen) {
@@ -90,6 +141,12 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
       setDetectedItems([]);
       setImportedCount(0);
       setIsSubmitting(false);
+      setShowManualSection(false);
+      setManualItems([
+        { category: 'psu', label: 'Alimentatore (PSU)', brand: '', model: '', price: '', enabled: false },
+        { category: 'case', label: 'Case del PC', brand: '', model: '', price: '', enabled: false },
+        { category: 'cooling', label: 'Dissipatore CPU', brand: '', model: '', price: '', enabled: false },
+      ]);
     }
   }, [isOpen]);
 
@@ -113,14 +170,30 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
 
     try {
       const rawDetected = await detectHardware();
-      const mapped: EditableDetectedItem[] = rawDetected.map((item, idx) => ({
-        ...item,
-        id: `detected-${idx}-${item.category}`,
-        selected: true,
-        isEditing: false,
-      }));
+      const installedComps = getInstalledComponents().map((item) => item.component);
+      const hasDiscreteGpu = rawDetected.some(
+        (d) => d.category === 'gpu' && d.extraDetails?.is_discrete === 'true'
+      );
 
-      // Assicura almeno 1.4 secondi per percepire la scansione senza lag eccessivo
+      const mapped: EditableDetectedItem[] = rawDetected.map((item, idx) => {
+        const alreadyInstalled = checkAlreadyInRig(item, installedComps);
+        const isIntegrated =
+          item.category === 'gpu' &&
+          (item.extraDetails?.is_integrated === 'true' ||
+            (!item.extraDetails?.is_discrete && hasDiscreteGpu));
+
+        return {
+          ...item,
+          id: `detected-${idx}-${item.category}`,
+          alreadyInstalled,
+          isIntegrated,
+          // Se è già installato nel PC o è una iGPU secondaria, non selezionare di default
+          selected: !alreadyInstalled && !isIntegrated,
+          isEditing: false,
+          purchasePrice: '',
+        };
+      });
+
       setTimeout(() => {
         clearInterval(interval);
         setDetectedItems(mapped);
@@ -146,7 +219,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
 
   const handleUpdateItemField = (
     id: string,
-    field: 'brand' | 'model' | 'category',
+    field: 'brand' | 'model' | 'category' | 'price',
     val: string
   ) => {
     setDetectedItems((prev) =>
@@ -155,7 +228,21 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
         if (field === 'brand') return { ...item, manufacturer: val };
         if (field === 'model') return { ...item, model: val };
         if (field === 'category') return { ...item, category: val as ComponentCategory };
+        if (field === 'price') return { ...item, purchasePrice: val };
         return item;
+      })
+    );
+  };
+
+  const handleUpdateManualField = (
+    idx: number,
+    field: 'brand' | 'model' | 'price' | 'enabled',
+    val: string | boolean
+  ) => {
+    setManualItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== idx) return item;
+        return { ...item, [field]: val };
       })
     );
   };
@@ -165,13 +252,42 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
       setIsSubmitting(true);
       const selected = detectedItems.filter((i) => i.selected);
 
-      const itemsToImport: QuickSetupImportItem[] = selected.map((item) => ({
-        category: item.category,
-        brand: item.manufacturer.trim() || 'Generic',
-        model: item.model.trim() || 'Hardware Component',
-        serialNumber: item.serialNumber,
-        notes: `Rilevato tramite ${item.source}`,
-      }));
+      const itemsToImport: QuickSetupImportItem[] = [];
+
+      // 1. Componenti rilevati
+      for (const item of selected) {
+        const priceNum = item.purchasePrice ? parseFloat(item.purchasePrice) : undefined;
+        const slot =
+          item.extraDetails?.interface === 'NVMe'
+            ? 'Slot M.2 NVMe'
+            : item.extraDetails?.interface === 'SATA'
+            ? 'Porta SATA'
+            : undefined;
+
+        itemsToImport.push({
+          category: item.category,
+          brand: item.manufacturer.trim() || 'Generic',
+          model: item.model.trim() || 'Hardware Component',
+          serialNumber: item.serialNumber,
+          purchasePrice: priceNum && !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
+          slotOrLocation: slot,
+          notes: `Rilevato tramite ${item.source}`,
+        });
+      }
+
+      // 2. Componenti manuali opzionali
+      for (const m of manualItems) {
+        if (m.enabled && (m.model.trim() || m.brand.trim())) {
+          const priceNum = m.price ? parseFloat(m.price) : undefined;
+          itemsToImport.push({
+            category: m.category,
+            brand: m.brand.trim() || 'Generic',
+            model: m.model.trim() || m.label,
+            purchasePrice: priceNum && !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
+            notes: 'Aggiunto manualmente durante il Quick Setup',
+          });
+        }
+      }
 
       await importQuickSetupData({
         rigName: rigName.trim() || 'Gaming PC',
@@ -226,13 +342,19 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
     }
   };
 
+  const selectedDetectedCount = detectedItems.filter((i) => i.selected).length;
+  const selectedManualCount = manualItems.filter(
+    (m) => m.enabled && (m.model.trim() || m.brand.trim())
+  ).length;
+  const totalToImport = selectedDetectedCount + selectedManualCount;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleSkipEntireSetup}
       title={getStepTitle()}
       subtitle={getStepSubtitle()}
-      maxWidth="620px"
+      maxWidth="640px"
       onBack={step === 2 ? () => setStep(1) : undefined}
       backTitle={step === 2 ? 'Indietro' : undefined}
     >
@@ -259,7 +381,11 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
               </div>
               <div style={styles.guaranteeItem}>
                 <CheckCircle2 size={16} color="var(--accent-emerald)" />
-                <span><strong>Nessun dato inventato</strong>: confermi tu ogni componente prima del salvataggio.</span>
+                <span><strong>Zero dati inventati</strong>: nessuna stima fittizia o prezzo generato dal nulla.</span>
+              </div>
+              <div style={styles.guaranteeItem}>
+                <CheckCircle2 size={16} color="var(--accent-emerald)" />
+                <span><strong>Pieno Controllo</strong>: confermi tu ogni singolo pezzo prima di salvarlo.</span>
               </div>
             </div>
 
@@ -286,57 +412,59 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
           </div>
         )}
 
-        {/* STEP 2: Setup Personale */}
+        {/* STEP 2: Identifica il PC */}
         {step === 2 && (
           <div style={styles.stepContent}>
             <div style={styles.formGroup}>
-              <label htmlFor="quick-setup-rigname" style={styles.label}>
+              <label style={styles.label} htmlFor="qs-rig-name">
                 Nome del PC
               </label>
               <input
-                id="quick-setup-rigname"
+                id="qs-rig-name"
                 type="text"
                 className="form-input"
-                style={styles.input}
                 value={rigName}
                 onChange={(e) => setRigName(e.target.value)}
-                placeholder="Es. Gaming PC"
+                placeholder="es. Gaming PC, Workstation, Mini-ITX..."
+                style={styles.input}
+                maxLength={40}
                 autoFocus
               />
-              <span style={styles.hint}>Il nome che identifica la tua postazione principale.</span>
+              <span style={styles.hint}>Come chiami solitamente questa macchina.</span>
             </div>
 
             <div style={styles.formGroup}>
-              <label htmlFor="quick-setup-description" style={styles.label}>
-                Descrizione (Opzionale)
+              <label style={styles.label} htmlFor="qs-rig-desc">
+                Descrizione opzionale
               </label>
               <input
-                id="quick-setup-description"
+                id="qs-rig-desc"
                 type="text"
                 className="form-input"
-                style={styles.input}
                 value={rigDescription}
                 onChange={(e) => setRigDescription(e.target.value)}
-                placeholder="Es. PC principale da gaming e produttività"
+                placeholder="es. Il mio principale PC da gaming e lavoro"
+                style={styles.input}
+                maxLength={60}
               />
             </div>
 
             <div style={styles.formGroup}>
-              <label htmlFor="quick-setup-buildyear" style={styles.label}>
-                Anno di Assemblaggio / Build
+              <label style={styles.label} htmlFor="qs-build-year">
+                Anno build
               </label>
               <input
-                id="quick-setup-buildyear"
+                id="qs-build-year"
                 type="number"
-                min="2000"
-                max={currentYear + 1}
                 className="form-input"
-                style={styles.input}
                 value={buildYear}
                 onChange={(e) => setBuildYear(parseInt(e.target.value, 10) || currentYear)}
+                min={2000}
+                max={currentYear + 1}
+                style={{ ...styles.input, maxWidth: '140px' }}
               />
               <span style={styles.hint}>
-                Usato per impostare la data dei primi eventi di installazione nel tuo PC.
+                Utilizzato come data iniziale per gli eventi di montaggio dei componenti.
               </span>
             </div>
 
@@ -354,48 +482,58 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 style={styles.actionBtn}
                 onClick={handleRunScan}
               >
+                <Sparkles size={16} />
                 Rileva hardware
-                <ArrowRight size={16} />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Rilevamento in Corso */}
+        {/* STEP 3: Scansione PC */}
         {step === 3 && (
           <div style={styles.stepContent}>
+            <div style={styles.heroText}>
+              <h3 style={styles.heroTitle}>Analisi dell'hardware in corso...</h3>
+              <p style={styles.heroDescription}>
+                PC Tracker sta interrogando Windows in locale per identificare i pezzi.
+              </p>
+            </div>
+
             <div style={styles.scanChecklist}>
               {[
-                { name: 'Processore (CPU)', icon: <Cpu size={18} /> },
-                { name: 'Scheda Video (GPU)', icon: <Monitor size={18} /> },
-                { name: 'Memoria RAM', icon: <Layers size={18} /> },
-                { name: 'Dischi Storage', icon: <HardDrive size={18} /> },
-                { name: 'Scheda Madre', icon: <Sparkles size={18} /> },
-              ].map((item, idx) => {
-                const isPassed = scanStepIndex > idx;
-                const isCurrent = scanStepIndex === idx;
+                { label: 'Processore (CPU)', icon: Cpu, doneStep: 0 },
+                { label: 'Scheda Madre (Motherboard)', icon: Layers, doneStep: 1 },
+                { label: 'Scheda Video (GPU)', icon: Monitor, doneStep: 2 },
+                { label: 'Memoria RAM', icon: Layers, doneStep: 3 },
+                { label: 'Unità Disco / SSD', icon: HardDrive, doneStep: 4 },
+              ].map((item) => {
+                const isCompleted = scanStepIndex > item.doneStep;
+                const isCurrent = scanStepIndex === item.doneStep;
+                const Icon = item.icon;
 
                 return (
                   <div
-                    key={item.name}
+                    key={item.label}
                     style={{
                       ...styles.scanRow,
-                      opacity: isPassed || isCurrent ? 1 : 0.4,
+                      opacity: isCompleted || isCurrent ? 1 : 0.4,
                     }}
                   >
                     <div style={styles.scanRowLeft}>
-                      <span style={{ color: isPassed ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>
-                        {item.icon}
-                      </span>
-                      <span style={styles.scanRowName}>{item.name}</span>
+                      <Icon
+                        size={18}
+                        color={isCompleted ? 'var(--accent-emerald)' : 'var(--accent-primary)'}
+                      />
+                      <span style={styles.scanRowName}>{item.label}</span>
                     </div>
                     <div>
-                      {isPassed ? (
+                      {isCompleted ? (
                         <span style={styles.badgeSuccess}>
-                          <Check size={14} /> Trovato
+                          <Check size={14} />
+                          Rilevato
                         </span>
                       ) : isCurrent ? (
-                        <span style={styles.badgeLoading}>Analisi...</span>
+                        <span style={styles.badgeLoading}>Lettura...</span>
                       ) : (
                         <span style={styles.badgePending}>In coda</span>
                       )}
@@ -419,16 +557,16 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
         {/* STEP 4: Revisione & Conferma */}
         {step === 4 && (
           <div style={styles.stepContent}>
-            {/* Disclaimer onesto su componenti non rilevati automaticamente */}
+            {/* Disclaimer trasparente */}
             <div style={styles.disclaimerBox}>
               <AlertCircle size={18} color="var(--accent-amber)" style={{ flexShrink: 0 }} />
               <p style={styles.disclaimerText}>
-                <strong>Alimentatore, case, dissipatore e periferiche</strong> puoi aggiungerli manualmente
-                in qualsiasi momento: Windows non ne conosce i modelli con certezza e noi non inventiamo dati.
+                <strong>Alimentatore, case e dissipatore</strong> non sono rilevabili con certezza da Windows:
+                puoi aggiungerli in basso o in qualsiasi momento con <em>+ Nuovo Movimento</em>.
               </p>
             </div>
 
-            {/* Lista componenti rilevati con checkbox e modifica inline */}
+            {/* Lista componenti rilevati con checkbox, badge intelligenti e modifica inline */}
             <div style={styles.itemsList}>
               {detectedItems.length === 0 ? (
                 <div style={styles.emptyState}>
@@ -444,7 +582,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                       style={{
                         ...styles.itemCard,
                         borderColor: item.selected ? 'var(--border-default)' : 'var(--border-subtle)',
-                        opacity: item.selected ? 1 : 0.6,
+                        opacity: item.selected ? 1 : 0.65,
                       }}
                     >
                       {item.isEditing ? (
@@ -475,6 +613,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                               />
                             </div>
                           </div>
+
                           <div style={styles.editRow}>
                             <div style={{ flex: 1 }}>
                               <label style={styles.microLabel}>Categoria</label>
@@ -493,6 +632,23 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                                 ))}
                               </select>
                             </div>
+
+                            <div style={{ flex: 1 }}>
+                              <label style={styles.microLabel}>Prezzo d'acquisto (€) [Opzionale]</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="es. 349 (opzionale)"
+                                className="form-input"
+                                value={item.purchasePrice || ''}
+                                onChange={(e) =>
+                                  handleUpdateItemField(item.id, 'price', e.target.value)
+                                }
+                                style={styles.microInput}
+                              />
+                            </div>
+
                             <div style={styles.editActions}>
                               <button
                                 type="button"
@@ -526,12 +682,52 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                                 >
                                   {CATEGORY_LABELS[item.category] || item.category}
                                 </span>
+
                                 <span style={styles.componentName}>
                                   {item.manufacturer} {item.model}
                                 </span>
+
+                                {/* Smart Diff: badge già presente */}
+                                {item.alreadyInstalled && (
+                                  <span style={styles.badgeAlreadyInstalled}>
+                                    Già presente nel PC
+                                  </span>
+                                )}
+
+                                {/* Badge iGPU Integrata */}
+                                {item.isIntegrated && (
+                                  <span style={styles.badgeIGPU}>
+                                    iGPU Integrata
+                                  </span>
+                                )}
+
+                                {/* Specifiche arricchite (VRAM, BIOS, Threads, NVMe) */}
+                                {item.category === 'gpu' && item.capacity && (
+                                  <span style={{ ...styles.specBadge, color: 'var(--accent-emerald)' }}>
+                                    {item.capacity} VRAM
+                                  </span>
+                                )}
+                                {item.extraDetails?.bios_version && (
+                                  <span style={styles.specBadge}>
+                                    BIOS v{item.extraDetails.bios_version}
+                                  </span>
+                                )}
+                                {item.extraDetails?.logical_processors && (
+                                  <span style={styles.specBadge}>
+                                    {item.extraDetails.logical_processors} Threads
+                                  </span>
+                                )}
+                                {item.extraDetails?.interface && (
+                                  <span style={styles.specBadge}>
+                                    {item.extraDetails.interface}
+                                  </span>
+                                )}
                               </div>
+
                               <span style={styles.sourceText}>
-                                Fonte: {item.source} {item.capacity ? `• ${item.capacity}` : ''}
+                                Fonte: {item.source}
+                                {item.capacity && item.category !== 'gpu' ? ` • ${item.capacity}` : ''}
+                                {item.purchasePrice ? ` • Prezzo: €${item.purchasePrice}` : ''}
                               </span>
                             </div>
                           </label>
@@ -541,7 +737,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                             className="btn btn-outline"
                             style={styles.editBtn}
                             onClick={() => handleToggleEdit(item.id)}
-                            title="Modifica nome o dettagli del componente"
+                            title="Modifica dettagli o aggiungi prezzo reale"
                           >
                             <Pencil size={13} />
                             Modifica
@@ -554,6 +750,73 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
               )}
             </div>
 
+            {/* Sezione Quick-Add per Componenti Non Rilevabili (Case, PSU, Cooling) */}
+            <div style={styles.manualAccordionBox}>
+              <button
+                type="button"
+                style={styles.manualAccordionToggle}
+                onClick={() => setShowManualSection((prev) => !prev)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Plus size={15} color="var(--accent-primary)" />
+                  <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
+                    Completa la configurazione (Alimentatore, Case, Dissipatore)
+                  </span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--accent-primary)' }}>
+                  {showManualSection ? 'Chiudi' : 'Aggiungi subito'}
+                </span>
+              </button>
+
+              {showManualSection && (
+                <div style={styles.manualFormContainer}>
+                  {manualItems.map((m, idx) => (
+                    <div key={m.category} style={styles.manualItemRow}>
+                      <label style={styles.manualCheckLabel}>
+                        <input
+                          type="checkbox"
+                          checked={m.enabled}
+                          onChange={(e) => handleUpdateManualField(idx, 'enabled', e.target.checked)}
+                          style={styles.checkbox}
+                        />
+                        <span style={styles.manualCategoryLabel}>{m.label}</span>
+                      </label>
+
+                      {m.enabled && (
+                        <div style={styles.manualInputsGroup}>
+                          <input
+                            type="text"
+                            placeholder="Marca (es. Corsair)"
+                            value={m.brand}
+                            onChange={(e) => handleUpdateManualField(idx, 'brand', e.target.value)}
+                            className="form-input"
+                            style={styles.microInput}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Modello (es. RM850x)"
+                            value={m.model}
+                            onChange={(e) => handleUpdateManualField(idx, 'model', e.target.value)}
+                            className="form-input"
+                            style={styles.microInput}
+                          />
+                          <input
+                            type="number"
+                            placeholder="Prezzo € (opzionale)"
+                            value={m.price}
+                            onChange={(e) => handleUpdateManualField(idx, 'price', e.target.value)}
+                            className="form-input"
+                            style={{ ...styles.microInput, maxWidth: '120px' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Pulsanti di azione */}
             <div style={styles.buttonRow}>
               <button
                 type="button"
@@ -567,11 +830,11 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 className="btn btn-primary"
                 style={styles.actionBtn}
                 onClick={handleConfirmImport}
-                disabled={isSubmitting || detectedItems.filter((i) => i.selected).length === 0}
+                disabled={isSubmitting || totalToImport === 0}
               >
                 {isSubmitting
                   ? 'Salvataggio...'
-                  : `Importa ${detectedItems.filter((i) => i.selected).length} componenti`}
+                  : `Importa ${totalToImport} componenti`}
                 <Check size={16} />
               </button>
             </div>
@@ -635,7 +898,7 @@ const styles: Record<string, React.CSSProperties> = {
   stepContent: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: '18px',
   },
   heroBadge: {
     width: '64px',
@@ -652,7 +915,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: '6px',
   },
   heroTitle: {
     fontSize: '20px',
@@ -686,7 +949,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: '10px',
+    marginTop: '6px',
     gap: '12px',
   },
   buttonRowCenter: {
@@ -724,7 +987,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
-    padding: '12px 0',
+    padding: '10px 0',
   },
   scanRow: {
     display: 'flex',
@@ -778,23 +1041,23 @@ const styles: Record<string, React.CSSProperties> = {
   disclaimerBox: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: '12px',
-    padding: '12px 14px',
+    gap: '10px',
+    padding: '10px 14px',
     borderRadius: 'var(--radius-md)',
     backgroundColor: 'rgba(245, 158, 11, 0.08)',
     border: '1px solid rgba(245, 158, 11, 0.25)',
   },
   disclaimerText: {
-    fontSize: '13px',
+    fontSize: '12.5px',
     color: 'var(--text-secondary)',
-    lineHeight: 1.45,
+    lineHeight: 1.4,
     margin: 0,
   },
   itemsList: {
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
-    maxHeight: '340px',
+    maxHeight: '300px',
     overflowY: 'auto',
     paddingRight: '4px',
   },
@@ -807,19 +1070,19 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-md)',
     backgroundColor: 'var(--bg-surface)',
     border: '1px solid var(--border-subtle)',
-    padding: '12px 14px',
+    padding: '10px 12px',
     transition: 'border-color 0.15s ease, opacity 0.15s ease',
   },
   itemRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: '12px',
+    gap: '10px',
   },
   itemLeftLabel: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '10px',
     cursor: 'pointer',
     flex: 1,
     minWidth: 0,
@@ -834,26 +1097,54 @@ const styles: Record<string, React.CSSProperties> = {
   itemTextGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
+    gap: '3px',
     minWidth: 0,
   },
   badgeAndName: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '6px',
     flexWrap: 'wrap',
   },
   categoryBadge: {
-    fontSize: '11px',
+    fontSize: '10.5px',
     fontWeight: 600,
-    padding: '2px 8px',
+    padding: '2px 7px',
     borderRadius: 'var(--radius-sm)',
     border: '1px solid transparent',
     textTransform: 'uppercase',
-    letterSpacing: '0.04em',
+    letterSpacing: '0.03em',
+  },
+  badgeAlreadyInstalled: {
+    fontSize: '10.5px',
+    fontWeight: 600,
+    padding: '2px 7px',
+    borderRadius: 'var(--radius-sm)',
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    color: 'var(--text-muted)',
+    border: '1px solid var(--border-subtle)',
+  },
+  badgeIGPU: {
+    fontSize: '10.5px',
+    fontWeight: 600,
+    padding: '2px 7px',
+    borderRadius: 'var(--radius-sm)',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    color: 'var(--accent-amber)',
+    border: '1px solid rgba(245, 158, 11, 0.3)',
+  },
+  specBadge: {
+    fontSize: '10.5px',
+    fontWeight: 500,
+    padding: '2px 6px',
+    borderRadius: 'var(--radius-xs)',
+    backgroundColor: 'var(--bg-surface-elevated)',
+    color: 'var(--text-secondary)',
+    border: '1px solid var(--border-subtle)',
+    fontFamily: 'var(--font-mono)',
   },
   componentName: {
-    fontSize: '14px',
+    fontSize: '13.5px',
     fontWeight: 600,
     color: 'var(--text-primary)',
     whiteSpace: 'nowrap',
@@ -861,12 +1152,12 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
   },
   sourceText: {
-    fontSize: '12px',
+    fontSize: '11.5px',
     color: 'var(--text-muted)',
   },
   editBtn: {
     padding: '4px 8px',
-    fontSize: '12px',
+    fontSize: '11.5px',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '4px',
@@ -881,6 +1172,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '10px',
     alignItems: 'flex-end',
+    flexWrap: 'wrap',
   },
   microLabel: {
     fontSize: '11px',
@@ -890,7 +1182,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   microInput: {
     padding: '6px 10px',
-    fontSize: '13px',
+    fontSize: '12.5px',
     width: '100%',
   },
   editActions: {
@@ -900,6 +1192,55 @@ const styles: Record<string, React.CSSProperties> = {
   microBtn: {
     padding: '6px 12px',
     fontSize: '12px',
+  },
+  manualAccordionBox: {
+    borderRadius: 'var(--radius-md)',
+    backgroundColor: 'var(--bg-surface-elevated)',
+    border: '1px solid var(--border-subtle)',
+    overflow: 'hidden',
+  },
+  manualAccordionToggle: {
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 14px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  manualFormContainer: {
+    padding: '12px 14px',
+    borderTop: '1px solid var(--border-subtle)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    backgroundColor: 'var(--bg-surface)',
+  },
+  manualItemRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    paddingBottom: '8px',
+    borderBottom: '1px solid var(--border-subtle)',
+  },
+  manualCheckLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+  },
+  manualCategoryLabel: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+  },
+  manualInputsGroup: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1.5fr 1fr',
+    gap: '8px',
+    paddingLeft: '26px',
   },
   completeIconWrap: {
     display: 'flex',

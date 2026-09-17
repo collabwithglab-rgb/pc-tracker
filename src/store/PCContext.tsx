@@ -133,6 +133,8 @@ export interface QuickSetupImportItem {
   model: string;
   serialNumber?: string;
   notes?: string;
+  purchasePrice?: number;
+  slotOrLocation?: string;
 }
 
 export interface QuickSetupImportInput {
@@ -1251,19 +1253,37 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
           updatedAt: now,
         };
 
+        const compEvents: ComponentEvent[] = [];
+
+        // Se l'utente ha indicato un prezzo d'acquisto reale, creiamo l'evento PURCHASE
+        if (typeof item.purchasePrice === 'number' && !isNaN(item.purchasePrice) && item.purchasePrice > 0) {
+          const purchaseEv: PurchaseEvent = {
+            id: generateId(),
+            componentId: compId,
+            type: 'PURCHASE',
+            date: installDate,
+            price: item.purchasePrice,
+            condition: 'new',
+            notes: 'Prezzo inserito durante il Quick Setup',
+            createdAt: now,
+          };
+          compEvents.push(purchaseEv);
+        }
+
         const installEv: InstallEvent = {
           id: generateId(),
           componentId: compId,
           type: 'INSTALL',
           date: installDate,
-          slotOrLocation: getDefaultSlot(item.category),
+          slotOrLocation: item.slotOrLocation || getDefaultSlot(item.category),
           notes: 'Installazione iniziale Quick Setup',
           createdAt: now,
         };
+        compEvents.push(installEv);
 
         return {
           component: comp,
-          events: [installEv],
+          events: compEvents,
         };
       });
 

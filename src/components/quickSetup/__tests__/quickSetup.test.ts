@@ -173,5 +173,119 @@ describe('Quick Setup & Hardware Detection Engine', () => {
       expect(getDefaultSlot('psu')).toBe('Vano Alimentatore');
       expect(getDefaultSlot('other')).toBe('Postazione PC');
     });
+
+    it('supporta la registrazione opzionale di un prezzo reale senza inventare costi per gli altri', () => {
+      const now = new Date().toISOString();
+      const compId1 = 'comp-cpu-real-price';
+      const compId2 = 'comp-gpu-zero-price';
+
+      const events: (InstallEvent | any)[] = [
+        // Componente 1: con prezzo reale fornito dall'utente (549.99 €)
+        {
+          id: 'ev-pur-1',
+          componentId: compId1,
+          type: 'PURCHASE',
+          date: '2024-01-01',
+          price: 549.99,
+          condition: 'new',
+          createdAt: now,
+        },
+        {
+          id: 'ev-inst-1',
+          componentId: compId1,
+          type: 'INSTALL',
+          date: '2024-01-01',
+          slotOrLocation: 'Socket CPU',
+          createdAt: now,
+        },
+        // Componente 2: senza prezzo (nessuna spesa inventata)
+        {
+          id: 'ev-inst-2',
+          componentId: compId2,
+          type: 'INSTALL',
+          date: '2024-01-01',
+          slotOrLocation: 'PCIe 1',
+          createdAt: now,
+        },
+      ];
+
+      const netCost = computeHistoricalNetCost(events);
+      expect(netCost).toBe(549.99);
+    });
+  });
+
+  describe('Smart Diff & Rilevamento Avanzato Metadati', () => {
+    it('riconosce VRAM della GPU, versione BIOS e interfaccia NVMe nel servizio', async () => {
+      const detected = await detectHardware();
+      const gpu = detected.find((d) => d.category === 'gpu' && d.extraDetails?.is_discrete === 'true');
+      expect(gpu).toBeDefined();
+      expect(gpu?.capacity).toBe('12 GB');
+      expect(gpu?.extraDetails?.vram).toBe('12 GB');
+
+      const mobo = detected.find((d) => d.category === 'motherboard');
+      expect(mobo).toBeDefined();
+      expect(mobo?.extraDetails?.bios_version).toBe('2403');
+      expect(mobo?.extraDetails?.bios_date).toBe('2024-05-10');
+
+      const storage = detected.find((d) => d.category === 'storage');
+      expect(storage).toBeDefined();
+      expect(storage?.extraDetails?.interface).toBe('NVMe');
+
+      const igpu = detected.find((d) => d.category === 'gpu' && d.extraDetails?.is_integrated === 'true');
+      expect(igpu).toBeDefined();
+      expect(igpu?.extraDetails?.is_integrated).toBe('true');
+    });
+
+    it('identifica i componenti già presenti nel PC evitando duplicati accidentali', () => {
+      const existingInstalled: Component[] = [
+        {
+          id: 'existing-cpu',
+          name: 'AMD Ryzen 7 7800X3D',
+          brand: 'AMD',
+          model: 'Ryzen 7 7800X3D',
+          category: 'cpu',
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
+        },
+        {
+          id: 'existing-ram',
+          name: '32 GB DDR5 RAM Kit',
+          brand: 'Corsair',
+          model: '32 GB RAM',
+          category: 'ram',
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
+        },
+      ];
+
+      const checkDuplicate = (cand: { category: string; model: string; capacity?: string }) => {
+        const normCandModel = cand.model.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return existingInstalled.some((comp) => {
+          if (comp.category !== cand.category) return false;
+          const normCompModel = comp.model.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const normCompName = comp.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          if (normCompModel.length >= 4 && normCandModel.length >= 4) {
+            if (normCompModel.includes(normCandModel) || normCandModel.includes(normCompModel)) return true;
+          }
+          if (normCompName.length >= 4 && normCandModel.length >= 4) {
+            if (normCompName.includes(normCandModel) || normCandModel.includes(normCompName)) return true;
+          }
+          if (cand.category === 'ram' && cand.capacity && (comp.name.includes(cand.capacity) || comp.model.includes(cand.capacity))) {
+            return true;
+          }
+          return false;
+        });
+      };
+
+      // CPU identica già presente -> duplicato rilevato
+      expect(checkDuplicate({ category: 'cpu', model: 'AMD Ryzen 7 7800X3D' })).toBe(true);
+
+      // RAM identica (32 GB) -> duplicato rilevato
+      expect(checkDuplicate({ category: 'ram', model: '32 GB DDR5', capacity: '32 GB' })).toBe(true);
+
+      // Nuova GPU (RTX 4070) non presente -> nessun duplicato
+      expect(checkDuplicate({ category: 'gpu', model: 'GeForce RTX 4070' })).toBe(false);
+    });
   });
 });
