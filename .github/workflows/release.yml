@@ -55,7 +55,14 @@ jobs:
         run: npm run audit:privacy
 
       - name: Build Tauri Desktop Application (NSIS)
-        run: npx @tauri-apps/cli build
+        shell: pwsh
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            Write-Error "CRITICAL: TAURI_SIGNING_PRIVATE_KEY secret is missing or empty in GitHub Secrets!"
+            exit 1
+          }
+          Write-Output "Signing key detected (length: $($env:TAURI_SIGNING_PRIVATE_KEY.Length)). Building and signing installer..."
+          node ./scripts/tauri.cjs build --ci --verbose
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
@@ -77,11 +84,12 @@ jobs:
           $sigFile = Get-Item "src-tauri/target/release/bundle/nsis/*.sig" | Select-Object -First 1
           if ($sigFile) {
             $sigContent = Get-Content -Raw -Path $sigFile.FullName
-            $versionTag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "v0.1.0" }
+            $versionTag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "v0.1.1" }
             $rawVersion = $versionTag.TrimStart('v')
             $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             $repo = $env:GITHUB_REPOSITORY
-            $downloadUrl = "https://github.com/$repo/releases/download/$versionTag/$($installer.Name)"
+            $safeName = $installer.Name -replace ' ', '.'
+            $downloadUrl = "https://github.com/$repo/releases/download/$versionTag/$safeName"
             $latestObj = @{
               version = $rawVersion
               notes = "Aggiornamento automatico PC Tracker $versionTag"
@@ -96,6 +104,9 @@ jobs:
             $latestJson = $latestObj | ConvertTo-Json -Depth 5
             $latestJson | Out-File -FilePath "latest.json" -Encoding utf8
             Write-Output "Generated latest.json for auto-updater"
+          } else {
+            Write-Error "CRITICAL: Signature .sig file was not generated! Auto-updater will fail."
+            exit 1
           }
 
       - name: Create GitHub Release & Upload Assets

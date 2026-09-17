@@ -21,20 +21,32 @@ const env = {
 
 const cwd = process.cwd();
 
-// Caricamento opzionale chiave privata locale per firma auto-updater se non passata da env
+// Sanitizzazione o caricamento della chiave privata per la firma auto-updater
 if (!env.TAURI_SIGNING_PRIVATE_KEY) {
   const keyFile = path.join(cwd, 'user-backups', 'tauri-updater-private-key.txt');
   if (fs.existsSync(keyFile)) {
     const lines = fs.readFileSync(keyFile, 'utf8').split('\n');
     const keyLine = lines.find((l) => l.trim().startsWith('dW50'));
     if (keyLine) {
-      env.TAURI_SIGNING_PRIVATE_KEY = keyLine.trim();
+      env.TAURI_SIGNING_PRIVATE_KEY = keyLine.trim().replace(/^['"]|['"]$/g, '');
     }
+  }
+} else {
+  // Se passata tramite env/secret, estrai la riga effettiva che inizia con dW50
+  const lines = env.TAURI_SIGNING_PRIVATE_KEY.split(/\r?\n/);
+  const keyLine = lines.find((l) => l.trim().startsWith('dW50'));
+  if (keyLine) {
+    env.TAURI_SIGNING_PRIVATE_KEY = keyLine.trim().replace(/^['"]|['"]$/g, '');
+  } else {
+    env.TAURI_SIGNING_PRIVATE_KEY = env.TAURI_SIGNING_PRIVATE_KEY.trim().replace(/^['"]|['"]$/g, '');
   }
 }
 
-if (env.TAURI_SIGNING_PRIVATE_KEY && env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD === undefined) {
-  env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = '';
+if (env.TAURI_SIGNING_PRIVATE_KEY) {
+  env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '';
+  console.log(`[tauri.cjs] Signing key present (sanitized length: ${env.TAURI_SIGNING_PRIVATE_KEY.length}).`);
+} else {
+  console.log('[tauri.cjs] No TAURI_SIGNING_PRIVATE_KEY found in env or local backups.');
 }
 let runCwd = cwd;
 let mappedDrive = null;
