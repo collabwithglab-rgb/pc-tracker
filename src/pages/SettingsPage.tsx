@@ -39,6 +39,7 @@ import {
   checkForAppUpdates,
   downloadAndInstallUpdate,
   AppUpdateInfo,
+  APP_VERSION,
 } from '../services';
 import { formatDate } from '../utils';
 import {
@@ -1255,7 +1256,7 @@ export const SettingsPage: React.FC = () => {
                       Versione Corrente
                     </span>
                     <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      v0.1.1
+                      v{APP_VERSION}
                     </strong>
                   </div>
 

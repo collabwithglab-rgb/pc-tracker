@@ -18,6 +18,8 @@ export interface AppUpdateInfo {
 
 export type UpdateProgressCallback = (downloaded: number, total: number | null, percent: number) => void;
 
+export const APP_VERSION = '0.1.1';
+
 // Riferimento cache all'oggetto Update nativo di Tauri
 let cachedUpdate: import('@tauri-apps/plugin-updater').Update | null = null;
 
@@ -27,12 +29,10 @@ let cachedUpdate: import('@tauri-apps/plugin-updater').Update | null = null;
  * - Se in ambiente web: restituisce available: false.
  */
 export async function checkForAppUpdates(): Promise<AppUpdateInfo> {
-  const defaultVersion = '0.1.0';
-
   if (!isDesktopApp()) {
     return {
       available: false,
-      currentVersion: defaultVersion,
+      currentVersion: APP_VERSION,
     };
   }
 
@@ -44,7 +44,7 @@ export async function checkForAppUpdates(): Promise<AppUpdateInfo> {
       cachedUpdate = update;
       return {
         available: true,
-        currentVersion: update.currentVersion || defaultVersion,
+        currentVersion: update.currentVersion || APP_VERSION,
         newVersion: update.version,
         releaseNotes: update.body || '',
         publishedDate: update.date || '',
@@ -54,13 +54,13 @@ export async function checkForAppUpdates(): Promise<AppUpdateInfo> {
     cachedUpdate = null;
     return {
       available: false,
-      currentVersion: defaultVersion,
+      currentVersion: APP_VERSION,
     };
   } catch (err) {
     console.warn('[Auto-Updater] Errore durante il controllo aggiornamenti:', err);
     return {
       available: false,
-      currentVersion: defaultVersion,
+      currentVersion: APP_VERSION,
       error: (err as Error).message || 'Impossibile verificare gli aggiornamenti.',
     };
   }
@@ -68,7 +68,7 @@ export async function checkForAppUpdates(): Promise<AppUpdateInfo> {
 
 /**
  * Scarica e installa l'aggiornamento disponibile con tracciamento del progresso:
- * Su Windows, al completamento del download l'installer viene avviato automaticamente.
+ * Su Windows, al completamento del download l'installer viene avviato e l'app viene riavviata.
  */
 export async function downloadAndInstallUpdate(
   onProgress?: UpdateProgressCallback
@@ -103,6 +103,14 @@ export async function downloadAndInstallUpdate(
         }
       }
     });
+
+    // Riavvia l'applicazione consentendo a Windows di applicare il pacchetto aggiornato
+    try {
+      const { relaunch } = await import('@tauri-apps/plugin-process');
+      await relaunch();
+    } catch (relaunchErr) {
+      console.warn('[Auto-Updater] Riavvio automatico completato o in attesa manuale:', relaunchErr);
+    }
 
     return { success: true };
   } catch (err) {

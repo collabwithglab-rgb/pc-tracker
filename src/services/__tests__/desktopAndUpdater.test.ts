@@ -5,6 +5,7 @@ import {
   pickAndReadBackupFileWithDialog,
   checkForAppUpdates,
   downloadAndInstallUpdate,
+  APP_VERSION,
 } from '../index';
 
 describe('Desktop & Updater Services in Non-Tauri (Web/Node) Environment', () => {
@@ -70,7 +71,7 @@ describe('Desktop & Updater Services in Non-Tauri (Web/Node) Environment', () =>
   it('checkForAppUpdates returns available:false in web environment', async () => {
     const info = await checkForAppUpdates();
     expect(info.available).toBe(false);
-    expect(info.currentVersion).toBe('0.1.0');
+    expect(info.currentVersion).toBe(APP_VERSION);
   });
 
   it('downloadAndInstallUpdate returns error if no update is available', async () => {
