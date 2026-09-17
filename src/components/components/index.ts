@@ -11,4 +11,5 @@ export * from './DisposalModal';
 export * from './MovementSelectorModal';
 export * from './UpgradeWizardModal';
 export * from './ReceiptVaultModal';
+export * from './ListingGeneratorModal';
 

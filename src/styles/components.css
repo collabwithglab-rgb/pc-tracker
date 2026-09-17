@@ -2578,6 +2578,178 @@
 }
 
 /* ==========================================================================
+   GENERATORE ANNUNCI VENDITA & PROMPT IA (MARKETPLACE LISTINGS)
+   ========================================================================== */
+.listing-modal-container {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .listing-modal-container {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+}
+
+.listing-options-panel {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.listing-options-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.listing-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.listing-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.listing-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.listing-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.listing-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bg-app);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  overflow-x: auto;
+}
+
+.listing-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-apple-fast);
+}
+
+.listing-tab-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+}
+
+.listing-tab-btn.active {
+  color: var(--accent-primary);
+  background-color: var(--bg-surface-elevated);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.listing-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.listing-title-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.listing-title-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.listing-char-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.listing-textarea-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.listing-textarea {
+  width: 100%;
+  min-height: 240px;
+  max-height: 400px;
+  padding: 12px;
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.55;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.listing-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background-color: var(--bg-surface);
+}
+
+.listing-copy-btn-success {
+  background-color: var(--accent-emerald-subtle) !important;
+  color: var(--accent-emerald) !important;
+  border-color: var(--accent-emerald-border) !important;
+}
+
+/* ==========================================================================
    PRINT / PDF STYLESHEET (SCHEDA TECNICA HARDWARE)
    ========================================================================== */
 @media print {
