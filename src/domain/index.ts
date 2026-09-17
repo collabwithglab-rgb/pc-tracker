@@ -6,3 +6,4 @@ export * from './validators';
 export * from './statsEngine';
 export * from './archiveEngine';
 export * from './checkpointEngine';
+export * from './rigExportEngine';

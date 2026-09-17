@@ -27,6 +27,7 @@ import {
   Bookmark,
   Sliders,
   Sparkles,
+  Share2,
 } from 'lucide-react';
 import { CheckpointModal } from '../components/checkpoint';
 
@@ -36,6 +37,7 @@ interface CurrentRigPageProps {
   onOpenUninstallModal: (component: Component) => void;
   onOpenReplaceModal: (component: Component, lastInstallEvent?: InstallEvent) => void;
   onOpenQuickSetup?: () => void;
+  onOpenExportModal?: () => void;
 }
 
 interface CategoryGroup {
@@ -89,6 +91,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
   onOpenUninstallModal,
   onOpenReplaceModal,
   onOpenQuickSetup,
+  onOpenExportModal,
 }) => {
   const { getInstalledComponents, isLoading, settings } = usePCStore();
   const [isSaveCheckpointOpen, setIsSaveCheckpointOpen] = React.useState<boolean>(false);
@@ -179,6 +182,19 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
             <Bookmark size={15} color="var(--accent-amber)" />
             <span>Salva Checkpoint</span>
           </button>
+
+          {installedItems.length > 0 && onOpenExportModal && (
+            <button
+              onClick={onOpenExportModal}
+              className="btn btn-secondary micro-press"
+              style={{ fontSize: '13px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title="Esporta o condividi la scheda tecnica per Gemini, Discord, WhatsApp o PDF"
+              id="btn-current-rig-export"
+            >
+              <Share2 size={15} color="var(--accent-primary)" />
+              <span>Esporta Scheda</span>
+            </button>
+          )}
 
           <button
             onClick={() => onOpenInstallModal()}

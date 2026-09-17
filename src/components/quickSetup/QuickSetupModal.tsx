@@ -12,6 +12,7 @@ import {
   Monitor,
   Check,
   Plus,
+  Upload,
 } from 'lucide-react';
 import { ComponentCategory, Component } from '../../types';
 import { usePCStore, QuickSetupImportItem } from '../../store';
@@ -21,6 +22,7 @@ interface QuickSetupModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCompleted?: () => void;
+  onImportBackup?: () => void;
 }
 
 interface EditableDetectedItem extends DetectedComponent {
@@ -105,6 +107,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   isOpen,
   onClose,
   onCompleted,
+  onImportBackup,
 }) => {
   const { settings, updateSettings, importQuickSetupData, getInstalledComponents } = usePCStore();
 
@@ -409,6 +412,32 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 <ArrowRight size={16} />
               </button>
             </div>
+
+            {onImportBackup && (
+              <div style={{ textAlign: 'center', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onImportBackup();
+                  }}
+                  className="btn btn-secondary micro-press"
+                  style={{
+                    fontSize: '12px',
+                    padding: '6px 14px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: 'var(--text-secondary)',
+                    margin: '0 auto',
+                  }}
+                  id="btn-quicksetup-import-backup"
+                >
+                  <Upload size={13} color="var(--accent-primary)" />
+                  <span>Hai già un file di backup? <strong>Ripristina da JSON</strong></span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

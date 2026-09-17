@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar, NavSection } from './Sidebar';
 import { Header } from './Header';
 import { DashboardPage } from '../../pages/DashboardPage';
@@ -25,12 +25,26 @@ import {
 } from '../components';
 import { CheckpointModal, PostUpgradePromptModal } from '../checkpoint';
 import { QuickSetupModal } from '../quickSetup';
+import { ImportBackupModal } from '../backup';
+import { RigExportModal } from '../export';
 import { Toast } from '../common/Toast';
-import { Component, ComponentCategory, InstallEvent, Upgrade } from '../../types';
-import { isDesktopApp, checkForAppUpdates } from '../../services';
+import { Component, ComponentCategory, InstallEvent, Upgrade, ImportPreview } from '../../types';
+import { isDesktopApp, checkForAppUpdates, pickAndReadBackupFileWithDialog } from '../../services';
+import { validateImportJSON, executeImport } from '../../storage';
 
 export const AppShell: React.FC = () => {
-  const { settings, components, isLoading, showNotification } = usePCStore();
+  const {
+    settings,
+    components,
+    events,
+    upgrades,
+    checkpoints,
+    currentRigCost,
+    isLoading,
+    showNotification,
+    reloadFromDB,
+    getInstalledComponents,
+  } = usePCStore();
   const [currentSection, setCurrentSection] = useState<NavSection>('dashboard');
   const [hasInitializedStartSection, setHasInitializedStartSection] = useState(false);
 
@@ -106,6 +120,113 @@ export const AppShell: React.FC = () => {
   const [isPostUpgradePromptOpen, setIsPostUpgradePromptOpen] = useState(false);
   const [isPostUpgradeCheckpointModalOpen, setIsPostUpgradeCheckpointModalOpen] = useState(false);
   const [completedUpgrade, setCompletedUpgrade] = useState<Upgrade | null>(null);
+
+  // Stato Modale Esporta Scheda PC (Gemini AI, Discord, WhatsApp, PDF)
+  const [isRigExportOpen, setIsRigExportOpen] = useState(false);
+
+  // Stato Modale Import Backup JSON (Header, QuickSetup e Drag & Drop)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importPreviewData, setImportPreviewData] = useState<ImportPreview | null>(null);
+  const [importFileName, setImportFileName] = useState<string>('');
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processImportText = (text: string, fileName: string) => {
+    try {
+      const result = validateImportJSON(text);
+      if (!result.isValid) {
+        showNotification('error', `File di backup non valido (${fileName}): ${result.error}`);
+        return;
+      }
+      setImportFileName(fileName);
+      setImportPreviewData(result);
+      setIsImportModalOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore durante la lettura del file: ${(err as Error).message}`);
+    }
+  };
+
+  const triggerImportFlow = async () => {
+    if (isDesktopApp()) {
+      const result = await pickAndReadBackupFileWithDialog();
+      if (result.canceled) return;
+      if (result.success && result.content) {
+        processImportText(result.content, result.fileName || 'backup.json');
+        return;
+      }
+      if (result.error) {
+        showNotification('error', result.error);
+        return;
+      }
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      processImportText(text, file.name);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreviewData) return;
+    setIsImporting(true);
+    try {
+      await executeImport(importPreviewData.parsedData);
+      await reloadFromDB();
+      const countC = importPreviewData.counts.components;
+      const countE = importPreviewData.counts.events;
+      const countU = importPreviewData.counts.upgrades;
+      setIsImportModalOpen(false);
+      setImportPreviewData(null);
+      showNotification(
+        'success',
+        `Backup ripristinato con successo: ${countC} componenti, ${countE} eventi, ${countU} upgrade.`
+      );
+    } catch (err) {
+      setIsImportModalOpen(false);
+      showNotification('error', `Errore durante l'importazione: ${(err as Error).message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Drag and drop globale di file .json di backup sulla finestra dell'applicazione
+  useEffect(() => {
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const handleDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (file.name.toLowerCase().endsWith('.json')) {
+          try {
+            const text = await file.text();
+            processImportText(text, file.name);
+          } catch (err) {
+            showNotification('error', `Errore nella lettura del file trascinato: ${(err as Error).message}`);
+          }
+        }
+      }
+    };
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+    return () => {
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, []);
 
   const getSectionMetadata = (section: NavSection) => {
     switch (section) {
@@ -261,6 +382,7 @@ export const AppShell: React.FC = () => {
             onOpenMovementSelector={handleOpenMovementSelector}
             onSelectComponent={handleSelectComponent}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
+            onOpenExportModal={() => setIsRigExportOpen(true)}
           />
         );
       case 'current-rig':
@@ -271,6 +393,7 @@ export const AppShell: React.FC = () => {
             onOpenUninstallModal={handleOpenUninstallModal}
             onOpenReplaceModal={handleOpenReplaceModal}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
+            onOpenExportModal={() => setIsRigExportOpen(true)}
           />
         );
       case 'time-travel':
@@ -304,6 +427,7 @@ export const AppShell: React.FC = () => {
             onOpenUninstallModal={handleOpenUninstallModal}
             onOpenReplaceModal={handleOpenReplaceModal}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
+            onOpenExportModal={() => setIsRigExportOpen(true)}
           />
         );
     }
@@ -317,6 +441,7 @@ export const AppShell: React.FC = () => {
           title={selectedComponentId && currentSection === 'archive' ? 'Dettaglio Componente' : metadata.title}
           subtitle={selectedComponentId && currentSection === 'archive' ? 'Scheda tecnica e cronologia' : metadata.subtitle}
           onNewMovement={handleOpenMovementSelector}
+          onImportBackup={triggerImportFlow}
         />
         <main style={styles.content}>{renderContent()}</main>
       </div>
@@ -486,6 +611,47 @@ export const AppShell: React.FC = () => {
         onCompleted={() => {
           setCurrentSection('current-rig');
         }}
+        onImportBackup={triggerImportFlow}
+      />
+
+      {/* Modale Esportazione & Condivisione Scheda PC (Gemini AI, Discord, WhatsApp, PDF) */}
+      <RigExportModal
+        isOpen={isRigExportOpen}
+        onClose={() => setIsRigExportOpen(false)}
+        installedComponents={getInstalledComponents()}
+        rigName={settings.rigName}
+        rigDescription={settings.rigDescription}
+        buildYear={settings.buildYear}
+        currentRigCost={currentRigCost}
+        onNotify={(type, text) => showNotification(type, text)}
+      />
+
+      {/* Modale Unificato Ripristino Backup JSON */}
+      <ImportBackupModal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          setImportPreviewData(null);
+        }}
+        onConfirm={handleConfirmImport}
+        previewData={importPreviewData}
+        fileName={importFileName}
+        currentCounts={{
+          components: components.length,
+          events: events.length,
+          upgrades: upgrades.length,
+          checkpoints: checkpoints.length,
+        }}
+        isImporting={isImporting}
+      />
+
+      {/* Input File nascosto per fallback Web */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
       />
 
       {/* Notifiche Toast */}

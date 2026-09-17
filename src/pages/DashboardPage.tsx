@@ -19,6 +19,7 @@ import {
   Plus,
   TrendingUp,
   Sparkles,
+  Share2,
 } from 'lucide-react';
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
@@ -37,6 +38,7 @@ interface DashboardPageProps {
   onOpenMovementSelector?: () => void;
   onSelectComponent?: (id: string) => void;
   onOpenQuickSetup?: () => void;
+  onOpenExportModal?: () => void;
 }
 
 const CATEGORY_PRIORITY: Record<ComponentCategory, number> = {
@@ -60,6 +62,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onOpenMovementSelector,
   onSelectComponent,
   onOpenQuickSetup,
+  onOpenExportModal,
 }) => {
   const {
     components,
@@ -285,14 +288,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </span>
             </div>
 
-            <button
-              onClick={() => onNavigate && onNavigate('current-rig')}
-              className="dashboard-widget-link micro-press"
-              title="Apri la schermata completa Il Mio PC"
-            >
-              <span>Apri Il Mio PC</span>
-              <ArrowRight size={14} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {installedCount > 0 && onOpenExportModal && (
+                <button
+                  type="button"
+                  onClick={onOpenExportModal}
+                  className="btn btn-secondary micro-press"
+                  style={{ fontSize: '12px', padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  title="Esporta o condividi la scheda tecnica per Gemini, Discord, WhatsApp o PDF"
+                  id="btn-dashboard-export-rig"
+                >
+                  <Share2 size={13} color="var(--accent-primary)" />
+                  <span>Esporta Scheda</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => onNavigate && onNavigate('current-rig')}
+                className="dashboard-widget-link micro-press"
+                title="Apri la schermata completa Il Mio PC"
+              >
+                <span>Apri Il Mio PC</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
           </div>
 
           {installedCount === 0 ? (

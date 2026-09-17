@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, Upload } from 'lucide-react';
 import { exportDatabaseToJSON } from '../../storage';
 import { saveBackupFileWithDialog } from '../../services';
 
@@ -7,9 +7,10 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   onNewMovement?: () => void;
+  onImportBackup?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, subtitle, onNewMovement }) => {
+export const Header: React.FC<HeaderProps> = ({ title, subtitle, onNewMovement, onImportBackup }) => {
   const handleQuickBackup = async () => {
     try {
       const jsonString = await exportDatabaseToJSON();
@@ -34,10 +35,24 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onNewMovement }
           className="btn btn-secondary micro-press"
           title="Scarica backup JSON immediato da IndexedDB"
           style={{ fontSize: '13px', padding: '7px 12px' }}
+          id="btn-header-backup-json"
         >
           <Download size={15} />
           <span>Backup JSON</span>
         </button>
+
+        {onImportBackup && (
+          <button
+            onClick={onImportBackup}
+            className="btn btn-secondary micro-press"
+            title="Importa o ripristina database da file JSON"
+            style={{ fontSize: '13px', padding: '7px 12px' }}
+            id="btn-header-import-json"
+          >
+            <Upload size={15} />
+            <span>Importa JSON</span>
+          </button>
+        )}
 
         <button
           className="btn btn-primary micro-press"
