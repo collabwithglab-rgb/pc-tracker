@@ -336,6 +336,24 @@
   border: 1px solid rgba(100, 116, 139, 0.2);
 }
 
+.badge-warranty-active {
+  background-color: var(--accent-emerald-subtle);
+  color: var(--accent-emerald);
+  border: 1px solid var(--accent-emerald-border);
+}
+
+.badge-warranty-expiring {
+  background-color: var(--accent-amber-subtle);
+  color: var(--accent-amber);
+  border: 1px solid var(--accent-amber-border);
+}
+
+.badge-warranty-expired {
+  background-color: rgba(100, 116, 139, 0.1);
+  color: var(--text-muted);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
 /* Chip Categoria Compatto con Icona e Senza Spezzamento Parole */
 .category-chip {
   display: inline-flex;
@@ -2414,6 +2432,149 @@
 
 .spin {
   animation: spin 1s linear infinite;
+}
+
+/* ==========================================================================
+   CASSAFORTE RICEVUTE & DOCUMENTI (RECEIPT VAULT)
+   ========================================================================== */
+.receipt-vault-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.receipt-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-apple-fast),
+              background-color var(--transition-apple-fast);
+  gap: 12px;
+}
+
+.receipt-card:hover {
+  border-color: var(--border-default);
+  background-color: var(--bg-surface-hover);
+}
+
+.receipt-card-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.receipt-card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: var(--accent-primary-subtle);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary-border);
+}
+
+.receipt-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.receipt-card-filename {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-card-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.receipt-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.receipt-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  border: 1.5px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface-subtle);
+  cursor: pointer;
+  transition: border-color var(--transition-apple-fast),
+              background-color var(--transition-apple-fast);
+  text-align: center;
+  gap: 8px;
+}
+
+.receipt-dropzone:hover {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-primary-subtle);
+}
+
+.receipt-dropzone-dragover {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-primary-subtle-hover);
+}
+
+.receipt-viewer-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.receipt-iframe {
+  width: 100%;
+  height: 65vh;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: #ffffff;
+}
+
+.receipt-image-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-height: 65vh;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-app);
+  padding: 12px;
+}
+
+.receipt-image-preview {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  transition: transform var(--transition-apple-normal);
 }
 
 /* ==========================================================================

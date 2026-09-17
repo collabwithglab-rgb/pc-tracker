@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
 import {
@@ -8,9 +8,10 @@ import {
   EVENT_TYPE_LABELS,
   Component,
   ComponentEvent,
+  ComponentReceipt,
 } from '../types';
-import { canDeleteEvent } from '../domain';
-import { EventEditModal } from '../components/components/EventEditModal';
+import { canDeleteEvent, findPurchaseEvent } from '../domain';
+import { EventEditModal, ReceiptVaultModal } from '../components/components';
 import {
   ArrowLeft,
   Edit2,
@@ -27,6 +28,14 @@ import {
   ArrowRightLeft,
   Receipt,
   ArrowUpRight,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  ShieldOff,
+  UploadCloud,
+  Eye,
+  Download,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface ComponentDetailPageProps {
@@ -58,12 +67,105 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   onGift,
   onDisposal,
 }) => {
-  const { components, getComponentComputed, getComponentEvents, deleteComponentEvent, settings } = usePCStore();
+  const {
+    components,
+    getComponentComputed,
+    getComponentEvents,
+    deleteComponentEvent,
+    getComponentWarranty,
+    getComponentReceipts,
+    uploadReceipt,
+    deleteReceipt,
+    settings,
+  } = usePCStore();
   const [editingEvent, setEditingEvent] = useState<ComponentEvent | null>(null);
+
+  // Stato e caricamento asincrono per la Cassaforte Ricevute (Zero-Heap RAM)
+  const [receipts, setReceipts] = useState<ComponentReceipt[]>([]);
+  const [isLoadingReceipts, setIsLoadingReceipts] = useState(false);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [viewingReceipt, setViewingReceipt] = useState<ComponentReceipt | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const component = components.find((c) => c.id === componentId);
   const computed = getComponentComputed(componentId);
   const events = getComponentEvents(componentId);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingReceipts(true);
+    getComponentReceipts(componentId)
+      .then((data) => {
+        if (isMounted) setReceipts(data);
+      })
+      .catch((err) => {
+        console.error('Errore nel recupero delle ricevute:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingReceipts(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [componentId, getComponentReceipts]);
+
+  const handleProcessFile = async (file: File) => {
+    const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.type)) {
+      alert('Formato non supportato. Puoi caricare solo file PDF, PNG, JPG, JPEG o WEBP.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`File troppo grande (${(file.size / (1024 * 1024)).toFixed(1)} MB). Il limite massimo consentito è di 10 MB.`);
+      return;
+    }
+
+    try {
+      setIsUploadingReceipt(true);
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Errore durante la lettura del file.'));
+        reader.readAsDataURL(file);
+      });
+
+      const newReceipt = await uploadReceipt(
+        componentId,
+        {
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          dataUrl,
+        }
+      );
+      setReceipts((prev) => [newReceipt, ...prev]);
+    } catch (err) {
+      alert((err as Error).message || 'Errore durante il salvataggio del documento.');
+    } finally {
+      setIsUploadingReceipt(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDownloadReceipt = (rc: ComponentReceipt) => {
+    const a = document.createElement('a');
+    a.href = rc.dataUrl;
+    a.download = rc.fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleDeleteReceipt = async (receiptId: string) => {
+    await deleteReceipt(receiptId);
+    setReceipts((prev) => prev.filter((r) => r.id !== receiptId));
+    if (viewingReceipt && viewingReceipt.id === receiptId) {
+      setViewingReceipt(null);
+    }
+  };
 
   if (!component || !computed) {
     return (
@@ -490,12 +592,232 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
         </div>
       </div>
 
+      {/* Griglia a 2 colonne: Garanzia & Assistenza (RMA) e Cassaforte Ricevute */}
+      <div className="animate-slide-up stagger-4" style={styles.detailsGrid}>
+        {/* Garanzia & Assistenza RMA */}
+        {(() => {
+          const warranty = getComponentWarranty(componentId);
+          const purchaseEvent = findPurchaseEvent(events);
+
+          return (
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={16} color="var(--accent-primary)" />
+                  <span>Garanzia & Assistenza (RMA)</span>
+                </h2>
+                {warranty.status === 'active' && (
+                  <span className="badge badge-warranty-active">
+                    <ShieldCheck size={12} /> {warranty.humanLabel}
+                  </span>
+                )}
+                {warranty.status === 'expiring' && (
+                  <span className="badge badge-warranty-expiring">
+                    <ShieldAlert size={12} /> {warranty.humanLabel}
+                  </span>
+                )}
+                {warranty.status === 'expired' && (
+                  <span className="badge badge-warranty-expired">
+                    <ShieldX size={12} /> {warranty.humanLabel}
+                  </span>
+                )}
+                {warranty.status === 'none' && (
+                  <span className="badge" style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+                    <ShieldOff size={12} /> Non specificata
+                  </span>
+                )}
+              </div>
+
+              <div style={styles.specList}>
+                <div style={styles.specRow}>
+                  <span style={styles.specLabel}>Stato Garanzia:</span>
+                  <span style={styles.specValue}>{warranty.humanLabel}</span>
+                </div>
+                <div style={styles.specRow}>
+                  <span style={styles.specLabel}>Data Scadenza:</span>
+                  <span className="font-mono" style={styles.specValue}>
+                    {warranty.expiryDate ? formatDate(warranty.expiryDate, settings.dateFormat) : 'Non registrata'}
+                  </span>
+                </div>
+                <div style={styles.specRow}>
+                  <span style={styles.specLabel}>Data Acquisto:</span>
+                  <span className="font-mono" style={styles.specValue}>
+                    {purchaseEvent?.date ? formatDate(purchaseEvent.date, settings.dateFormat) : '—'}
+                  </span>
+                </div>
+                <div style={styles.specRow}>
+                  <span style={styles.specLabel}>Negozio / Rivenditore:</span>
+                  <span style={styles.specValue}>{purchaseEvent?.store || '—'}</span>
+                </div>
+                <div style={styles.specRow}>
+                  <span style={styles.specLabel}>Numero Ordine / Fattura:</span>
+                  <span className="font-mono" style={styles.specValue}>{purchaseEvent?.orderNumber || '—'}</span>
+                </div>
+                <div style={styles.specRow}>
+                  <span style={styles.specLabel}>Numero Seriale (S/N):</span>
+                  <span className="font-mono" style={styles.specValue}>{component.serialNumber || '—'}</span>
+                </div>
+              </div>
+
+              {purchaseEvent && (
+                <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingEvent(purchaseEvent)}
+                    className="btn btn-secondary micro-press"
+                    style={{ fontSize: '12px', padding: '4px 10px' }}
+                    title="Modifica data di scadenza o dettagli d'acquisto"
+                  >
+                    <Edit2 size={12} />
+                    <span>{purchaseEvent.warrantyExpiryDate ? 'Modifica Garanzia' : 'Imposta Scadenza Garanzia'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Cassaforte Ricevute & Fatture */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={16} color="var(--accent-primary)" />
+              <span>Cassaforte Ricevute & Fatture ({receipts.length})</span>
+            </h2>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Local-First (IndexedDB)</span>
+          </div>
+
+          {/* Input file nascosto e Dropzone Apple-style */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,image/png,image/jpeg,image/webp"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleProcessFile(f);
+            }}
+          />
+
+          <div
+            className="receipt-dropzone"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.add('receipt-dropzone-dragover');
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove('receipt-dropzone-dragover');
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove('receipt-dropzone-dragover');
+              const f = e.dataTransfer.files?.[0];
+              if (f) handleProcessFile(f);
+            }}
+          >
+            <UploadCloud size={22} color="var(--accent-primary)" />
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {isUploadingReceipt ? 'Salvataggio in corso...' : '+ Allega Fattura o Ricevuta'}
+            </span>
+            <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+              Trascina qui o clicca per selezionare (PDF o immagine PNG/JPG/WEBP, max 10MB)
+            </span>
+          </div>
+
+          {/* Elenco Documenti Allegati */}
+          {isLoadingReceipts ? (
+            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
+              Caricamento documenti dalla cassaforte locale...
+            </p>
+          ) : receipts.length === 0 ? (
+            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
+              Nessun documento allegato. Carica qui la fattura d'acquisto o la ricevuta per averla sempre a portata di mano in caso di RMA o rivendita.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {receipts.map((rc) => {
+                const isPdf = rc.fileType === 'application/pdf';
+                const sizeMb = (rc.fileSize / (1024 * 1024)).toFixed(2);
+                return (
+                  <div key={rc.id} className="receipt-card">
+                    <div className="receipt-card-info">
+                      <div className="receipt-card-icon">
+                        {isPdf ? <FileText size={18} /> : <ImageIcon size={18} />}
+                      </div>
+                      <div className="receipt-card-text">
+                        <span className="receipt-card-filename" title={rc.fileName}>
+                          {rc.fileName}
+                        </span>
+                        <span className="receipt-card-meta">
+                          <span>{sizeMb} MB</span>
+                          <span>•</span>
+                          <span>{formatDate(rc.uploadedAt, settings.dateFormat)}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="receipt-card-actions">
+                      <button
+                        type="button"
+                        onClick={() => setViewingReceipt(rc)}
+                        className="btn btn-secondary micro-press"
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
+                        title="Visualizza anteprima"
+                        aria-label={`Visualizza anteprima di ${rc.fileName}`}
+                      >
+                        <Eye size={13} />
+                        <span>Apri</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadReceipt(rc)}
+                        className="btn btn-ghost micro-press"
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
+                        title="Scarica file originale"
+                        aria-label={`Scarica ${rc.fileName}`}
+                      >
+                        <Download size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`Vuoi eliminare definitivamente "${rc.fileName}" dalla cassaforte?`)) {
+                            await handleDeleteReceipt(rc.id);
+                          }
+                        }}
+                        className="btn btn-ghost micro-press"
+                        style={{ padding: '4px 8px', fontSize: '12px', color: 'var(--accent-ruby)' }}
+                        title="Elimina documento"
+                        aria-label={`Elimina ${rc.fileName}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Modale Modifica Singolo Evento */}
       <EventEditModal
         isOpen={Boolean(editingEvent)}
         onClose={() => setEditingEvent(null)}
         event={editingEvent}
         componentName={component.name}
+      />
+
+      {/* Modale Visualizzatore Cassaforte Ricevute */}
+      <ReceiptVaultModal
+        isOpen={Boolean(viewingReceipt)}
+        onClose={() => setViewingReceipt(null)}
+        receipt={viewingReceipt}
+        componentName={component.name}
+        onDelete={handleDeleteReceipt}
       />
     </div>
   );

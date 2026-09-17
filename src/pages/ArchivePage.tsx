@@ -37,6 +37,9 @@ import {
   Keyboard,
   Cable,
   HelpCircle,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
 } from 'lucide-react';
 
 interface ArchivePageProps {
@@ -54,11 +57,12 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
   onOpenDeleteModal,
   onInstallComponent,
 }) => {
-  const { components, getComponentComputed, isLoading, settings } = usePCStore();
+  const { components, getComponentComputed, getComponentWarranty, isLoading, settings } = usePCStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedWarranty, setSelectedWarranty] = useState<'all' | 'active' | 'expiring' | 'expired'>('all');
 
   // Inizializzati dalle impostazioni predefinite salvate in IndexedDB
   const [viewMode, setViewMode] = useState<ArchiveViewPreference>(
@@ -90,14 +94,29 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
     return map;
   }, [components, getComponentComputed]);
 
-  // Filtraggio deterministico (nome, brand, modello, note, categoria, stato derivato)
+  // Mappa delle garanzie calcolata in memoria
+  const warrantyMap = useMemo(() => {
+    const map: Record<string, ReturnType<typeof getComponentWarranty>> = {};
+    for (const comp of components) {
+      map[comp.id] = getComponentWarranty(comp.id);
+    }
+    return map;
+  }, [components, getComponentWarranty]);
+
+  // Filtraggio deterministico (nome, brand, modello, note, categoria, stato derivato, garanzia)
   const filteredComponents = useMemo(() => {
-    return filterComponentsForArchive(components, computedMap, {
-      searchQuery,
-      category: selectedCategory,
-      status: selectedStatus,
-    });
-  }, [components, computedMap, searchQuery, selectedCategory, selectedStatus]);
+    return filterComponentsForArchive(
+      components,
+      computedMap,
+      {
+        searchQuery,
+        category: selectedCategory,
+        status: selectedStatus,
+        warranty: selectedWarranty,
+      },
+      warrantyMap
+    );
+  }, [components, computedMap, searchQuery, selectedCategory, selectedStatus, selectedWarranty, warrantyMap]);
 
   // Ordinamento deterministico
   const sortedComponents = useMemo(() => {
@@ -170,6 +189,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
     setSearchQuery('');
     setSelectedCategory('all');
     setSelectedStatus('all');
+    setSelectedWarranty('all');
   };
 
   if (isLoading) {
@@ -197,7 +217,11 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
     );
   }
 
-  const hasActiveFilters = searchQuery.trim() !== '' || selectedCategory !== 'all' || selectedStatus !== 'all';
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    selectedCategory !== 'all' ||
+    selectedStatus !== 'all' ||
+    selectedWarranty !== 'all';
 
   return (
     <div style={styles.container}>
@@ -299,6 +323,20 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               ))}
             </select>
 
+            {/* Filtro Garanzia */}
+            <select
+              value={selectedWarranty}
+              onChange={(e) => setSelectedWarranty(e.target.value as 'all' | 'active' | 'expiring' | 'expired')}
+              className="form-select"
+              style={styles.filterSelect}
+              aria-label="Filtra per stato della garanzia"
+            >
+              <option value="all">Tutte le garanzie</option>
+              <option value="active">Garanzia attiva</option>
+              <option value="expiring">In scadenza (≤ 30 gg)</option>
+              <option value="expired">Garanzia terminata</option>
+            </select>
+
             {/* Ordinamento */}
             <select
               value={sortPreference}
@@ -378,7 +416,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               Nessun componente con i filtri selezionati
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', maxWidth: '440px', margin: '0 auto 16px', lineHeight: 1.5 }}>
-              Nessun pezzo soddisfa contemporaneamente i filtri di categoria e stato attivi.
+              Nessun pezzo soddisfa contemporaneamente i filtri di categoria, stato e garanzia attivi.
             </p>
             <button
               onClick={resetFilters}
@@ -408,6 +446,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
             <tbody>
               {sortedComponents.map((comp) => {
                 const computed = computedMap[comp.id];
+                const wInfo = warrantyMap[comp.id];
                 const status = computed?.status || 'IN_STORAGE';
 
                 return (
@@ -451,26 +490,43 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                         : '—'}
                     </td>
                     <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                      {computed && computed.daysInUse > 0 ? (
-                        <span className="font-mono" style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>
-                          {computed.daysInUse} gg d'uso
-                        </span>
-                      ) : comp.notes ? (
-                        <span
-                          style={{
-                            maxWidth: '180px',
-                            display: 'inline-block',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                          title={comp.notes}
-                        >
-                          {comp.notes}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        {wInfo && wInfo.status === 'active' && (
+                          <span className="badge badge-warranty-active" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
+                            <ShieldCheck size={10} /> Garanzia
+                          </span>
+                        )}
+                        {wInfo && wInfo.status === 'expiring' && (
+                          <span className="badge badge-warranty-expiring" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
+                            <ShieldAlert size={10} /> Scade a breve
+                          </span>
+                        )}
+                        {wInfo && wInfo.status === 'expired' && selectedWarranty === 'expired' && (
+                          <span className="badge badge-warranty-expired" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
+                            <ShieldX size={10} /> Scaduta
+                          </span>
+                        )}
+                        {computed && computed.daysInUse > 0 ? (
+                          <span className="font-mono" style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>
+                            {computed.daysInUse} gg d'uso
+                          </span>
+                        ) : comp.notes ? (
+                          <span
+                            style={{
+                              maxWidth: '180px',
+                              display: 'inline-block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={comp.notes}
+                          >
+                            {comp.notes}
+                          </span>
+                        ) : !wInfo || wInfo.status === 'none' ? (
+                          '—'
+                        ) : null}
+                      </div>
                     </td>
                     <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -516,6 +572,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
         <div className="animate-slide-up" style={styles.componentsGrid}>
           {sortedComponents.map((comp) => {
             const computed = computedMap[comp.id];
+            const wInfo = warrantyMap[comp.id];
             const status = computed?.status || 'IN_STORAGE';
 
             return (
@@ -532,16 +589,33 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                 title={`Visualizza dettaglio di ${comp.name}`}
                 aria-label={`Componente ${comp.name}, ${COMPONENT_CATEGORY_LABELS[comp.category]}, ${COMPONENT_STATUS_LABELS[status]}`}
               >
-                {/* Header Card: Categoria + Stato */}
+                {/* Header Card: Categoria + Garanzia + Stato */}
                 <div style={styles.cardHeader}>
                   <div style={styles.categoryBadge}>
                     {getCategoryIcon(comp.category, 15)}
                     <span>{COMPONENT_CATEGORY_LABELS[comp.category]}</span>
                   </div>
 
-                  <span className={`badge ${getStatusBadgeClass(status)}`}>
-                    {COMPONENT_STATUS_LABELS[status]}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {wInfo && wInfo.status === 'active' && (
+                      <span className="badge badge-warranty-active" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
+                        <ShieldCheck size={10} /> Garanzia
+                      </span>
+                    )}
+                    {wInfo && wInfo.status === 'expiring' && (
+                      <span className="badge badge-warranty-expiring" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
+                        <ShieldAlert size={10} /> Scade a breve
+                      </span>
+                    )}
+                    {wInfo && wInfo.status === 'expired' && selectedWarranty === 'expired' && (
+                      <span className="badge badge-warranty-expired" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
+                        <ShieldX size={10} /> Scaduta
+                      </span>
+                    )}
+                    <span className={`badge ${getStatusBadgeClass(status)}`}>
+                      {COMPONENT_STATUS_LABELS[status]}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Corpo Card: Nome e Brand/Model */}
@@ -554,16 +628,33 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
 
                 {/* Strip Metadati Tecnici */}
                 <div style={styles.cardMetaStrip}>
-                  {computed?.purchaseDate ? (
-                    <div style={styles.metaItem}>
-                      <Calendar size={12} color="var(--text-muted)" />
-                      <span>{formatDate(computed.purchaseDate, settings.dateFormat)}</span>
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Nessun acquisto</span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+                    {computed?.purchaseDate ? (
+                      <div style={styles.metaItem}>
+                        <Calendar size={12} color="var(--text-muted)" />
+                        <span>{formatDate(computed.purchaseDate, settings.dateFormat)}</span>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Nessun acquisto</span>
+                    )}
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {wInfo && (wInfo.status === 'active' || wInfo.status === 'expiring') && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: wInfo.status === 'expiring' ? 'var(--accent-amber)' : 'var(--accent-emerald)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={`Garanzia: ${wInfo.humanLabel}`}
+                      >
+                        • {wInfo.humanLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                     {computed && computed.daysInUse > 0 && (
                       <span
                         className="badge badge-in-use"
