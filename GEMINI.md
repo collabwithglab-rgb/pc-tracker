@@ -268,3 +268,21 @@ Build Pc (All Components & Updates)- justpeppe_z/
 - ❌ **NON** sovrascrivere la memoria locale senza un meccanismo di backup/conferma.
 - ❌ **NON** considerare il dataset di sviluppo (29/62/5) come un "dataset canonico universale" o hardcodare le sue metriche come aspettative globali dell'applicazione.
 
+---
+
+## 10. Regole di Automazione Git & Release (Hands-Off per l'Utente)
+
+L'utente finale non deve eseguire manualmente comandi Git o preoccuparsi della gestione di repository, commit, tag e pipeline. L'assistente se ne occupa in piena autonomia secondo questa logica:
+
+1. **Commit e Push Automatico del Codice**:
+   - Al termine di ogni implementazione o modifica verificata con successo (con superamento di `npm test`, `tsc --noEmit` e `npm run audit:privacy`), l'assistente esegue automaticamente `git add`, `git commit` con messaggio convenzionale chiaro e `git push origin main`.
+   - Il repository remoto GitHub rimane costantemente aggiornato e sincronizzato.
+
+2. **Creazione e Distribuzione di Nuove Release Desktop**:
+   - Quando l'utente richiede una nuova versione scaricabile per sé o per i suoi amici (es. *"Prepara una nuova versione"*, *"Rilascia l'aggiornamento"* o *"Pubblica la versione successiva"*), l'assistente:
+     1. Incrementa la versione semver in modo coerente su tutti i file: `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` e `src/services/updaterService.ts`.
+     2. Esegue la validazione locale completa (`test`, `tsc`, `audit:privacy`).
+     3. Crea il commit di release, genera il tag Git corrispondente (es. `v0.1.2`) ed esegue il push sia del ramo `main` che del tag (`git push origin main --tags`).
+     4. GitHub Actions si attiva in automatico, compila l'installer Windows x64 NSIS, applica la firma crittografica Minisign Ed25519 e pubblica la nuova release con `latest.json`.
+     5. Tutti i PC con PC Tracker installato ricevono e applicano l'aggiornamento automatico senza alcun intervento manuale sul codice.
+
