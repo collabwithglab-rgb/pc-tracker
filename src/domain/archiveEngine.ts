@@ -2,26 +2,30 @@ import {
   Component,
   ComponentComputedState,
   ArchiveSortPreference,
+  WarrantyInfo,
 } from '../types';
 
 export interface ArchiveFilterOptions {
   searchQuery: string;
   category: string; // 'all' | ComponentCategory
   status: string; // 'all' | ComponentStatus
+  warranty?: 'all' | 'active' | 'expiring' | 'expired';
 }
 
 /**
  * Filtra la lista di componenti in base alla ricerca full-text (nome, brand, modello, note),
- * alla categoria selezionata e allo stato derivato dal lifecycle engine.
+ * alla categoria selezionata, allo stato derivato dal lifecycle engine e allo stato della garanzia.
  */
 export function filterComponentsForArchive(
   components: Component[],
   computedMap: Record<string, ComponentComputedState | undefined>,
-  filters: ArchiveFilterOptions
+  filters: ArchiveFilterOptions,
+  warrantyMap?: Record<string, WarrantyInfo | undefined>
 ): Component[] {
   const query = filters.searchQuery.trim().toLowerCase();
   const cat = filters.category;
   const stat = filters.status;
+  const warranty = filters.warranty;
 
   return components.filter((comp) => {
     // 1. Ricerca full-text su name, brand, model, notes
@@ -46,6 +50,18 @@ export function filterComponentsForArchive(
       const status = computed?.status || 'IN_STORAGE';
       if (status !== stat) {
         return false;
+      }
+    }
+
+    // 4. Filtro garanzia
+    if (warranty && warranty !== 'all' && warrantyMap) {
+      const wInfo = warrantyMap[comp.id];
+      if (warranty === 'active') {
+        if (!wInfo || !wInfo.isActive) return false;
+      } else if (warranty === 'expiring') {
+        if (!wInfo || !wInfo.isExpiringSoon) return false;
+      } else if (warranty === 'expired') {
+        if (!wInfo || !wInfo.isExpired) return false;
       }
     }
 

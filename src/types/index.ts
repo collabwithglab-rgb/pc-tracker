@@ -5,3 +5,4 @@ export * from './database';
 export * from './stats';
 export * from './checkpoint';
 export * from './history';
+export * from './receipt';
