@@ -92,7 +92,7 @@ jobs:
           node ./scripts/tauri.cjs build --ci --verbose
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
 
       - name: Calculate Checksums (SHA-256) & Generate latest.json Manifest
         id: checksums
@@ -101,23 +101,61 @@ jobs:
           $versionTag = "${{ steps.version_meta.outputs.versionTag }}"
           $rawVersion = "${{ steps.version_meta.outputs.rawVersion }}"
 
-          $installer = Get-Item "src-tauri/target/release/bundle/nsis/*$rawVersion*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $installer) {
-            $installer = Get-Item "src-tauri/target/release/bundle/nsis/*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          # Cerca sia nel percorso predefinito repo sia nella directory temporanea di build
+          $searchDirs = @(
+            "src-tauri/target/release/bundle/nsis",
+            "$([System.IO.Path]::GetTempPath())pctracker-target/release/bundle/nsis",
+            "$env:TEMP/pctracker-target/release/bundle/nsis"
+          )
+
+          $installer = $null
+          foreach ($dir in $searchDirs) {
+            if (Test-Path $dir) {
+              $found = Get-Item "$dir/*$rawVersion*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              if (-not $found) {
+                $found = Get-Item "$dir/*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              }
+              if ($found) {
+                $installer = $found
+                $targetDir = "src-tauri/target/release/bundle/nsis"
+                if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force }
+                if ($found.DirectoryName -ne (Resolve-Path $targetDir).Path) {
+                  Copy-Item -Path $found.FullName -Destination $targetDir -Force
+                }
+                break
+              }
+            }
           }
+
           if (-not $installer) {
-            Write-Error "Installer .exe not found in bundle directory!"
+            Write-Error "Installer .exe not found in bundle directories ($($searchDirs -join ', '))!"
             exit 1
           }
+
           $hash = (Get-FileHash -Path $installer.FullName -Algorithm SHA256).Hash
           "$hash  $($installer.Name)" | Out-File -FilePath "SHA256SUMS.txt" -Encoding utf8
           Write-Output "Installer: $($installer.FullName)"
           Write-Output "SHA256: $hash"
 
-          $sigFile = Get-Item "src-tauri/target/release/bundle/nsis/*$rawVersion*.sig" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $sigFile) {
-            $sigFile = Get-Item "src-tauri/target/release/bundle/nsis/*.sig" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          $sigFile = $null
+          foreach ($dir in $searchDirs) {
+            if (Test-Path $dir) {
+              $foundSig = Get-Item "$dir/*$rawVersion*.sig" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              if (-not $foundSig) {
+                $foundSig = Get-Item "$dir/*.sig" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              }
+              if ($foundSig) {
+                $sigFile = $foundSig
+                $targetDir = "src-tauri/target/release/bundle/nsis"
+                if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force }
+                if ($foundSig.DirectoryName -ne (Resolve-Path $targetDir).Path) {
+                  Copy-Item -Path $foundSig.FullName -Destination $targetDir -Force
+                }
+                break
+              }
+            }
           }
+
           if ($sigFile) {
             $sigContent = Get-Content -Raw -Path $sigFile.FullName
             $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
