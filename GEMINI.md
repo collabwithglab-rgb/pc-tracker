@@ -274,14 +274,16 @@ Build Pc (All Components & Updates)- justpeppe_z/
 
 L'utente finale non deve eseguire comandi Git o preoccuparsi della gestione di repository, commit, tag e pipeline. L'assistente adotta e applica in piena autonomia questo flusso a 3 livelli, calibrato per massima sicurezza, zero perdita dati e rispetto delle quote GitHub Actions:
 
-1. **Livello 1 — Salvataggio Locale a Tranche (Safety Checkpoint)**:
-   - Durante lo sviluppo di funzionalità articolate in più tranche (es. 1/5, 2/5, ecc.), al termine di ciascuna tranche completata l'assistente esegue un **`git commit` locale** (senza push).
-   - *Scopo*: rete di sicurezza istantanea a costo zero. Non usa connessione internet, non consuma minuti di CI, ma garantisce che nessun progresso intermedio possa mai andare perso o danneggiato in caso di crash o interruzioni.
+1. **Livello 1 — Salvataggio Locale a Tranche (Safety Checkpoint & Zero Perdita Dati)**:
+   - Al termine di ogni singola tranche completata e approvata (es. Tranche 1/5, Tranche 2/5, ecc.), l'assistente esegue **immediatamente un `git commit` locale** (senza push remoto).
+   - *Scopo*: Rete di sicurezza locale istantanea a costo zero. Tutto il lavoro svolto viene congelato stabilmente nella cronologia Git del disco locale. L'utente o l'assistente possono cambiare sessione, riprendere in un secondo momento o applicare modifiche senza mai rischiare di perdere progressi.
+   - **Regola Tassativa**: È **tassativamente vietato pushare su GitHub ad ogni singola tranche**. I push continui sporcano il feed remoto, innescano build CI superflue e creano rumore inutile.
 
-2. **Livello 2 — Sincronizzazione Cloud a Sezione Conclusa (`git push origin main`)**:
-   - Solo al completamento dell'intera sezione/task (quando tutte le tranche sono chiuse), l'assistente esegue la validazione locale completa (`npm test`, `tsc --noEmit` e `npm run audit:privacy`).
-   - Se i test sono tutti verdi, esegue **`git push origin main`**.
-   - *Scopo*: il codice sorgente su GitHub è sempre aggiornato, pulito e integro nel cloud, attivando la CI standard in modo ordinato e senza sprechi.
+2. **Livello 2 — Sincronizzazione Cloud Aggregata a Sezione Conclusa (`git push origin main`)**:
+   - Il push remoto su GitHub viene eseguito **in modo aggregato e corposo** solo al termine dell'intera sessione/task (dopo che tutte le tranche sono state chiuse e validate) oppure su richiesta esplicita dell'utente.
+   - Prima del push, l'assistente esegue la validazione locale completa (`npm test`, `tsc --noEmit` e `npm run audit:privacy`).
+   - Se i test e i controlli sono al 100% verdi, esegue un **unico push corposo e consolidato** (`git push origin main`).
+   - *Scopo*: Il repository su GitHub riceve blocchi di lavoro completi, stabili e puliti, attivando la CI standard in modo ordinato e senza sprechi.
 
 3. **Livello 3 — Release Desktop Ufficiale per gli Utenti (`vX.Y.Z` con push del Tag)**:
    - La Release ufficiale con compilazione dell'installer Windows e generazione degli artefatti dell'auto-updater NON viene creata per ogni minima modifica (evita l'affaticamento da aggiornamenti continui per gli utenti e preserva la quota mensile 2x dei runner Windows su GitHub Actions).
