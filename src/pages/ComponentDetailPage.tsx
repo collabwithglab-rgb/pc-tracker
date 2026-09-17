@@ -11,7 +11,7 @@ import {
   ComponentReceipt,
 } from '../types';
 import { canDeleteEvent, findPurchaseEvent } from '../domain';
-import { EventEditModal, ReceiptVaultModal } from '../components/components';
+import { EventEditModal, ReceiptVaultModal, ListingGeneratorModal } from '../components/components';
 import {
   ArrowLeft,
   Edit2,
@@ -86,6 +86,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [viewingReceipt, setViewingReceipt] = useState<ComponentReceipt | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isListingModalOpen, setIsListingModalOpen] = useState(false);
 
   const component = components.find((c) => c.id === componentId);
   const computed = getComponentComputed(componentId);
@@ -319,6 +320,22 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               )}
               {computed.status === 'IN_STORAGE' && (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => setIsListingModalOpen(true)}
+                    className="btn btn-secondary micro-press"
+                    title="Genera testo annuncio per Subito.it, eBay, Vinted o Prompt IA"
+                    style={{
+                      color: 'var(--accent-primary)',
+                      borderColor: 'var(--accent-primary-border)',
+                      backgroundColor: 'var(--accent-primary-subtle)',
+                      fontSize: '13px',
+                      padding: '6px 12px',
+                    }}
+                  >
+                    <Tag size={14} />
+                    <span>Genera Annuncio</span>
+                  </button>
                   {onGift && (
                     <button
                       onClick={() => onGift(component)}
@@ -818,6 +835,17 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
         receipt={viewingReceipt}
         componentName={component.name}
         onDelete={handleDeleteReceipt}
+      />
+
+      {/* Modale Generatore Annunci di Vendita & Prompt IA */}
+      <ListingGeneratorModal
+        isOpen={isListingModalOpen}
+        onClose={() => setIsListingModalOpen(false)}
+        component={component}
+        computed={computed}
+        events={events}
+        warranty={getComponentWarranty(componentId)}
+        receiptCount={receipts.length}
       />
     </div>
   );
