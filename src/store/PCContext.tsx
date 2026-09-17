@@ -19,6 +19,11 @@ import {
   Checkpoint,
   CheckpointTrigger,
   TemporalPosition,
+  ComponentReceipt,
+  WarrantyInfo,
+  ALLOWED_RECEIPT_MIME_TYPES,
+  AllowedReceiptMimeType,
+  MAX_RECEIPT_FILE_SIZE_BYTES,
 } from '../types';
 import {
   loadFullDatabase,
@@ -40,6 +45,9 @@ import {
   resetSettings,
   DEFAULT_SETTINGS,
   normalizeSettings,
+  getReceiptsByComponentId,
+  saveReceiptAtomic,
+  deleteReceiptAtomic,
 } from '../storage';
 import {
   computeTotalPurchased,
@@ -66,6 +74,8 @@ import {
   updateCheckpointMetadata,
   getConfigurationAtPosition,
   getEventsUpToPosition,
+  computeWarrantyInfo,
+  findPurchaseEvent,
 } from '../domain';
 import { generateId } from '../utils/id';
 
@@ -83,7 +93,15 @@ export interface InitialPurchaseInput {
   date: string;
   store?: string;
   condition?: 'new' | 'used';
+  warrantyExpiryDate?: string;
   notes?: string;
+  initialReceipt?: {
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+    dataUrl: string;
+    notes?: string;
+  };
 }
 
 export interface InstallInput {
@@ -235,6 +253,17 @@ interface PCStoreState {
   }) => Promise<Checkpoint>;
   updateCheckpoint: (id: string, updates: { name?: string; notes?: string }) => Promise<void>;
   deleteCheckpoint: (id: string) => Promise<void>;
+
+  // Cassaforte Ricevute & Garanzie (Task 1)
+  getComponentWarranty: (componentId: string) => WarrantyInfo;
+  getComponentReceipts: (componentId: string) => Promise<ComponentReceipt[]>;
+  uploadReceipt: (
+    componentId: string,
+    fileData: { fileName: string; fileType: string; fileSize: number; dataUrl: string },
+    notes?: string,
+    eventId?: string
+  ) => Promise<ComponentReceipt>;
+  deleteReceipt: (receiptId: string) => Promise<void>;
 }
 
 const PCContext = createContext<PCStoreState | null>(null);
@@ -334,6 +363,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         date: purchaseInput.date || now.split('T')[0],
         store: purchaseInput.store?.trim() || undefined,
         condition: purchaseInput.condition || 'new',
+        warrantyExpiryDate: purchaseInput.warrantyExpiryDate?.trim() || undefined,
         notes: purchaseInput.notes?.trim() || undefined,
         createdAt: now,
       };
@@ -343,6 +373,21 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       newComponent,
       purchaseEvent ? [purchaseEvent] : []
     );
+
+    if (purchaseInput?.initialReceipt) {
+      const receiptToSave: ComponentReceipt = {
+        id: generateId(),
+        componentId: newComponent.id,
+        eventId: purchaseEvent?.id,
+        fileName: purchaseInput.initialReceipt.fileName.trim(),
+        fileType: purchaseInput.initialReceipt.fileType,
+        fileSize: purchaseInput.initialReceipt.fileSize,
+        dataUrl: purchaseInput.initialReceipt.dataUrl,
+        uploadedAt: now,
+        notes: purchaseInput.initialReceipt.notes?.trim() || undefined,
+      };
+      await saveReceiptAtomic(receiptToSave);
+    }
 
     await reloadFromDB();
     setNotification({
@@ -1300,6 +1345,73 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     }
   };
 
+  /**
+   * Calcola lo stato di garanzia e i giorni residui per un componente.
+   */
+  const getComponentWarranty = (componentId: string): WarrantyInfo => {
+    const compEvents = data.events.filter((e) => e.componentId === componentId);
+    const purchase = findPurchaseEvent(compEvents);
+    return computeWarrantyInfo(purchase);
+  };
+
+  /**
+   * Recupera on-demand tutte le ricevute associate a un componente.
+   */
+  const getComponentReceipts = async (componentId: string): Promise<ComponentReceipt[]> => {
+    return getReceiptsByComponentId(componentId);
+  };
+
+  /**
+   * Salva una ricevuta/fattura nella cassaforte locale di IndexedDB.
+   */
+  const uploadReceipt = async (
+    componentId: string,
+    fileData: { fileName: string; fileType: string; fileSize: number; dataUrl: string },
+    notes?: string,
+    eventId?: string
+  ): Promise<ComponentReceipt> => {
+    const comp = data.components.find((c) => c.id === componentId);
+    if (!comp) {
+      throw new Error(`Componente con ID ${componentId} non trovato.`);
+    }
+
+    if (fileData.fileSize > MAX_RECEIPT_FILE_SIZE_BYTES) {
+      const err = `Il file supera il limite massimo consentito di 10MB (${(fileData.fileSize / (1024 * 1024)).toFixed(1)}MB).`;
+      showNotification('error', err);
+      throw new Error(err);
+    }
+
+    if (!ALLOWED_RECEIPT_MIME_TYPES.includes(fileData.fileType as AllowedReceiptMimeType)) {
+      const err = `Tipo file non supportato (${fileData.fileType}). Formati supportati: PDF, PNG, JPG, WebP.`;
+      showNotification('error', err);
+      throw new Error(err);
+    }
+
+    const receipt: ComponentReceipt = {
+      id: generateId(),
+      componentId,
+      eventId,
+      fileName: fileData.fileName.trim(),
+      fileType: fileData.fileType,
+      fileSize: fileData.fileSize,
+      dataUrl: fileData.dataUrl,
+      uploadedAt: new Date().toISOString(),
+      notes: notes?.trim() || undefined,
+    };
+
+    await saveReceiptAtomic(receipt);
+    showNotification('success', `Ricevuta "${receipt.fileName}" salvata nella cassaforte locale!`);
+    return receipt;
+  };
+
+  /**
+   * Elimina una ricevuta dalla cassaforte locale di IndexedDB.
+   */
+  const deleteReceipt = async (receiptId: string): Promise<void> => {
+    await deleteReceiptAtomic(receiptId);
+    showNotification('success', 'Ricevuta eliminata dalla cassaforte.');
+  };
+
   const contextValue: PCStoreState = {
     components: data.components,
     events: data.events,
@@ -1346,6 +1458,10 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     createCheckpointFromPosition,
     updateCheckpoint: handleUpdateCheckpoint,
     deleteCheckpoint: handleDeleteCheckpoint,
+    getComponentWarranty,
+    getComponentReceipts,
+    uploadReceipt,
+    deleteReceipt,
   };
 
   return <PCContext.Provider value={contextValue}>{children}</PCContext.Provider>;

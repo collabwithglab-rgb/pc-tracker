@@ -2,18 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import {
   ComponentEvent,
-  EVENT_TYPE_LABELS,
-  UNINSTALL_REASON_LABELS,
-  UninstallEvent,
   PurchaseEvent,
   InstallEvent,
+  UninstallEvent,
   SaleEvent,
   ExtraExpenseEvent,
   GiftEvent,
   DisposalEvent,
+  EVENT_TYPE_LABELS,
+  UNINSTALL_REASON_LABELS,
 } from '../../types';
+import { WARRANTY_PRESETS, calculateExpiryDateFromPreset } from '../../domain';
 import { usePCStore } from '../../store';
-import { Edit2, AlertCircle } from 'lucide-react';
+import { AlertCircle, ShieldCheck, Edit2 } from 'lucide-react';
 
 interface EventEditModalProps {
   isOpen: boolean;
@@ -35,11 +36,12 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Campi specifici per tipo
+  // Campi specifici per tipo evento
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseStore, setPurchaseStore] = useState('');
   const [purchaseCondition, setPurchaseCondition] = useState<'new' | 'used'>('new');
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
+  const [purchaseWarrantyExpiryDate, setPurchaseWarrantyExpiryDate] = useState('');
 
   const [installSlot, setInstallSlot] = useState('');
 
@@ -71,6 +73,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
       setPurchaseStore(pe.store || '');
       setPurchaseCondition(pe.condition || 'new');
       setPurchaseOrderNumber(pe.orderNumber || '');
+      setPurchaseWarrantyExpiryDate(pe.warrantyExpiryDate || '');
     } else if (event.type === 'INSTALL') {
       const ie = event as InstallEvent;
       setInstallSlot(ie.slotOrLocation || '');
@@ -125,6 +128,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
           store: purchaseStore.trim() || undefined,
           condition: purchaseCondition,
           orderNumber: purchaseOrderNumber.trim() || undefined,
+          warrantyExpiryDate: purchaseWarrantyExpiryDate.trim() || undefined,
         };
         break;
       }
@@ -306,6 +310,49 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
                   onChange={(e) => setPurchaseOrderNumber(e.target.value)}
                 />
               </div>
+            </div>
+            <div className="form-group">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label className="form-label" htmlFor="edit-purchase-warranty" style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: 0 }}>
+                  <ShieldCheck size={14} color="var(--accent-primary)" />
+                  <span>Scadenza Garanzia (RMA)</span>
+                </label>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {WARRANTY_PRESETS.slice(0, 3).map((p) => (
+                    <button
+                      key={p.months}
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '1px 6px', fontSize: '11px', height: '22px' }}
+                      onClick={() => {
+                        const exp = calculateExpiryDateFromPreset(date, p.months);
+                        setPurchaseWarrantyExpiryDate(exp);
+                      }}
+                      title={`Imposta scadenza a +${p.months / 12} anni da data evento`}
+                    >
+                      +{p.months / 12} anni
+                    </button>
+                  ))}
+                  {purchaseWarrantyExpiryDate && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '1px 6px', fontSize: '11px', height: '22px', color: 'var(--text-muted)' }}
+                      onClick={() => setPurchaseWarrantyExpiryDate('')}
+                      title="Rimuovi scadenza garanzia"
+                    >
+                      Azzera
+                    </button>
+                  )}
+                </div>
+              </div>
+              <input
+                id="edit-purchase-warranty"
+                type="date"
+                className="form-input"
+                value={purchaseWarrantyExpiryDate}
+                onChange={(e) => setPurchaseWarrantyExpiryDate(e.target.value)}
+              />
             </div>
           </>
         )}

@@ -4,10 +4,13 @@ import {
   Component,
   ComponentCategory,
   COMPONENT_CATEGORY_LABELS,
+  ALLOWED_RECEIPT_MIME_TYPES,
+  MAX_RECEIPT_FILE_SIZE_BYTES,
 } from '../../types';
 import { VALID_CATEGORIES } from '../../domain/validators';
+import { WARRANTY_PRESETS, calculateExpiryDateFromPreset } from '../../domain/warrantyEngine';
 import { usePCStore, InitialPurchaseInput } from '../../store';
-import { AlertCircle, Plus, Check } from 'lucide-react';
+import { AlertCircle, Plus, Check, ShieldCheck, Upload, FileText, X } from 'lucide-react';
 
 export interface ComponentFormProps {
   componentToEdit?: Component | null;
@@ -41,6 +44,13 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
   );
   const [store, setStore] = useState('');
   const [condition, setCondition] = useState<'new' | 'used'>('new');
+  const [warrantyExpiryDate, setWarrantyExpiryDate] = useState('');
+  const [receiptFile, setReceiptFile] = useState<{
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+    dataUrl: string;
+  } | null>(null);
 
   // Stato validazione locale & submit
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -55,6 +65,8 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
       setSerialNumber(componentToEdit.serialNumber || '');
       setNotes(componentToEdit.notes || '');
       setRecordPurchase(false);
+      setWarrantyExpiryDate('');
+      setReceiptFile(null);
     } else {
       setName('');
       setBrand('');
@@ -67,6 +79,8 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
       setPurchaseDate(new Date().toISOString().split('T')[0]);
       setStore('');
       setCondition('new');
+      setWarrantyExpiryDate('');
+      setReceiptFile(null);
     }
     setErrors({});
   }, [componentToEdit]);
@@ -115,6 +129,8 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
               date: purchaseDate,
               store: store.trim() || undefined,
               condition,
+              warrantyExpiryDate: warrantyExpiryDate.trim() || undefined,
+              initialReceipt: receiptFile || undefined,
             }
           : undefined;
 
@@ -321,6 +337,138 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                     <option value="used">Usato</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Scadenza Garanzia con Preset Rapidi */}
+              <div className="form-group">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: 0 }}>
+                    <ShieldCheck size={14} color="var(--accent-primary)" />
+                    <span>Scadenza Garanzia (RMA)</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {WARRANTY_PRESETS.slice(0, 3).map((p) => (
+                      <button
+                        key={p.months}
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '1px 6px', fontSize: '11px', height: '22px' }}
+                        onClick={() => {
+                          const exp = calculateExpiryDateFromPreset(purchaseDate, p.months);
+                          setWarrantyExpiryDate(exp);
+                        }}
+                        title={`Calcola scadenza a +${p.months / 12} anni da data acquisto`}
+                      >
+                        +{p.months / 12} anni
+                      </button>
+                    ))}
+                    {warrantyExpiryDate && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '1px 6px', fontSize: '11px', height: '22px', color: 'var(--text-muted)' }}
+                        onClick={() => setWarrantyExpiryDate('')}
+                        title="Rimuovi data scadenza"
+                      >
+                        Azzera
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <input
+                  type="date"
+                  value={warrantyExpiryDate}
+                  onChange={(e) => setWarrantyExpiryDate(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+
+              {/* Allegato Ricevuta / Fattura */}
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <FileText size={14} color="var(--accent-primary)" />
+                  <span>Ricevuta / Fattura d'Acquisto (Opzionale)</span>
+                </label>
+                {!receiptFile ? (
+                  <div
+                    style={{
+                      border: '1px dashed var(--border-default)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px',
+                      textAlign: 'center',
+                      backgroundColor: 'var(--bg-surface-elevated)',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => document.getElementById('comp-form-receipt-upload')?.click()}
+                  >
+                    <input
+                      id="comp-form-receipt-upload"
+                      type="file"
+                      accept=".pdf,image/png,image/jpeg,image/webp"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > MAX_RECEIPT_FILE_SIZE_BYTES) {
+                          alert('Il file selezionato supera il limite di 10MB.');
+                          return;
+                        }
+                        if (!ALLOWED_RECEIPT_MIME_TYPES.includes(file.type as any)) {
+                          alert('Formato non supportato. Usa PDF, PNG, JPG o WebP.');
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === 'string') {
+                            setReceiptFile({
+                              fileName: file.name,
+                              fileType: file.type,
+                              fileSize: file.size,
+                              dataUrl: reader.result,
+                            });
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      <Upload size={13} color="var(--accent-primary)" />
+                      <span>Allega PDF o immagine (max 10MB)</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 10px',
+                      backgroundColor: 'var(--bg-surface-elevated)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--accent-primary-border)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                      <FileText size={14} color="var(--accent-primary)" />
+                      <span style={{ fontWeight: 500, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {receiptFile.fileName}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                        ({(receiptFile.fileSize / 1024).toFixed(0)} KB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '2px 6px', height: '22px', color: 'var(--accent-ruby)' }}
+                      onClick={() => setReceiptFile(null)}
+                      title="Rimuovi allegato"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
