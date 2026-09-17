@@ -369,3 +369,4 @@ pub async fn detect_hardware() -> Result<Vec<DetectedComponent>, String> {
         Ok(vec![])
     }
 }
+
