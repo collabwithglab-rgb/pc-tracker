@@ -17,6 +17,7 @@ pathParts.push(process.env.PATH || '');
 const env = {
   ...process.env,
   PATH: pathParts.join(path.delimiter),
+  CARGO_TARGET_DIR: process.env.CARGO_TARGET_DIR || path.join(os.tmpdir(), 'pctracker-target'),
 };
 
 const cwd = process.cwd();

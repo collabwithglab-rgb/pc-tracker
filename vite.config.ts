@@ -9,6 +9,12 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     open: false,
+    watch: {
+      ignored: ['**/src-tauri/**', '**/target/**', '**/pctracker-target/**'],
+    },
+  },
+  optimizeDeps: {
+    entries: ['index.html'],
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
 });
