@@ -1255,7 +1255,7 @@ export const SettingsPage: React.FC = () => {
                       Versione Corrente
                     </span>
                     <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      v0.1.0
+                      v0.1.1
                     </strong>
                   </div>
 
