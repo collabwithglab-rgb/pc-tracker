@@ -11,7 +11,7 @@
 
 | Sessione | Task / Funzionalità | Stato | Test Unitari | Rilascio |
 | :---: | :--- | :---: | :---: | :---: |
-| **Sessione 1** | 🛡️ **Task 1**: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault) | ⏳ *In attesa* | `0/0` | - |
+| **Sessione 1** | 🛡️ **Task 1**: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault) | ✅ *Completata* | `358/358 pass` | Pronto per Release |
 | **Sessione 2** | 🏷️ **Task 2**: Generatore Automatico Annunci Vendita (Subito/eBay/Vinted) | ⏳ *In attesa* | `0/0` | - |
 | **Sessione 3** | ⚡ **Task 3**: Power Budget & Stima Consumi / TDP del Rig Attuale | ⏳ *In attesa* | `0/0` | - |
 | **Sessione 4** | 🧰 **Task 4**: Registro Manutenzione (Pasta Termica) & Profili Tuning/UV | ⏳ *In attesa* | `0/0` | - |
@@ -23,25 +23,31 @@
 
 ---
 
-### 🛡️ SESSIONE 1 — Task 1: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault)
+### 🛡️ SESSIONE 1 — Task 1: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault) — [COMPLETATA ✅]
 **Obiettivo**: Rendere PC Tracker il punto di riferimento per l'assistenza post-vendita e l'RMA dei componenti, con allegati salvati localmente.
 
-#### Specifiche Tecniche:
+#### Stato di Avanzamento:
+- [x] **Tranche 1**: Tipi di dominio (`receipt.ts`), motore puro `warrantyEngine.ts` con gestione anni bisestili/mesi e countdown in italiano, estensione `archiveEngine.ts`, 18 test unitari dedicati.
+- [x] **Tranche 2**: Store IndexedDB `receipts` (schema v3) con indice `componentId`, migrazione atomica, cascade delete all'eliminazione componente, validazione anti-leak e limiti 10MB/50MB nel backup/import, 12 test storage dedicati.
+- [x] **Tranche 3**: Azioni asincrone reattive in `PCContext.tsx` (`getComponentWarranty`, `getComponentReceipts`, `uploadReceipt`, `deleteReceipt`), integrazione preset temporali e upload ricevute in `ComponentFormModal.tsx` e `EventEditModal.tsx`.
+- [x] **Tranche 4**: Interfaccia utente con schede "Garanzia & Assistenza (RMA)" e "Cassaforte Ricevute & Fatture" in `ComponentDetailPage.tsx`, visualizzatore modale responsive con zoom per immagini e iframe PDF `ReceiptVaultModal.tsx`, filtro garanzia rapido e badge dedicati in `ArchivePage.tsx`, test integrati UI (9 test).
+- [x] **Tranche 5**: Audit di privacy superato, 358/358 test passati, sincronizzazione cloud Git.
+
+#### Specifiche Tecniche Completate:
 1. **Monitoraggio Garanzie Residue**:
    - Calcolo automatico dei giorni di garanzia rimanenti rispetto alla data di acquisto e alla data di scadenza (`warrantyExpiryDate`).
    - Badge visivi dinamici:
      - 🟢 *In garanzia (es. "Ancora 1 anno e 4 mesi")*
      - 🟡 *In scadenza (es. "Scade tra 25 giorni")*
      - ⚪ *Garanzia terminata*
-   - Filtro rapido nell'Archivio: *"Solo componenti con garanzia attiva"*.
+   - Filtro rapido nell'Archivio: *"Tutte le garanzie"*, *"Garanzia attiva"*, *"In scadenza (≤ 30 gg)"*, *"Garanzia terminata"*.
 2. **Cassaforte Ricevute / Fatture (Receipt Vault)**:
-   - Possibilità di allegare una ricevuta o fattura d'acquisto (formati supportati: `.pdf`, `.png`, `.jpg`, `.webp`).
-   - Memorizzazione **100% locale in IndexedDB** come Blob / DataURL (rispettando il principio *Local-First* di `GEMINI.md`, zero server, zero cloud).
-   - Finestra di visualizzazione / anteprima rapida della ricevuta nella scheda del componente.
-   - Pulsante "Scarica Ricevuta" per estrarre il file originale in caso di RMA o vendita.
+   - Possibilità di allegare una ricevuta o fattura d'acquisto (formati supportati: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, max 10MB).
+   - Memorizzazione **100% locale in IndexedDB** (rispettando il principio *Local-First* di `GEMINI.md`, zero server, zero cloud).
+   - Finestra di visualizzazione / anteprima rapida della ricevuta nella scheda del componente con zoom e PDF viewer.
+   - Pulsante "Scarica File" per estrarre il file originale in caso di RMA o vendita, ed eliminazione con conferma.
 3. **Criteri di Accettazione & Test**:
-   - Suite test per il calcolo delle scadenze garanzia.
-   - Test per salvataggio, lettura ed eliminazione allegati su IndexedDB.
+   - Suite completa con 358 test passati (100% verdi).
    - Verifica assenza leak nei backup e rispetto dei limiti di dimensione.
 
 ---
