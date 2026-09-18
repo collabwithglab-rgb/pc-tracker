@@ -12,7 +12,7 @@
 | Sessione | Task / Funzionalità | Stato | Test Unitari | Rilascio |
 | :---: | :--- | :---: | :---: | :---: |
 | **Sessione 1** | 🛡️ **Task 1**: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault) | ✅ *Completata* | `358/358 pass` | Pronto per Release |
-| **Sessione 2** | 🏷️ **Task 2**: Generatore Automatico Annunci Vendita (Subito/eBay/Vinted) | ✅ *Completata* | `381/381 pass` | Pronto per Release |
+| **Sessione 2** | 🏷️ **Task 2**: Generatore Automatico Annunci Vendita (Subito/eBay/Vinted) & Hub Vendite | ✅ *Completata* | `384/384 pass` | Pronto per Release |
 | **Sessione 3** | ⚡ **Task 3**: Power Budget & Stima Consumi / TDP del Rig Attuale | ⏳ *In attesa* | `0/0` | - |
 | **Sessione 4** | 🧰 **Task 4**: Registro Manutenzione (Pasta Termica) & Profili Tuning/UV | ⏳ *In attesa* | `0/0` | - |
 | **Sessione 5** | ⚡ **Task 5**: Command Palette (`Ctrl+K`) & Confronto Rig Affiancato | ⏳ *In attesa* | `0/0` | - |
@@ -60,6 +60,7 @@
 - [x] **Tranche 2**: Componente modale interattivo `ListingGeneratorModal.tsx` con tab dedicate (Subito, eBay, Vinted, Prompt IA), opzioni reattive (condizione estetica, scatola originale, accessori, ambiente non fumatori/no mining, modalità consegna/città, prezzo, note), modifica manuale con pulsante "Ripristina" e stili Vanilla CSS "Less, but better".
 - [x] **Tranche 3**: Integrazione del pulsante "Genera Annuncio" nella scheda componente (`ComponentDetailPage.tsx`) per i pezzi a magazzino (`IN_STORAGE`), e 5 test di integrazione logica UI in `listingGeneratorModal.test.ts`.
 - [x] **Tranche 4**: Validazione globale, audit di privacy superato, 381/381 test passati (100% verdi).
+- [x] **Tranche 5**: Ristrutturazione della Sidebar a 4 macro-aree tematiche (con predisposizione ordinata per Sessioni 3, 4 e 5), creazione del nuovo hub dedicato **Vendite & Annunci** (`MarketplacePage`) con KPI finanziari di mercato, tab hardware a magazzino / venduto, pulsante rapido di generazione annuncio e badge contatore dinamico. 384/384 test passati (100% verdi).
 
 #### Specifiche Tecniche Completate:
 1. **Pulsante "Genera Annuncio" nella Scheda Componente**:
