@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Download, Upload } from 'lucide-react';
+import { Plus, Download, Upload, BookOpen } from 'lucide-react';
 import { exportDatabaseToJSON } from '../../storage';
 import { saveBackupFileWithDialog } from '../../services';
 
@@ -8,9 +8,16 @@ interface HeaderProps {
   subtitle?: string;
   onNewMovement?: () => void;
   onImportBackup?: () => void;
+  onOpenWiki?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, subtitle, onNewMovement, onImportBackup }) => {
+export const Header: React.FC<HeaderProps> = ({
+  title,
+  subtitle,
+  onNewMovement,
+  onImportBackup,
+  onOpenWiki,
+}) => {
   const handleQuickBackup = async () => {
     try {
       const jsonString = await exportDatabaseToJSON();
@@ -30,6 +37,19 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onNewMovement, 
       </div>
 
       <div style={styles.actions}>
+        {onOpenWiki && (
+          <button
+            onClick={onOpenWiki}
+            className="btn btn-secondary micro-press"
+            title="Apri la Wiki & Guida ufficiale"
+            style={{ fontSize: '13px', padding: '7px 12px' }}
+            id="btn-header-open-wiki"
+          >
+            <BookOpen size={15} />
+            <span>Guida & Wiki</span>
+          </button>
+        )}
+
         <button
           onClick={handleQuickBackup}
           className="btn btn-secondary micro-press"

@@ -11,6 +11,7 @@ import { MaintenancePage } from '../../pages/MaintenancePage';
 import { SettingsPage } from '../../pages/SettingsPage';
 import { TimeTravelPage } from '../../pages/TimeTravelPage';
 import { MarketplacePage } from '../../pages/MarketplacePage';
+import { WikiPage } from '../../pages/WikiPage';
 import { usePCStore } from '../../store';
 import {
   ComponentFormModal,
@@ -329,6 +330,11 @@ export const AppShell: React.FC = () => {
           title: 'Windows Maintenance Center',
           subtitle: 'Registro interventi, diagnostica di sistema, strumenti Windows e tuning journal',
         };
+      case 'wiki':
+        return {
+          title: 'Wiki & Guida Ufficiale',
+          subtitle: 'Manuale d\'uso interattivo, tutorial passo-passo, spiegazione formule e trucchi pro',
+        };
       case 'settings':
         return {
           title: 'Impostazioni',
@@ -496,6 +502,14 @@ export const AppShell: React.FC = () => {
         return <StatsPage onSelectComponent={handleSelectComponent} />;
       case 'maintenance':
         return <MaintenancePage />;
+      case 'wiki':
+        return (
+          <WikiPage
+            onNavigate={handleSelectSection}
+            onOpenMovementSelector={handleOpenMovementSelector}
+            onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
+          />
+        );
       case 'settings':
         return (
           <SettingsPage
@@ -533,6 +547,7 @@ export const AppShell: React.FC = () => {
           subtitle={selectedComponentId && currentSection === 'archive' ? 'Scheda tecnica e cronologia' : metadata.subtitle}
           onNewMovement={handleOpenMovementSelector}
           onImportBackup={triggerImportFlow}
+          onOpenWiki={() => handleSelectSection('wiki')}
         />
         <main style={styles.content}>{renderContent()}</main>
       </div>

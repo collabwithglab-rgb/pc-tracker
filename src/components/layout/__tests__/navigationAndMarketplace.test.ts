@@ -14,12 +14,14 @@ describe('Navigation & Marketplace Suite', () => {
       'marketplace',
       'stats',
       'maintenance',
+      'wiki',
       'settings',
     ];
 
     expect(validSections).toContain('marketplace');
     expect(validSections).toContain('maintenance');
-    expect(validSections.length).toBe(9);
+    expect(validSections).toContain('wiki');
+    expect(validSections.length).toBe(10);
   });
 
   it('should accurately compute inStorage count and badge for marketplace', () => {
