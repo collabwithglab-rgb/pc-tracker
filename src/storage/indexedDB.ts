@@ -15,13 +15,38 @@ export const STORES = {
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
 
+// Riferimento cache alla connessione aperta (Singleton Pattern per abbattere l'overhead I/O)
+let cachedDbPromise: Promise<IDBDatabase> | null = null;
+
 /**
- * Apre la connessione al database IndexedDB locale, inizializzando gli Object Store
- * se il database viene creato o la versione incrementata.
+ * Chiude la connessione singleton al database IndexedDB locale e resetta la cache.
+ * Utile per test, pulizie e ripristini a caldo.
+ */
+export function closeDatabase(): void {
+  if (cachedDbPromise) {
+    cachedDbPromise
+      .then((db) => {
+        try {
+          db.close();
+        } catch (_) {}
+      })
+      .catch(() => {});
+    cachedDbPromise = null;
+  }
+}
+
+/**
+ * Apre o restituisce la connessione singleton al database IndexedDB locale,
+ * inizializzando gli Object Store se il database viene creato o la versione incrementata.
  */
 export function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (cachedDbPromise) {
+    return cachedDbPromise;
+  }
+
+  cachedDbPromise = new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
+      cachedDbPromise = null;
       reject(new Error('IndexedDB non è supportato in questo ambiente.'));
       return;
     }
@@ -68,13 +93,33 @@ export function openDatabase(): Promise<IDBDatabase> {
     };
 
     request.onsuccess = () => {
-      resolve(request.result);
+      const db = request.result;
+
+      db.onversionchange = () => {
+        try {
+          db.close();
+        } catch (_) {}
+        cachedDbPromise = null;
+      };
+
+      db.onclose = () => {
+        cachedDbPromise = null;
+      };
+
+      resolve(db);
     };
 
     request.onerror = () => {
+      cachedDbPromise = null;
       reject(request.error || new Error('Errore durante l’apertura di IndexedDB.'));
     };
+
+    request.onblocked = () => {
+      cachedDbPromise = null;
+    };
   });
+
+  return cachedDbPromise;
 }
 
 /**
