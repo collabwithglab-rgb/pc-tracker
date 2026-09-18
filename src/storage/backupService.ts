@@ -189,7 +189,17 @@ export async function exportDatabaseToJSON(): Promise<string> {
  */
 export function validateImportJSON(jsonString: string): ImportValidationResult {
   try {
-    const rawData = JSON.parse(jsonString) as Record<string, unknown>;
+    // Protezione contro Prototype Pollution (CWE-1321)
+    const rawData = (
+      jsonString.includes('__proto__') || jsonString.includes('constructor') || jsonString.includes('prototype')
+        ? JSON.parse(jsonString, (key, value) => {
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+              return undefined;
+            }
+            return value;
+          })
+        : JSON.parse(jsonString)
+    ) as Record<string, unknown>;
 
     if (!rawData || typeof rawData !== 'object') {
       return { isValid: false, error: 'File non valido o non in formato JSON.' };
@@ -436,6 +446,23 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
           error: `Contenuto Data URL non valido o corrotto per la ricevuta "${r.fileName}".`,
         };
       }
+
+      // Validazione rigorosa Data URL e prefisso MIME consentito (Prevenzione XSS / data URL injection)
+      const allowedDataUrlPrefixes = [
+        'data:application/pdf;',
+        'data:image/png;',
+        'data:image/jpeg;',
+        'data:image/webp;',
+      ];
+      const hasAllowedMime = allowedDataUrlPrefixes.some((prefix) =>
+        r.dataUrl.toLowerCase().startsWith(prefix)
+      );
+      if (!hasAllowedMime) {
+        return {
+          isValid: false,
+          error: `Data URL non conforme o MIME type non autorizzato per la ricevuta "${r.fileName}". Formati ammessi: PDF, PNG, JPEG, WebP.`,
+        };
+      }
     }
 
     // Estrazione metadati opzionali di sintesi per la preview
@@ -526,7 +553,15 @@ export async function importDatabaseFromJSON(jsonString: string): Promise<Valida
  */
 export function escapeCSVCell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const str = String(value);
+  let str = String(value);
+
+  // Protezione contro CSV Formula Injection (CWE-1236):
+  // Se una cella testuale inizia con caratteri suscettibili di esecuzione formula in Excel/Calc (=, +, -, @, \t, \r),
+  // anteponiamo un apice singolo per neutralizzarne l'esecuzione e forzare il rendering testuale.
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+
   if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
     return `"${str.replace(/"/g, '""')}"`;
   }

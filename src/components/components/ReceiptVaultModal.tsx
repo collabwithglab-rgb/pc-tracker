@@ -26,14 +26,19 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
 
   if (!receipt) return null;
 
-  const isPdf = receipt.fileType === 'application/pdf';
+  const isPdf =
+    receipt.fileType === 'application/pdf' &&
+    receipt.dataUrl.toLowerCase().startsWith('data:application/pdf;');
   const sizeMb = (receipt.fileSize / (1024 * 1024)).toFixed(2);
   const formattedDate = formatDate(receipt.uploadedAt, settings.dateFormat);
 
   const handleDownload = () => {
+    // Sanitizzazione nome file anti path-traversal (CWE-22 / CWE-73)
+    const safeFileName =
+      receipt.fileName.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'ricevuta_documento';
     const link = document.createElement('a');
     link.href = receipt.dataUrl;
-    link.download = receipt.fileName;
+    link.download = safeFileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -156,8 +161,9 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
               src={receipt.dataUrl}
               title={receipt.fileName}
               className="receipt-iframe"
+              sandbox="allow-scripts allow-same-origin allow-downloads"
             />
-            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', textAlign: 'center' }}>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', textAlign: 'center' }}>
               Se il visualizzatore PDF del browser è disattivato, puoi scaricare il file tramite il pulsante "Scarica File".
             </p>
           </div>

@@ -70,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onNewMovement, 
 
 const styles: Record<string, React.CSSProperties> = {
   header: {
-    padding: '16px 28px',
+    padding: '16px 36px',
     backgroundColor: 'var(--bg-surface)',
     borderBottom: '1px solid var(--border-subtle)',
     display: 'flex',
@@ -85,7 +85,7 @@ const styles: Record<string, React.CSSProperties> = {
   titleBlock: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '2px',
+    gap: '3px',
   },
   title: {
     fontSize: '20px',
@@ -95,8 +95,8 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.2,
   },
   subtitle: {
-    fontSize: '12.5px',
-    color: 'var(--text-muted)',
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
     lineHeight: 1.4,
   },
   actions: {

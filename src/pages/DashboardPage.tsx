@@ -358,7 +358,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       <div className="rig-synthesis-meta">
                         <span
                           className="badge badge-in-use"
-                          style={{ fontSize: '10px', padding: '1px 6px' }}
+                          style={{ fontSize: '11.5px', padding: '2px 7px' }}
                         >
                           {computed.daysInUse} gg d'uso
                         </span>
@@ -464,11 +464,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         <span>{comp?.name || 'Componente sconosciuto'}</span>
                         <span
                           style={{
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            color: 'var(--text-muted)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            color: 'var(--text-secondary)',
                             backgroundColor: 'var(--bg-surface)',
-                            padding: '1px 6px',
+                            padding: '2px 7px',
                             borderRadius: 'var(--radius-xs)',
                             border: '1px solid var(--border-subtle)',
                           }}
@@ -478,7 +478,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         {isMostRecent && (
                           <span
                             className="badge badge-in-use"
-                            style={{ fontSize: '10px', padding: '1px 6px', fontWeight: 600 }}
+                            style={{ fontSize: '11.5px', padding: '2px 7px', fontWeight: 600 }}
                           >
                             Più recente
                           </span>
@@ -498,11 +498,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                           {delta.text}
                         </span>
                       )}
-                      <span className="font-mono" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <span className="font-mono" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                         {formatDate(ev.date, settings.dateFormat)}
                       </span>
                     </div>
-                    <span style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 500 }}>
+                    <span style={{ fontSize: '12px', color: 'var(--accent-primary)', fontWeight: 600 }}>
                       Dettaglio
                     </span>
                   </div>

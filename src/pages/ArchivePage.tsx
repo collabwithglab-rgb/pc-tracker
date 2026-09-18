@@ -470,7 +470,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{comp.name}</span>
-                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                           {comp.brand} {comp.model && `• ${comp.model}`}
                         </span>
                       </div>
@@ -492,18 +492,18 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                     <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         {wInfo && wInfo.status === 'active' && (
-                          <span className="badge badge-warranty-active" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
-                            <ShieldCheck size={10} /> Garanzia
+                          <span className="badge badge-warranty-active" style={{ fontSize: '11px', padding: '2px 7px' }} title={wInfo.humanLabel}>
+                            <ShieldCheck size={11} /> Garanzia
                           </span>
                         )}
                         {wInfo && wInfo.status === 'expiring' && (
-                          <span className="badge badge-warranty-expiring" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
-                            <ShieldAlert size={10} /> Scade a breve
+                          <span className="badge badge-warranty-expiring" style={{ fontSize: '11px', padding: '2px 7px' }} title={wInfo.humanLabel}>
+                            <ShieldAlert size={11} /> Scade a breve
                           </span>
                         )}
                         {wInfo && wInfo.status === 'expired' && selectedWarranty === 'expired' && (
-                          <span className="badge badge-warranty-expired" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
-                            <ShieldX size={10} /> Scaduta
+                          <span className="badge badge-warranty-expired" style={{ fontSize: '11px', padding: '2px 7px' }} title={wInfo.humanLabel}>
+                            <ShieldX size={11} /> Scaduta
                           </span>
                         )}
                         {computed && computed.daysInUse > 0 ? (

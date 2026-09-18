@@ -1387,6 +1387,21 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       throw new Error(err);
     }
 
+    const allowedPrefixes = [
+      'data:application/pdf;',
+      'data:image/png;',
+      'data:image/jpeg;',
+      'data:image/webp;',
+    ];
+    if (
+      !fileData.dataUrl ||
+      !allowedPrefixes.some((prefix) => fileData.dataUrl.toLowerCase().startsWith(prefix))
+    ) {
+      const err = `Data URL non conforme o formato non sicuro per "${fileData.fileName}".`;
+      showNotification('error', err);
+      throw new Error(err);
+    }
+
     const receipt: ComponentReceipt = {
       id: generateId(),
       componentId,

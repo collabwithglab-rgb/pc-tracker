@@ -158,12 +158,13 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           <span>Pronti da Vendere (A Magazzino)</span>
           <span
             style={{
-              fontSize: '11px',
-              padding: '1px 6px',
+              fontSize: '11.5px',
+              padding: '2px 7px',
               borderRadius: 'var(--radius-full)',
               backgroundColor: activeTab === 'storage' ? 'var(--accent-primary-subtle)' : 'var(--bg-surface)',
-              color: activeTab === 'storage' ? 'var(--accent-primary)' : 'var(--text-muted)',
+              color: activeTab === 'storage' ? 'var(--accent-primary)' : 'var(--text-secondary)',
               border: '1px solid var(--border-subtle)',
+              fontWeight: 600,
             }}
           >
             {storageComponents.length}
@@ -180,12 +181,13 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           <span>Hardware Venduto (Storico)</span>
           <span
             style={{
-              fontSize: '11px',
-              padding: '1px 6px',
+              fontSize: '11.5px',
+              padding: '2px 7px',
               borderRadius: 'var(--radius-full)',
               backgroundColor: activeTab === 'sold' ? 'var(--accent-emerald-subtle)' : 'var(--bg-surface)',
-              color: activeTab === 'sold' ? 'var(--accent-emerald)' : 'var(--text-muted)',
+              color: activeTab === 'sold' ? 'var(--accent-emerald)' : 'var(--text-secondary)',
               border: '1px solid var(--border-subtle)',
+              fontWeight: 600,
             }}
           >
             {soldComponents.length}
@@ -263,8 +265,8 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
 
                       {(!warranty.hasWarranty || warranty.status === 'expired') && (
                         <div style={styles.metaItem}>
-                          <ShieldX size={13} color="var(--text-muted)" />
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Garanzia terminata</span>
+                          <ShieldX size={13} color="var(--text-secondary)" />
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Garanzia terminata</span>
                         </div>
                       )}
                     </div>
@@ -439,19 +441,19 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '10px',
   },
   subtitle: {
-    fontSize: '13px',
-    color: 'var(--text-muted)',
+    fontSize: '13.5px',
+    color: 'var(--text-secondary)',
     marginTop: '4px',
   },
   metricsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '12px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '14px',
   },
   cardsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-    gap: '14px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+    gap: '16px',
   },
   itemCard: {
     display: 'flex',
@@ -472,8 +474,8 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.3,
   },
   itemModel: {
-    fontSize: '12.5px',
-    color: 'var(--text-muted)',
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
   },
   metaRow: {
     display: 'flex',

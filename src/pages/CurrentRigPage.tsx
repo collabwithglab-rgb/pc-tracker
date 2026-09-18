@@ -538,13 +538,13 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.35,
   },
   componentBrand: {
-    fontSize: '12px',
-    color: 'var(--text-muted)',
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
   },
   metadataBox: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
+    gap: '5px',
     padding: '8px 10px',
     backgroundColor: 'var(--bg-surface-elevated)',
     borderRadius: 'var(--radius-sm)',
@@ -554,7 +554,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    fontSize: '11.5px',
+    fontSize: '12px',
     color: 'var(--text-secondary)',
   },
   cardActions: {

@@ -718,10 +718,11 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
   },
   content: {
-    padding: '24px 28px',
+    padding: '28px 36px',
     flex: 1,
-    maxWidth: '1400px',
+    maxWidth: '1680px',
     width: '100%',
     margin: '0 auto',
+    boxSizing: 'border-box',
   },
 };

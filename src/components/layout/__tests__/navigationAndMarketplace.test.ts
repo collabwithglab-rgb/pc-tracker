@@ -21,21 +21,22 @@ describe('Navigation & Marketplace Suite', () => {
   });
 
   it('should accurately compute inStorage count and badge for marketplace', () => {
+    const now = '2021-01-01T00:00:00.000Z';
     const mockComponents: Component[] = [
-      { id: 'c1', name: 'RTX 3070', brand: 'MSI', model: 'Ventus', category: 'gpu' },
-      { id: 'c2', name: 'Ryzen 5800X', brand: 'AMD', model: '5800X', category: 'cpu' },
-      { id: 'c3', name: 'RAM 16GB', brand: 'Corsair', model: 'Vengeance', category: 'ram' },
+      { id: 'c1', name: 'RTX 3070', brand: 'MSI', model: 'Ventus', category: 'gpu', createdAt: now, updatedAt: now },
+      { id: 'c2', name: 'Ryzen 5800X', brand: 'AMD', model: '5800X', category: 'cpu', createdAt: now, updatedAt: now },
+      { id: 'c3', name: 'RAM 16GB', brand: 'Corsair', model: 'Vengeance', category: 'ram', createdAt: now, updatedAt: now },
     ];
 
     const mockEvents: ComponentEvent[] = [
-      { id: 'e1', componentId: 'c1', date: '2021-01-01', type: 'PURCHASE', price: 600 } as PurchaseEvent,
-      { id: 'e2', componentId: 'c1', date: '2021-01-02', type: 'INSTALL', slotOrLocation: 'PCIe 1' },
-      { id: 'e3', componentId: 'c1', date: '2023-01-01', type: 'UNINSTALL', reason: 'upgrade' }, // IN_STORAGE
+      { id: 'e1', componentId: 'c1', date: '2021-01-01', type: 'PURCHASE', price: 600, createdAt: now } as PurchaseEvent,
+      { id: 'e2', componentId: 'c1', date: '2021-01-02', type: 'INSTALL', slotOrLocation: 'PCIe 1', createdAt: now },
+      { id: 'e3', componentId: 'c1', date: '2023-01-01', type: 'UNINSTALL', reason: 'upgrade', createdAt: now }, // IN_STORAGE
 
-      { id: 'e4', componentId: 'c2', date: '2021-01-01', type: 'PURCHASE', price: 400 } as PurchaseEvent,
-      { id: 'e5', componentId: 'c2', date: '2021-01-02', type: 'INSTALL', slotOrLocation: 'AM4' }, // IN_USE
+      { id: 'e4', componentId: 'c2', date: '2021-01-01', type: 'PURCHASE', price: 400, createdAt: now } as PurchaseEvent,
+      { id: 'e5', componentId: 'c2', date: '2021-01-02', type: 'INSTALL', slotOrLocation: 'AM4', createdAt: now }, // IN_USE
 
-      { id: 'e6', componentId: 'c3', date: '2021-01-01', type: 'PURCHASE', price: 80 } as PurchaseEvent, // IN_STORAGE (never installed)
+      { id: 'e6', componentId: 'c3', date: '2021-01-01', type: 'PURCHASE', price: 80, createdAt: now } as PurchaseEvent, // IN_STORAGE (never installed)
     ];
 
     const computedStates = mockComponents.map((c) => {
@@ -64,6 +65,7 @@ describe('Navigation & Marketplace Suite', () => {
         price: 350,
         shippingCost: 15,
         fees: 10,
+        createdAt: '2023-02-01T00:00:00.000Z',
       } as SaleEvent,
       {
         id: 's2',
@@ -71,6 +73,7 @@ describe('Navigation & Marketplace Suite', () => {
         date: '2023-03-01',
         type: 'SALE',
         price: 200,
+        createdAt: '2023-03-01T00:00:00.000Z',
       } as SaleEvent,
     ];
 
