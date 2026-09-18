@@ -9,6 +9,7 @@ import { UpgradesPage } from '../../pages/UpgradesPage';
 import { StatsPage } from '../../pages/StatsPage';
 import { SettingsPage } from '../../pages/SettingsPage';
 import { TimeTravelPage } from '../../pages/TimeTravelPage';
+import { MarketplacePage } from '../../pages/MarketplacePage';
 import { usePCStore } from '../../store';
 import {
   ComponentFormModal,
@@ -22,6 +23,7 @@ import {
   DisposalModal,
   MovementSelectorModal,
   UpgradeWizardModal,
+  ListingGeneratorModal,
 } from '../components';
 import { CheckpointModal, PostUpgradePromptModal } from '../checkpoint';
 import { QuickSetupModal } from '../quickSetup';
@@ -44,6 +46,9 @@ export const AppShell: React.FC = () => {
     showNotification,
     reloadFromDB,
     getInstalledComponents,
+    getComponentComputed,
+    getComponentWarranty,
+    getComponentReceipts,
   } = usePCStore();
   const [currentSection, setCurrentSection] = useState<NavSection>('dashboard');
   const [hasInitializedStartSection, setHasInitializedStartSection] = useState(false);
@@ -123,6 +128,20 @@ export const AppShell: React.FC = () => {
 
   // Stato Modale Esporta Scheda PC (Gemini AI, Discord, WhatsApp, PDF)
   const [isRigExportOpen, setIsRigExportOpen] = useState(false);
+
+  // Stato Modale Generatore Annunci Marketplace
+  const [listingTargetComponent, setListingTargetComponent] = useState<Component | null>(null);
+  const [listingReceiptCount, setListingReceiptCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (listingTargetComponent) {
+      getComponentReceipts(listingTargetComponent.id)
+        .then((rc) => setListingReceiptCount(rc.length))
+        .catch(() => setListingReceiptCount(0));
+    } else {
+      setListingReceiptCount(0);
+    }
+  }, [listingTargetComponent]);
 
   // Stato Modale Import Backup JSON (Header, QuickSetup e Drag & Drop)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -254,6 +273,11 @@ export const AppShell: React.FC = () => {
         return {
           title: 'Storico Upgrade',
           subtitle: 'Cronologia dei cambi generazionali e bilanci di sostituzione',
+        };
+      case 'marketplace':
+        return {
+          title: 'Vendite & Annunci',
+          subtitle: 'Gestione hardware a magazzino, annunci di vendita e recupero capitale',
         };
       case 'stats':
         return {
@@ -413,6 +437,14 @@ export const AppShell: React.FC = () => {
           <UpgradesPage
             onSelectComponent={handleSelectComponent}
             onOpenUpgradeWizard={() => handleOpenUpgradeWizard()}
+          />
+        );
+      case 'marketplace':
+        return (
+          <MarketplacePage
+            onSelectComponent={handleSelectComponent}
+            onOpenSaleModal={(comp) => handleOpenSaleModal(comp)}
+            onOpenListingModal={(comp) => setListingTargetComponent(comp)}
           />
         );
       case 'stats':
@@ -653,6 +685,19 @@ export const AppShell: React.FC = () => {
         onChange={handleFileSelect}
         style={{ display: 'none' }}
       />
+
+      {/* Modale Generatore Annunci di Vendita Marketplace (Subito, eBay, Vinted, Prompt IA) */}
+      {listingTargetComponent && getComponentComputed(listingTargetComponent.id) && (
+        <ListingGeneratorModal
+          isOpen={Boolean(listingTargetComponent)}
+          onClose={() => setListingTargetComponent(null)}
+          component={listingTargetComponent}
+          computed={getComponentComputed(listingTargetComponent.id)!}
+          events={events.filter((e) => e.componentId === listingTargetComponent.id)}
+          warranty={getComponentWarranty(listingTargetComponent.id)}
+          receiptCount={listingReceiptCount}
+        />
+      )}
 
       {/* Notifiche Toast */}
       <Toast />

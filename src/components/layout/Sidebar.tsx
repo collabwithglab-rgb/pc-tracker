@@ -10,6 +10,7 @@ import {
   ExternalLink,
   LucideIcon,
   History,
+  Tag,
 } from 'lucide-react';
 import { usePCStore } from '../../store';
 
@@ -19,6 +20,7 @@ export type NavSection =
   | 'time-travel'
   | 'archive'
   | 'upgrades'
+  | 'marketplace'
   | 'stats'
   | 'settings';
 
@@ -31,23 +33,56 @@ interface NavItemDef {
   id: NavSection;
   label: string;
   icon: LucideIcon;
+  badge?: number;
 }
 
-const PRIMARY_NAV: NavItemDef[] = [
-  { id: 'dashboard', label: 'Panoramica', icon: LayoutDashboard },
-  { id: 'current-rig', label: 'Il Mio PC', icon: Cpu },
-  { id: 'time-travel', label: 'Time Travel', icon: History },
-  { id: 'archive', label: 'Archivio Pezzi', icon: Archive },
-  { id: 'upgrades', label: 'Storico Upgrade', icon: ArrowUpRight },
-  { id: 'stats', label: 'Statistiche', icon: BarChart3 },
-];
-
-const SECONDARY_NAV: NavItemDef[] = [
-  { id: 'settings', label: 'Impostazioni', icon: Settings },
-];
+interface NavGroupDef {
+  label: string;
+  items: NavItemDef[];
+}
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentSection, onSelectSection }) => {
-  const { settings } = usePCStore();
+  const { settings, components, getComponentComputed } = usePCStore();
+
+  const inStorageCount = components.filter(
+    (c) => getComponentComputed(c.id)?.status === 'IN_STORAGE'
+  ).length;
+
+  const NAV_GROUPS: NavGroupDef[] = [
+    {
+      label: 'Panoramica',
+      items: [
+        { id: 'dashboard', label: 'Panoramica', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'Il Computer',
+      items: [
+        { id: 'current-rig', label: 'Il Mio PC', icon: Cpu },
+        { id: 'time-travel', label: 'Time Travel', icon: History },
+        { id: 'upgrades', label: 'Storico Upgrade', icon: ArrowUpRight },
+      ],
+    },
+    {
+      label: 'Hardware & Mercato',
+      items: [
+        { id: 'archive', label: 'Archivio Pezzi', icon: Archive },
+        {
+          id: 'marketplace',
+          label: 'Vendite & Annunci',
+          icon: Tag,
+          badge: inStorageCount > 0 ? inStorageCount : undefined,
+        },
+      ],
+    },
+    {
+      label: 'Analisi & Sistema',
+      items: [
+        { id: 'stats', label: 'Statistiche & Finanze', icon: BarChart3 },
+        { id: 'settings', label: 'Impostazioni', icon: Settings },
+      ],
+    },
+  ];
 
   return (
     <aside style={styles.sidebar}>
@@ -72,53 +107,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentSection, onSelectSectio
         </div>
       </div>
 
-      {/* Navigazione */}
+      {/* Navigazione Ristrutturata a 4 Macro-Aree */}
       <nav style={styles.nav}>
-        <div style={styles.navSectionLabel}>Principale</div>
-        <div style={styles.navGroup}>
-          {PRIMARY_NAV.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentSection === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectSection(item.id)}
-                className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
-                style={{
-                  ...styles.navItem,
-                  ...(isActive ? styles.navItemActive : {}),
-                }}
-              >
-                <Icon size={17} style={isActive ? styles.iconActive : styles.iconInactive} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={styles.divider} />
-
-        <div style={styles.navSectionLabel}>Sistema</div>
-        <div style={styles.navGroup}>
-          {SECONDARY_NAV.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentSection === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectSection(item.id)}
-                className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
-                style={{
-                  ...styles.navItem,
-                  ...(isActive ? styles.navItemActive : {}),
-                }}
-              >
-                <Icon size={17} style={isActive ? styles.iconActive : styles.iconInactive} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {NAV_GROUPS.map((group, groupIdx) => (
+          <div key={group.label} style={{ marginBottom: groupIdx < NAV_GROUPS.length - 1 ? '12px' : '0' }}>
+            <div style={styles.navSectionLabel}>{group.label}</div>
+            <div style={styles.navGroup}>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onSelectSection(item.id)}
+                    className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
+                    style={{
+                      ...styles.navItem,
+                      ...(isActive ? styles.navItemActive : {}),
+                    }}
+                  >
+                    <Icon size={17} style={isActive ? styles.iconActive : styles.iconInactive} />
+                    <span>{item.label}</span>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span
+                        className="sidebar-nav-badge"
+                        title={`${item.badge} pezzi a magazzino pronti per la vendita`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer & Firma Personale Minima */}

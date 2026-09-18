@@ -556,6 +556,26 @@
   transform: translateX(0);
 }
 
+.sidebar-nav-badge {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--accent-amber-subtle);
+  color: var(--accent-amber);
+  border: 1px solid var(--accent-amber-border);
+  line-height: 1.2;
+  transition: all var(--transition-apple-fast);
+}
+
+.sidebar-nav-item.active .sidebar-nav-badge {
+  background-color: var(--accent-primary-subtle);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary-border);
+}
+
 /* ==========================================================================
    MODAL DIALOG (APPLE FLUID DROP-IN & BACKDROP)
    ========================================================================== */
