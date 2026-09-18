@@ -8,3 +8,6 @@ export * from './history';
 export * from './receipt';
 export * from './listing';
 export * from './power';
+export * from './maintenance';
+export * from './tuning';
+export * from './windowsTools';

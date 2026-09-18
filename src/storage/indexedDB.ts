@@ -1,8 +1,8 @@
-import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings, ComponentReceipt } from '../types';
+import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings, ComponentReceipt, MaintenanceEntry, TuningProfile } from '../types';
 import { validateCheckpoint } from '../domain/checkpointEngine';
 
 const DB_NAME = 'pc_tracker_db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export const STORES = {
   COMPONENTS: 'components',
@@ -11,6 +11,8 @@ export const STORES = {
   METADATA: 'metadata',
   CHECKPOINTS: 'checkpoints',
   RECEIPTS: 'receipts',
+  MAINTENANCE: 'maintenance',
+  TUNING: 'tuningProfiles',
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
@@ -89,6 +91,19 @@ export function openDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORES.RECEIPTS)) {
         const receiptStore = db.createObjectStore(STORES.RECEIPTS, { keyPath: 'id' });
         receiptStore.createIndex('componentId', 'componentId', { unique: false });
+      }
+
+      // Store: maintenance (versione 4 - Registro Manutenzione)
+      if (!db.objectStoreNames.contains(STORES.MAINTENANCE)) {
+        const maintStore = db.createObjectStore(STORES.MAINTENANCE, { keyPath: 'id' });
+        maintStore.createIndex('date', 'date', { unique: false });
+      }
+
+      // Store: tuning (versione 4 - Tuning Journal)
+      if (!db.objectStoreNames.contains(STORES.TUNING)) {
+        const tuningStore = db.createObjectStore(STORES.TUNING, { keyPath: 'id' });
+        tuningStore.createIndex('category', 'category', { unique: false });
+        tuningStore.createIndex('date', 'date', { unique: false });
       }
     };
 
@@ -357,11 +372,13 @@ export interface ReplaceAllDataAtomicParams {
   metadataItems: { key: string; value: unknown }[];
   checkpoints?: Checkpoint[];
   receipts?: ComponentReceipt[];
+  maintenance?: MaintenanceEntry[];
+  tuningProfiles?: TuningProfile[];
 }
 
 /**
  * Esegue la sostituzione atomica di tutti i dati del database in una singola transazione IDB multi-store.
- * Coinvolge: COMPONENTS, EVENTS, UPGRADES, METADATA, CHECKPOINTS e RECEIPTS.
+ * Coinvolge: COMPONENTS, EVENTS, UPGRADES, METADATA, CHECKPOINTS, RECEIPTS, MAINTENANCE, TUNING.
  * Se una qualsiasi scrittura o operazione fallisce, IndexedDB esegue il rollback automatico:
  * nessun dato nuovo viene persistito e il database precedente rimane intatto.
  */
@@ -378,6 +395,14 @@ export async function replaceAllDataAtomic(params: ReplaceAllDataAtomicParams): 
     const hasReceiptsStore = db.objectStoreNames.contains(STORES.RECEIPTS);
     if (hasReceiptsStore) {
       storeNames.push(STORES.RECEIPTS);
+    }
+    const hasMaintenanceStore = db.objectStoreNames.contains(STORES.MAINTENANCE);
+    if (hasMaintenanceStore) {
+      storeNames.push(STORES.MAINTENANCE);
+    }
+    const hasTuningStore = db.objectStoreNames.contains(STORES.TUNING);
+    if (hasTuningStore) {
+      storeNames.push(STORES.TUNING);
     }
 
     const tx = db.transaction(storeNames, 'readwrite');
@@ -404,6 +429,26 @@ export async function replaceAllDataAtomic(params: ReplaceAllDataAtomicParams): 
         if (params.receipts && params.receipts.length > 0) {
           for (const r of params.receipts) {
             receiptStore.put(r);
+          }
+        }
+      }
+
+      if (hasMaintenanceStore) {
+        const maintStore = tx.objectStore(STORES.MAINTENANCE);
+        maintStore.clear();
+        if (params.maintenance && params.maintenance.length > 0) {
+          for (const m of params.maintenance) {
+            maintStore.put(m);
+          }
+        }
+      }
+
+      if (hasTuningStore) {
+        const tuningStore = tx.objectStore(STORES.TUNING);
+        tuningStore.clear();
+        if (params.tuningProfiles && params.tuningProfiles.length > 0) {
+          for (const t of params.tuningProfiles) {
+            tuningStore.put(t);
           }
         }
       }
@@ -450,6 +495,14 @@ export async function resetDatabaseAtomic(): Promise<void> {
     if (hasReceiptsStore) {
       storeNames.push(STORES.RECEIPTS);
     }
+    const hasMaintenanceStore = db.objectStoreNames.contains(STORES.MAINTENANCE);
+    if (hasMaintenanceStore) {
+      storeNames.push(STORES.MAINTENANCE);
+    }
+    const hasTuningStore = db.objectStoreNames.contains(STORES.TUNING);
+    if (hasTuningStore) {
+      storeNames.push(STORES.TUNING);
+    }
 
     const tx = db.transaction(storeNames, 'readwrite');
     const compStore = tx.objectStore(STORES.COMPONENTS);
@@ -471,6 +524,12 @@ export async function resetDatabaseAtomic(): Promise<void> {
 
       if (hasReceiptsStore) {
         tx.objectStore(STORES.RECEIPTS).clear();
+      }
+      if (hasMaintenanceStore) {
+        tx.objectStore(STORES.MAINTENANCE).clear();
+      }
+      if (hasTuningStore) {
+        tx.objectStore(STORES.TUNING).clear();
       }
 
       metaStore.put({ key: 'initialized', value: true });
@@ -669,3 +728,68 @@ export async function deleteReceiptsByComponentId(componentId: string): Promise<
     tx.onerror = () => reject(tx.error);
   });
 }
+
+/**
+ * Recupera tutte le voci del registro di manutenzione memorizzate in IndexedDB.
+ */
+export async function getAllMaintenanceEntries(): Promise<MaintenanceEntry[]> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.MAINTENANCE)) return [];
+  return getAllFromStore<MaintenanceEntry>(STORES.MAINTENANCE);
+}
+
+/**
+ * Recupera una singola voce del registro manutenzione per ID.
+ */
+export async function getMaintenanceEntryById(id: string): Promise<MaintenanceEntry | undefined> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.MAINTENANCE)) return undefined;
+  return getByIdFromStore<MaintenanceEntry>(STORES.MAINTENANCE, id);
+}
+
+/**
+ * Salva o aggiorna una voce di manutenzione su IndexedDB.
+ */
+export async function saveMaintenanceEntryAtomic(entry: MaintenanceEntry): Promise<void> {
+  await putItem(STORES.MAINTENANCE, entry);
+}
+
+/**
+ * Elimina una voce di manutenzione per ID da IndexedDB.
+ */
+export async function deleteMaintenanceEntryAtomic(id: string): Promise<void> {
+  await deleteItemFromStore(STORES.MAINTENANCE, id);
+}
+
+/**
+ * Recupera tutti i profili di tuning memorizzati in IndexedDB.
+ */
+export async function getAllTuningProfiles(): Promise<TuningProfile[]> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.TUNING)) return [];
+  return getAllFromStore<TuningProfile>(STORES.TUNING);
+}
+
+/**
+ * Recupera un singolo profilo di tuning per ID da IndexedDB.
+ */
+export async function getTuningProfileById(id: string): Promise<TuningProfile | undefined> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.TUNING)) return undefined;
+  return getByIdFromStore<TuningProfile>(STORES.TUNING, id);
+}
+
+/**
+ * Salva o aggiorna un profilo di tuning su IndexedDB.
+ */
+export async function saveTuningProfileAtomic(profile: TuningProfile): Promise<void> {
+  await putItem(STORES.TUNING, profile);
+}
+
+/**
+ * Elimina un profilo di tuning per ID da IndexedDB.
+ */
+export async function deleteTuningProfileAtomic(id: string): Promise<void> {
+  await deleteItemFromStore(STORES.TUNING, id);
+}
+

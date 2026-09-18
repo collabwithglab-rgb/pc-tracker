@@ -13,11 +13,13 @@ describe('Navigation & Marketplace Suite', () => {
       'upgrades',
       'marketplace',
       'stats',
+      'maintenance',
       'settings',
     ];
 
     expect(validSections).toContain('marketplace');
-    expect(validSections.length).toBe(8);
+    expect(validSections).toContain('maintenance');
+    expect(validSections.length).toBe(9);
   });
 
   it('should accurately compute inStorage count and badge for marketplace', () => {

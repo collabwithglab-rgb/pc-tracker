@@ -8,6 +8,8 @@ import {
   AccentColorPreference,
   EnvironmentThemePreference,
   TypographyPresetPreference,
+  MaintenanceEntry,
+  TuningProfile,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -164,6 +166,24 @@ export async function loadFullDatabase(): Promise<DatabaseSchema> {
     getAllFromStore<{ key: string; value: unknown }>(STORES.METADATA),
   ]);
 
+  let maintenance: MaintenanceEntry[] = [];
+  if (STORES.MAINTENANCE) {
+    try {
+      maintenance = await getAllFromStore<MaintenanceEntry>(STORES.MAINTENANCE);
+    } catch {
+      maintenance = [];
+    }
+  }
+
+  let tuningProfiles: TuningProfile[] = [];
+  if (STORES.TUNING) {
+    try {
+      tuningProfiles = await getAllFromStore<TuningProfile>(STORES.TUNING);
+    } catch {
+      tuningProfiles = [];
+    }
+  }
+
   const settingsEntry = metadataList.find((m) => m.key === 'settings');
   const settings = normalizeSettings(settingsEntry?.value);
 
@@ -176,6 +196,8 @@ export async function loadFullDatabase(): Promise<DatabaseSchema> {
     events,
     upgrades,
     checkpoints,
+    maintenance,
+    tuningProfiles,
   };
 }
 
@@ -287,6 +309,14 @@ export {
   saveReceiptAtomic,
   deleteReceiptAtomic,
   deleteReceiptsByComponentId,
+  getAllMaintenanceEntries,
+  getMaintenanceEntryById,
+  saveMaintenanceEntryAtomic,
+  deleteMaintenanceEntryAtomic,
+  getAllTuningProfiles,
+  getTuningProfileById,
+  saveTuningProfileAtomic,
+  deleteTuningProfileAtomic,
 } from './indexedDB';
 
 

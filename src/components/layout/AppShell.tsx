@@ -7,6 +7,7 @@ import { ArchivePage } from '../../pages/ArchivePage';
 import { ComponentDetailPage } from '../../pages/ComponentDetailPage';
 import { UpgradesPage } from '../../pages/UpgradesPage';
 import { StatsPage } from '../../pages/StatsPage';
+import { MaintenancePage } from '../../pages/MaintenancePage';
 import { SettingsPage } from '../../pages/SettingsPage';
 import { TimeTravelPage } from '../../pages/TimeTravelPage';
 import { MarketplacePage } from '../../pages/MarketplacePage';
@@ -323,6 +324,11 @@ export const AppShell: React.FC = () => {
           title: 'Statistiche & Finanze',
           subtitle: 'Andamento della spesa nel tempo e grafici di ripartizione',
         };
+      case 'maintenance':
+        return {
+          title: 'Windows Maintenance Center',
+          subtitle: 'Registro interventi, diagnostica di sistema, strumenti Windows e tuning journal',
+        };
       case 'settings':
         return {
           title: 'Impostazioni',
@@ -488,6 +494,8 @@ export const AppShell: React.FC = () => {
         );
       case 'stats':
         return <StatsPage onSelectComponent={handleSelectComponent} />;
+      case 'maintenance':
+        return <MaintenancePage />;
       case 'settings':
         return (
           <SettingsPage

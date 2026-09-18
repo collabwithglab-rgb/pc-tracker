@@ -11,6 +11,7 @@ import {
   LucideIcon,
   History,
   Tag,
+  Wrench,
 } from 'lucide-react';
 import { usePCStore } from '../../store';
 import { APP_VERSION } from '../../constants/version';
@@ -23,6 +24,7 @@ export type NavSection =
   | 'upgrades'
   | 'marketplace'
   | 'stats'
+  | 'maintenance'
   | 'settings';
 
 interface SidebarProps {
@@ -87,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Analisi & Sistema',
       items: [
         { id: 'stats', label: 'Statistiche & Finanze', icon: BarChart3 },
+        { id: 'maintenance', label: 'Manutenzione PC', icon: Wrench },
         { id: 'settings', label: 'Impostazioni', icon: Settings },
       ],
     },

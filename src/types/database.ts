@@ -3,6 +3,8 @@ import { ComponentEvent } from './events';
 import { Upgrade } from './upgrade';
 import { Checkpoint } from './checkpoint';
 import { ComponentReceipt } from './receipt';
+import { MaintenanceEntry } from './maintenance';
+import { TuningProfile } from './tuning';
 
 export type UIDensity = 'comfortable' | 'compact';
 export type ReducedMotionPreference = 'system' | 'always' | 'never';
@@ -58,6 +60,8 @@ export interface DatabaseSchema {
   upgrades: Upgrade[];
   checkpoints?: Checkpoint[]; // Opzionale per retrocompatibilità con backup legacy
   receipts?: ComponentReceipt[]; // Opzionale per retrocompatibilità
+  maintenance?: MaintenanceEntry[]; // Registro Manutenzione (Sessione 4)
+  tuningProfiles?: TuningProfile[]; // Tuning Journal (Sessione 4)
 }
 
 export interface ImportPreview {
@@ -71,6 +75,8 @@ export interface ImportPreview {
     upgrades: number;
     checkpoints: number;
     receipts?: number;
+    maintenance?: number;
+    tuningProfiles?: number;
   };
   settingsSummary?: {
     rigName?: string;
@@ -96,6 +102,8 @@ export interface ValidationResult {
     upgrades: number;
     checkpoints?: number;
     receipts?: number;
+    maintenance?: number;
+    tuningProfiles?: number;
   };
 }
 

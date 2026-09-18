@@ -24,6 +24,10 @@ import {
   ALLOWED_RECEIPT_MIME_TYPES,
   AllowedReceiptMimeType,
   MAX_RECEIPT_FILE_SIZE_BYTES,
+  MaintenanceEntry,
+  MaintenanceEntryInput,
+  TuningProfile,
+  TuningProfileInput,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -49,6 +53,10 @@ import {
   getReceiptsByComponentId,
   saveReceiptAtomic,
   deleteReceiptAtomic,
+  saveMaintenanceEntryAtomic,
+  deleteMaintenanceEntryAtomic,
+  saveTuningProfileAtomic,
+  deleteTuningProfileAtomic,
 } from '../storage';
 import {
   computeTotalPurchased,
@@ -77,6 +85,8 @@ import {
   getEventsUpToPosition,
   computeWarrantyInfo,
   findPurchaseEvent,
+  validateMaintenanceEntry,
+  validateTuningProfile,
 } from '../domain';
 import { generateId } from '../utils/id';
 
@@ -265,6 +275,20 @@ interface PCStoreState {
     eventId?: string
   ) => Promise<ComponentReceipt>;
   deleteReceipt: (receiptId: string) => Promise<void>;
+
+  // Registro Manutenzione (Sessione 4)
+  maintenanceEntries: MaintenanceEntry[];
+  addMaintenanceEntry: (input: MaintenanceEntryInput) => Promise<MaintenanceEntry>;
+  updateMaintenanceEntry: (id: string, updates: Partial<MaintenanceEntryInput>) => Promise<void>;
+  deleteMaintenanceEntry: (id: string) => Promise<void>;
+  getMaintenanceForComponent: (componentId: string) => MaintenanceEntry[];
+
+  // Tuning Journal (Sessione 4)
+  tuningProfiles: TuningProfile[];
+  addTuningProfile: (input: TuningProfileInput) => Promise<TuningProfile>;
+  updateTuningProfile: (id: string, updates: Partial<TuningProfileInput>) => Promise<void>;
+  deleteTuningProfile: (id: string) => Promise<void>;
+  getTuningProfilesForComponent: (componentId: string) => TuningProfile[];
 }
 
 const PCContext = createContext<PCStoreState | null>(null);
@@ -279,6 +303,8 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     events: [],
     upgrades: [],
     checkpoints: [],
+    maintenance: [],
+    tuningProfiles: [],
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -1426,7 +1452,176 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
    */
   const deleteReceipt = async (receiptId: string): Promise<void> => {
     await deleteReceiptAtomic(receiptId);
-    showNotification('success', 'Ricevuta eliminata dalla cassaforte.');
+    showNotification('success', 'Ricevuta rimossa dalla cassaforte.');
+  };
+
+  // --- AZIONI REGISTRO MANUTENZIONE (SESSIONE 4) ---
+
+  const addMaintenanceEntry = async (input: MaintenanceEntryInput): Promise<MaintenanceEntry> => {
+    const validation = validateMaintenanceEntry(input);
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors)[0] || 'Dati manutenzione non validi.';
+      showNotification('error', firstError);
+      throw new Error(firstError);
+    }
+
+    const nowIso = new Date().toISOString();
+    const entry: MaintenanceEntry = {
+      id: generateId(),
+      date: input.date,
+      type: input.type,
+      title: input.title.trim(),
+      description: input.description?.trim() || '',
+      componentIds: input.componentIds && input.componentIds.length > 0 ? input.componentIds : undefined,
+      cost: typeof input.cost === 'number' && !isNaN(input.cost) ? input.cost : undefined,
+      productUsed: input.productUsed?.trim() || undefined,
+      notes: input.notes?.trim() || undefined,
+      nextDueDate: input.nextDueDate || undefined,
+      source: input.source || 'manual',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    await saveMaintenanceEntryAtomic(entry);
+    setData((prev) => ({
+      ...prev,
+      maintenance: [...(prev.maintenance || []), entry],
+    }));
+    showNotification('success', `Intervento "${entry.title}" registrato con successo!`);
+    return entry;
+  };
+
+  const updateMaintenanceEntry = async (
+    id: string,
+    updates: Partial<MaintenanceEntryInput>
+  ): Promise<void> => {
+    const existing = (data.maintenance || []).find((m) => m.id === id);
+    if (!existing) {
+      throw new Error(`Intervento di manutenzione con ID ${id} non trovato.`);
+    }
+
+    const merged = { ...existing, ...updates };
+    const validation = validateMaintenanceEntry(merged);
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors)[0] || 'Dati manutenzione non validi.';
+      showNotification('error', firstError);
+      throw new Error(firstError);
+    }
+
+    const updatedEntry: MaintenanceEntry = {
+      ...existing,
+      ...updates,
+      title: updates.title !== undefined ? updates.title.trim() : existing.title,
+      description: updates.description !== undefined ? updates.description.trim() : existing.description,
+      productUsed: updates.productUsed !== undefined ? updates.productUsed.trim() || undefined : existing.productUsed,
+      notes: updates.notes !== undefined ? updates.notes.trim() || undefined : existing.notes,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await saveMaintenanceEntryAtomic(updatedEntry);
+    setData((prev) => ({
+      ...prev,
+      maintenance: (prev.maintenance || []).map((m) => (m.id === id ? updatedEntry : m)),
+    }));
+    showNotification('success', `Manutenzione "${updatedEntry.title}" aggiornata!`);
+  };
+
+  const deleteMaintenanceEntry = async (id: string): Promise<void> => {
+    await deleteMaintenanceEntryAtomic(id);
+    setData((prev) => ({
+      ...prev,
+      maintenance: (prev.maintenance || []).filter((m) => m.id !== id),
+    }));
+    showNotification('success', 'Intervento di manutenzione rimosso dal registro.');
+  };
+
+  const getMaintenanceForComponent = (componentId: string): MaintenanceEntry[] => {
+    return (data.maintenance || []).filter(
+      (m) => m.componentIds && m.componentIds.includes(componentId)
+    );
+  };
+
+  // --- AZIONI TUNING JOURNAL (SESSIONE 4) ---
+
+  const addTuningProfile = async (input: TuningProfileInput): Promise<TuningProfile> => {
+    const validation = validateTuningProfile(input);
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors)[0] || 'Dati profilo di tuning non validi.';
+      showNotification('error', firstError);
+      throw new Error(firstError);
+    }
+
+    const nowIso = new Date().toISOString();
+    const profile: TuningProfile = {
+      id: generateId(),
+      name: input.name.trim(),
+      componentId: input.componentId || undefined,
+      category: input.category,
+      date: input.date,
+      type: input.type,
+      parameters: input.parameters || {},
+      stability: input.stability,
+      benchmarks: input.benchmarks && input.benchmarks.length > 0 ? input.benchmarks : undefined,
+      temperatures: input.temperatures || undefined,
+      observedPowerWatts: typeof input.observedPowerWatts === 'number' && !isNaN(input.observedPowerWatts) ? input.observedPowerWatts : undefined,
+      notes: input.notes?.trim() || undefined,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    await saveTuningProfileAtomic(profile);
+    setData((prev) => ({
+      ...prev,
+      tuningProfiles: [...(prev.tuningProfiles || []), profile],
+    }));
+    showNotification('success', `Profilo di tuning "${profile.name}" salvato nel registro!`);
+    return profile;
+  };
+
+  const updateTuningProfile = async (
+    id: string,
+    updates: Partial<TuningProfileInput>
+  ): Promise<void> => {
+    const existing = (data.tuningProfiles || []).find((t) => t.id === id);
+    if (!existing) {
+      throw new Error(`Profilo di tuning con ID ${id} non trovato.`);
+    }
+
+    const merged = { ...existing, ...updates };
+    const validation = validateTuningProfile(merged);
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors)[0] || 'Dati profilo di tuning non validi.';
+      showNotification('error', firstError);
+      throw new Error(firstError);
+    }
+
+    const updatedProfile: TuningProfile = {
+      ...existing,
+      ...updates,
+      name: updates.name !== undefined ? updates.name.trim() : existing.name,
+      notes: updates.notes !== undefined ? updates.notes.trim() || undefined : existing.notes,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await saveTuningProfileAtomic(updatedProfile);
+    setData((prev) => ({
+      ...prev,
+      tuningProfiles: (prev.tuningProfiles || []).map((t) => (t.id === id ? updatedProfile : t)),
+    }));
+    showNotification('success', `Profilo "${updatedProfile.name}" aggiornato!`);
+  };
+
+  const deleteTuningProfile = async (id: string): Promise<void> => {
+    await deleteTuningProfileAtomic(id);
+    setData((prev) => ({
+      ...prev,
+      tuningProfiles: (prev.tuningProfiles || []).filter((t) => t.id !== id),
+    }));
+    showNotification('success', 'Profilo di tuning rimosso dal registro.');
+  };
+
+  const getTuningProfilesForComponent = (componentId: string): TuningProfile[] => {
+    return (data.tuningProfiles || []).filter((t) => t.componentId === componentId);
   };
 
   const contextValue: PCStoreState = useMemo(
@@ -1480,6 +1675,16 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       getComponentReceipts,
       uploadReceipt,
       deleteReceipt,
+      maintenanceEntries: data.maintenance || [],
+      addMaintenanceEntry,
+      updateMaintenanceEntry,
+      deleteMaintenanceEntry,
+      getMaintenanceForComponent,
+      tuningProfiles: data.tuningProfiles || [],
+      addTuningProfile,
+      updateTuningProfile,
+      deleteTuningProfile,
+      getTuningProfilesForComponent,
     }),
     [
       data,

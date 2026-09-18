@@ -14,6 +14,8 @@ import {
   AllowedReceiptMimeType,
   MAX_RECEIPT_FILE_SIZE_BYTES,
   MAX_TOTAL_RECEIPTS_BACKUP_BYTES,
+  MaintenanceEntry,
+  TuningProfile,
 } from '../types';
 import {
   STORES,
@@ -78,6 +80,8 @@ export function sortDataDeterministically(data: {
   upgrades?: Upgrade[];
   checkpoints?: Checkpoint[];
   receipts?: ComponentReceipt[];
+  maintenance?: MaintenanceEntry[];
+  tuningProfiles?: TuningProfile[];
 }): void {
   data.components.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -109,6 +113,26 @@ export function sortDataDeterministically(data: {
       if (compComp !== 0) return compComp;
       const dateComp = a.uploadedAt.localeCompare(b.uploadedAt);
       if (dateComp !== 0) return dateComp;
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  if (data.maintenance) {
+    data.maintenance.sort((a, b) => {
+      const dateComp = a.date.localeCompare(b.date);
+      if (dateComp !== 0) return dateComp;
+      const createdComp = (a.createdAt || '').localeCompare(b.createdAt || '');
+      if (createdComp !== 0) return createdComp;
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  if (data.tuningProfiles) {
+    data.tuningProfiles.sort((a, b) => {
+      const dateComp = a.date.localeCompare(b.date);
+      if (dateComp !== 0) return dateComp;
+      const nameComp = a.name.localeCompare(b.name);
+      if (nameComp !== 0) return nameComp;
       return a.id.localeCompare(b.id);
     });
   }
@@ -148,11 +172,31 @@ export async function exportDatabaseToJSON(): Promise<string> {
     }
   }
 
+  // Recupero sicuro della manutenzione (con fallback retrocompatibile per mock nei test)
+  let maintenance: MaintenanceEntry[] = [];
+  if (STORES.MAINTENANCE) {
+    try {
+      maintenance = await getAllFromStore<MaintenanceEntry>(STORES.MAINTENANCE);
+    } catch {
+      maintenance = [];
+    }
+  }
+
+  // Recupero sicuro dei profili di tuning (con fallback retrocompatibile per mock nei test)
+  let tuningProfiles: TuningProfile[] = [];
+  if (STORES.TUNING) {
+    try {
+      tuningProfiles = await getAllFromStore<TuningProfile>(STORES.TUNING);
+    } catch {
+      tuningProfiles = [];
+    }
+  }
+
   const settingsEntry = metadataList.find((m) => m.key === 'settings');
   const settings = normalizeSettings(settingsEntry?.value);
 
   // Ordinamento deterministico delle collezioni
-  sortDataDeterministically({ components, events, upgrades, checkpoints, receipts });
+  sortDataDeterministically({ components, events, upgrades, checkpoints, receipts, maintenance, tuningProfiles });
 
   const exportTimestamp = new Date().toISOString();
 
@@ -169,6 +213,8 @@ export async function exportDatabaseToJSON(): Promise<string> {
     upgrades,
     checkpoints,
     receipts: receipts.length > 0 ? receipts : undefined,
+    maintenance: maintenance.length > 0 ? maintenance : undefined,
+    tuningProfiles: tuningProfiles.length > 0 ? tuningProfiles : undefined,
   };
 
   return JSON.stringify(payload, null, 2);
@@ -480,6 +526,54 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
       }
     }
 
+    // 9. Validazione Manutenzione (Sessione 4)
+    if (rawData.maintenance !== undefined && !Array.isArray(rawData.maintenance)) {
+      return {
+        isValid: false,
+        error: "La sezione 'maintenance' del file non è un array valido.",
+      };
+    }
+    const maintIds = new Set<string>();
+    for (const m of migratedData.maintenance || []) {
+      if (!m.id || typeof m.id !== 'string' || m.id.trim().length === 0) {
+        return { isValid: false, error: 'Rilevato un intervento di manutenzione privo di ID univoco valido.' };
+      }
+      if (maintIds.has(m.id)) {
+        return { isValid: false, error: `ID manutenzione duplicato rilevato nel backup: "${m.id}".` };
+      }
+      maintIds.add(m.id);
+      if (!isValidISODateString(m.date)) {
+        return { isValid: false, error: `Data non valida per l'intervento di manutenzione "${m.id}": "${m.date}".` };
+      }
+      if (!m.title || typeof m.title !== 'string' || m.title.trim().length === 0) {
+        return { isValid: false, error: `Titolo mancante per l'intervento di manutenzione "${m.id}".` };
+      }
+    }
+
+    // 10. Validazione Tuning Profiles (Sessione 4)
+    if (rawData.tuningProfiles !== undefined && !Array.isArray(rawData.tuningProfiles)) {
+      return {
+        isValid: false,
+        error: "La sezione 'tuningProfiles' del file non è un array valido.",
+      };
+    }
+    const tuningIds = new Set<string>();
+    for (const t of migratedData.tuningProfiles || []) {
+      if (!t.id || typeof t.id !== 'string' || t.id.trim().length === 0) {
+        return { isValid: false, error: 'Rilevato un profilo di tuning privo di ID univoco valido.' };
+      }
+      if (tuningIds.has(t.id)) {
+        return { isValid: false, error: `ID profilo di tuning duplicato rilevato nel backup: "${t.id}".` };
+      }
+      tuningIds.add(t.id);
+      if (!isValidISODateString(t.date)) {
+        return { isValid: false, error: `Data non valida per il profilo di tuning "${t.id}": "${t.date}".` };
+      }
+      if (!t.name || typeof t.name !== 'string' || t.name.trim().length === 0) {
+        return { isValid: false, error: `Nome mancante per il profilo di tuning "${t.id}".` };
+      }
+    }
+
     // Estrazione metadati opzionali di sintesi per la preview
     const rawSettings = (migratedData.settings || {}) as unknown as Record<string, unknown>;
     const settingsSummary = {
@@ -506,6 +600,8 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
         upgrades: (migratedData.upgrades || []).length,
         checkpoints: (migratedData.checkpoints || []).length,
         receipts: (migratedData.receipts || []).length,
+        maintenance: (migratedData.maintenance || []).length,
+        tuningProfiles: (migratedData.tuningProfiles || []).length,
       },
       settingsSummary,
       parsedData: migratedData,
@@ -531,6 +627,8 @@ export async function executeImport(data: DatabaseSchema): Promise<void> {
     upgrades: data.upgrades || [],
     checkpoints: data.checkpoints || [],
     receipts: data.receipts || [],
+    maintenance: data.maintenance || [],
+    tuningProfiles: data.tuningProfiles || [],
     metadataItems: [
       { key: 'settings', value: normalizeSettings(data.settings) },
       { key: 'initialized', value: true },
