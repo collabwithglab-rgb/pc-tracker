@@ -30,8 +30,10 @@ import { QuickSetupModal } from '../quickSetup';
 import { ImportBackupModal } from '../backup';
 import { RigExportModal } from '../export';
 import { Toast } from '../common/Toast';
+import { WhatsNewModal } from '../common/WhatsNewModal';
 import { Component, ComponentCategory, InstallEvent, Upgrade, ImportPreview } from '../../types';
-import { isDesktopApp, checkForAppUpdates, pickAndReadBackupFileWithDialog } from '../../services';
+import { isDesktopApp, checkForAppUpdates, pickAndReadBackupFileWithDialog, AppUpdateInfo } from '../../services';
+import { APP_VERSION } from '../../constants/version';
 import { validateImportJSON, executeImport } from '../../storage';
 
 export const AppShell: React.FC = () => {
@@ -77,16 +79,53 @@ export const AppShell: React.FC = () => {
     }
   }, [isLoading, hasCheckedQuickSetup, settings.quickSetupCompleted, components.length]);
 
-  // Controllo aggiornamenti silenzioso all'avvio su desktop
+  // Stato Notifiche Aggiornamenti (Auto-Updater & Bollino Rosso)
+  const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo>({
+    available: false,
+    currentVersion: APP_VERSION,
+  });
+
+  // Stato Modale WhatsNew (Novità dell'aggiornamento)
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+  const [hasCheckedWhatsNew, setHasCheckedWhatsNew] = useState(false);
+
+  // Controllo aggiornamenti silenzioso all'avvio
   useEffect(() => {
-    if (!isLoading && isDesktopApp()) {
-      checkForAppUpdates().then((res) => {
-        if (res.available && res.newVersion) {
-          showNotification('success', `Nuova versione disponibile: v${res.newVersion}! Vai in Impostazioni per aggiornare.`);
-        }
-      });
+    if (!isLoading) {
+      checkForAppUpdates()
+        .then((res) => {
+          if (res.available && res.newVersion) {
+            setUpdateInfo(res);
+            showNotification(
+              'success',
+              `Nuova versione disponibile: v${res.newVersion}! Vai in Impostazioni per aggiornare.`
+            );
+          }
+        })
+        .catch((err) => {
+          console.warn('[AppShell] Controllo aggiornamenti:', err);
+        });
     }
   }, [isLoading]);
+
+  // Rilevamento automatico post-aggiornamento: mostra WhatsNew se la versione corrente non è mai stata vista
+  useEffect(() => {
+    if (!isLoading && !hasCheckedWhatsNew) {
+      try {
+        const lastSeenVersion = localStorage.getItem('pctracker_last_seen_version');
+        // Se non è mai stata salvata ed è un'installazione vergine (quick setup non completato e 0 componenti), non disturbare l'onboarding
+        if (!lastSeenVersion && !settings.quickSetupCompleted && components.length === 0) {
+          localStorage.setItem('pctracker_last_seen_version', APP_VERSION);
+        } else if (lastSeenVersion !== APP_VERSION) {
+          // L'utente ha appena aggiornato ad una nuova versione di PC Tracker!
+          setIsWhatsNewOpen(true);
+        }
+      } catch {
+        // Nessun errore se localStorage è ristretto
+      }
+      setHasCheckedWhatsNew(true);
+    }
+  }, [isLoading, hasCheckedWhatsNew, settings.quickSetupCompleted, components.length]);
 
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
 
@@ -450,7 +489,14 @@ export const AppShell: React.FC = () => {
       case 'stats':
         return <StatsPage onSelectComponent={handleSelectComponent} />;
       case 'settings':
-        return <SettingsPage onOpenQuickSetup={() => setIsQuickSetupOpen(true)} />;
+        return (
+          <SettingsPage
+            onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
+            hasUpdateAvailable={updateInfo.available}
+            onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
+            updateInfo={updateInfo}
+          />
+        );
       default:
         return (
           <CurrentRigPage
@@ -467,7 +513,12 @@ export const AppShell: React.FC = () => {
 
   return (
     <div style={styles.layout}>
-      <Sidebar currentSection={currentSection} onSelectSection={handleSelectSection} />
+      <Sidebar
+        currentSection={currentSection}
+        onSelectSection={handleSelectSection}
+        hasUpdateAvailable={updateInfo.available}
+        onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
+      />
       <div style={styles.main}>
         <Header
           title={selectedComponentId && currentSection === 'archive' ? 'Dettaglio Componente' : metadata.title}
@@ -698,6 +749,13 @@ export const AppShell: React.FC = () => {
           receiptCount={listingReceiptCount}
         />
       )}
+
+      {/* Modale Novità dell'Aggiornamento (What's New / Mini-Wiki) */}
+      <WhatsNewModal
+        isOpen={isWhatsNewOpen}
+        onClose={() => setIsWhatsNewOpen(false)}
+        initialVersion={APP_VERSION}
+      />
 
       {/* Notifiche Toast */}
       <Toast />

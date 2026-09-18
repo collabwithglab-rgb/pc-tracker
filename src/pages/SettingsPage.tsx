@@ -187,9 +187,17 @@ const TYPOGRAPHY_PRESETS: TypographyPresetConfig[] = [
 
 interface SettingsPageProps {
   onOpenQuickSetup?: () => void;
+  hasUpdateAvailable?: boolean;
+  onOpenWhatsNew?: () => void;
+  updateInfo?: AppUpdateInfo | null;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenQuickSetup }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({
+  onOpenQuickSetup,
+  hasUpdateAvailable = false,
+  onOpenWhatsNew,
+  updateInfo,
+}) => {
   const {
     settings,
     updateSettings,
@@ -241,10 +249,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenQuickSetup }) 
     error?: string;
   }>({
     checking: false,
-    info: null,
+    info: updateInfo || null,
     downloading: false,
     percent: 0,
+    error: updateInfo?.error,
   });
+
+  // Sincronizza lo stato dell'aggiornamento se passato o mutato dal genitore (AppShell)
+  useEffect(() => {
+    if (updateInfo) {
+      setUpdateState((prev) => ({
+        ...prev,
+        info: updateInfo,
+        error: updateInfo.error,
+      }));
+    }
+  }, [updateInfo]);
 
   // Caricamento persistito di lastExportedAt da IndexedDB
   useEffect(() => {
@@ -1255,26 +1275,52 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenQuickSetup }) 
             </div>
 
             {/* Gruppo 3: Aggiornamenti Software & Informazioni Build (Auto-Updater) */}
-            <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gridColumn: '1 / -1' }}>
+            <div
+              className={`settings-group ${(hasUpdateAvailable || updateState.info?.available) ? 'settings-group-update-ready' : ''}`}
+              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gridColumn: '1 / -1' }}
+            >
               <div>
                 <div className="settings-group-header">
-                  <h2 className="settings-group-title">
-                    <RefreshCw size={18} color="var(--accent-primary)" className={updateState.checking ? 'spin' : ''} />
-                    <span>Aggiornamenti Software & Canale di Rilascio</span>
-                  </h2>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                    <h2 className="settings-group-title">
+                      <RefreshCw size={18} color="var(--accent-primary)" className={updateState.checking ? 'spin' : ''} />
+                      <span>Aggiornamenti Software & Canale di Rilascio</span>
+                    </h2>
+                    {(hasUpdateAvailable || updateState.info?.available) && (
+                      <span className="settings-update-badge" title="Nuova versione pronta per il download">
+                        <span className="sidebar-update-dot" style={{ width: '6px', height: '6px', margin: 0 }} />
+                        <span>Aggiornamento Pronto</span>
+                      </span>
+                    )}
+                  </div>
                   <p className="settings-group-desc">
                     Verifica e installa le nuove versioni ufficiali di PC Tracker distribuite tramite GitHub Releases. Gli aggiornamenti sono firmati digitalmente per garantire sicurezza e integrità del codice.
                   </p>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '16px' }}>
-                  <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Versione Corrente
-                    </span>
-                    <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      v{APP_VERSION}
-                    </strong>
+                  <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Versione Corrente
+                      </span>
+                      <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                        v{APP_VERSION}
+                      </strong>
+                    </div>
+                    {onOpenWhatsNew && (
+                      <button
+                        type="button"
+                        onClick={onOpenWhatsNew}
+                        className="btn btn-secondary micro-press"
+                        style={{ fontSize: '11.5px', padding: '3px 8px', gap: '5px', alignSelf: 'flex-start' }}
+                        id="btn-settings-whatsnew"
+                        title="Visualizza note di rilascio & novità della versione corrente"
+                      >
+                        <Sparkles size={12} color="var(--accent-primary)" />
+                        <span>Novità & Changelog</span>
+                      </button>
+                    )}
                   </div>
 
                   <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>

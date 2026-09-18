@@ -13,6 +13,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { usePCStore } from '../../store';
+import { APP_VERSION } from '../../constants/version';
 
 export type NavSection =
   | 'dashboard'
@@ -27,6 +28,8 @@ export type NavSection =
 interface SidebarProps {
   currentSection: NavSection;
   onSelectSection: (section: NavSection) => void;
+  hasUpdateAvailable?: boolean;
+  onOpenWhatsNew?: () => void;
 }
 
 interface NavItemDef {
@@ -41,7 +44,12 @@ interface NavGroupDef {
   items: NavItemDef[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentSection, onSelectSection }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentSection,
+  onSelectSection,
+  hasUpdateAvailable = false,
+  onOpenWhatsNew,
+}) => {
   const { settings, components, getComponentComputed } = usePCStore();
 
   const inStorageCount = components.filter(
@@ -136,6 +144,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentSection, onSelectSectio
                         {item.badge}
                       </span>
                     )}
+                    {item.id === 'settings' && hasUpdateAvailable && (
+                      <span
+                        className="sidebar-update-dot"
+                        title="Nuovo aggiornamento software disponibile!"
+                      />
+                    )}
                   </button>
                 );
               })}
@@ -146,9 +160,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentSection, onSelectSectio
 
       {/* Footer & Firma Personale Minima */}
       <div style={styles.footer}>
-        <div style={styles.dbStatus}>
-          <span style={styles.statusDot} />
-          <span>IndexedDB Locale</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <div style={styles.dbStatus}>
+            <span style={styles.statusDot} />
+            <span>IndexedDB Locale</span>
+          </div>
+
+          {onOpenWhatsNew ? (
+            <button
+              type="button"
+              onClick={onOpenWhatsNew}
+              className="micro-press"
+              style={styles.versionBtn}
+              title="Note di rilascio & novità di questa versione"
+              id="btn-sidebar-whatsnew"
+            >
+              <span>v{APP_VERSION}</span>
+              {hasUpdateAvailable && (
+                <span className="sidebar-update-dot" style={{ width: '6px', height: '6px', marginLeft: '0' }} />
+              )}
+            </button>
+          ) : (
+            <span style={styles.versionText}>v{APP_VERSION}</span>
+          )}
         </div>
 
         <div style={styles.signature}>
@@ -303,5 +337,24 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     textDecoration: 'none',
     transition: 'color var(--transition-fast)',
+  },
+  versionBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '11px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    padding: '2px 4px',
+    borderRadius: 'var(--radius-xs)',
+    transition: 'color var(--transition-fast)',
+  },
+  versionText: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '11px',
+    color: 'var(--text-muted)',
   },
 };
