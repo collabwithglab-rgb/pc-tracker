@@ -1518,7 +1518,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenQuickSetup }) 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Info size={15} color="var(--accent-primary)" />
           <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-            <strong style={{ color: 'var(--text-primary)' }}>PC Tracker</strong> • v0.1.0 • IndexedDB Single Source of Truth
+            <strong style={{ color: 'var(--text-primary)' }}>PC Tracker</strong> • v{APP_VERSION} • IndexedDB Single Source of Truth
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { escapeCSVCell, validateImportJSON } from '../backupService';
+import { escapeCSVCell, validateImportJSON, sanitizeDownloadFileName } from '../backupService';
 import { DatabaseSchema } from '../../types';
 
 describe('Security & Vulnerability Fixes Suite', () => {
@@ -127,6 +127,41 @@ describe('Security & Vulnerability Fixes Suite', () => {
 
       const result = validateImportJSON(JSON.stringify(backupWithValidReceipt));
       expect(result.isValid).toBe(true);
+    });
+
+    it('should reject receipts with data URLs exceeding maximum size limits', () => {
+      // Simula un dataUrl enorme che supera il limite (10MB base64)
+      const fakeGiantDataUrl = 'data:application/pdf;base64,' + 'A'.repeat(15 * 1024 * 1024);
+      const backupWithOversizedReceipt = {
+        ...baseValidBackup,
+        receipts: [
+          {
+            id: 'rec-1',
+            componentId: 'comp-1',
+            fileName: 'invoice.pdf',
+            fileType: 'application/pdf',
+            fileSize: 1024, // Dichiara 1KB fittizio ma include un payload gigante
+            dataUrl: fakeGiantDataUrl,
+            uploadedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+      };
+
+      const result = validateImportJSON(JSON.stringify(backupWithOversizedReceipt));
+      expect(result.isValid).toBe(false);
+      if (!result.isValid) {
+        expect(result.error).toContain('supera la dimensione massima');
+      }
+    });
+  });
+
+  describe('Download File Path Sanitization (Defense-in-depth)', () => {
+    it('should sanitize filename removing path traversal and forbidden characters', () => {
+      expect(sanitizeDownloadFileName('../../etc/passwd.json')).not.toContain('..');
+      expect(sanitizeDownloadFileName('../../etc/passwd.json')).not.toContain('/');
+      expect(sanitizeDownloadFileName('..\\..\\windows\\system32')).not.toContain('\\');
+      expect(sanitizeDownloadFileName('pc<tracker>:backup*.json')).toBe('pc_tracker__backup_.json');
+      expect(sanitizeDownloadFileName('')).toBe('download');
     });
   });
 });

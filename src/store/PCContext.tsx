@@ -25,6 +25,7 @@ import {
   AllowedReceiptMimeType,
   MAX_RECEIPT_FILE_SIZE_BYTES,
 } from '../types';
+import { APP_VERSION } from '../constants/version';
 import {
   loadFullDatabase,
   saveComponent,
@@ -271,7 +272,7 @@ const PCContext = createContext<PCStoreState | null>(null);
 export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [data, setData] = useState<DatabaseSchema>({
     schemaVersion: 1,
-    appVersion: '0.1.0',
+    appVersion: APP_VERSION,
     lastModified: new Date().toISOString(),
     settings: DEFAULT_SETTINGS,
     components: [],

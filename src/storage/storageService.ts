@@ -9,6 +9,7 @@ import {
   EnvironmentThemePreference,
   TypographyPresetPreference,
 } from '../types';
+import { APP_VERSION } from '../constants/version';
 import {
   STORES,
   getAllFromStore,
@@ -168,7 +169,7 @@ export async function loadFullDatabase(): Promise<DatabaseSchema> {
 
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    appVersion: '0.1.0',
+    appVersion: APP_VERSION,
     lastModified: new Date().toISOString(),
     settings,
     components,

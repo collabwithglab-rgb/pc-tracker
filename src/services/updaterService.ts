@@ -18,7 +18,8 @@ export interface AppUpdateInfo {
 
 export type UpdateProgressCallback = (downloaded: number, total: number | null, percent: number) => void;
 
-export const APP_VERSION = '0.2.1';
+import { APP_VERSION } from '../constants/version';
+export { APP_VERSION };
 
 // Riferimento cache all'oggetto Update nativo di Tauri
 let cachedUpdate: import('@tauri-apps/plugin-updater').Update | null = null;

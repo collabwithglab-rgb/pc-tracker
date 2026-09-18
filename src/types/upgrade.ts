@@ -4,7 +4,7 @@ export interface Upgrade {
   id: string; // UUID stabile
   date: string; // ISO 'YYYY-MM-DD'
   category: ComponentCategory;
-  oldComponentId?: string; // ID componente sostituito
+  oldComponentId: string; // ID componente sostituito
   newComponentId: string; // ID componente subentrato
   notes?: string;
 }

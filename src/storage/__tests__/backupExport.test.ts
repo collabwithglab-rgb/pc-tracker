@@ -211,7 +211,7 @@ describe('Roadmap 9: Backup / Export Definitivo', () => {
       const parsed = JSON.parse(jsonString) as DatabaseSchema;
 
       expect(parsed.schemaVersion).toBe(1);
-      expect(parsed.appVersion).toBe('0.1.0');
+      expect(parsed.appVersion).toBe('0.2.1');
       expect(typeof parsed.exportedAt).toBe('string');
       expect(parsed.components).toHaveLength(1);
       expect(parsed.components[0].id).toBe('comp-1');

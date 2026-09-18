@@ -23,6 +23,7 @@ import {
   replaceAllDataAtomic,
 } from './indexedDB';
 import { CURRENT_SCHEMA_VERSION, migrateDatabase } from './migrations';
+import { APP_VERSION } from '../constants/version';
 import {
   validateLifecycleSequence,
   isValidISODateString,
@@ -160,7 +161,7 @@ export async function exportDatabaseToJSON(): Promise<string> {
 
   const payload: DatabaseSchema = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    appVersion: '0.1.0',
+    appVersion: APP_VERSION,
     exportedAt: exportTimestamp,
     settings,
     components,
@@ -189,17 +190,13 @@ export async function exportDatabaseToJSON(): Promise<string> {
  */
 export function validateImportJSON(jsonString: string): ImportValidationResult {
   try {
-    // Protezione contro Prototype Pollution (CWE-1321)
-    const rawData = (
-      jsonString.includes('__proto__') || jsonString.includes('constructor') || jsonString.includes('prototype')
-        ? JSON.parse(jsonString, (key, value) => {
-            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-              return undefined;
-            }
-            return value;
-          })
-        : JSON.parse(jsonString)
-    ) as Record<string, unknown>;
+    // Protezione incondizionata contro Prototype Pollution (CWE-1321)
+    const rawData = JSON.parse(jsonString, (key, value) => {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        return undefined;
+      }
+      return value;
+    }) as Record<string, unknown>;
 
     if (!rawData || typeof rawData !== 'object') {
       return { isValid: false, error: 'File non valido o non in formato JSON.' };
@@ -393,6 +390,7 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
 
     const receiptIds = new Set<string>();
     let totalReceiptsBytes = 0;
+    let totalReceiptsDataUrlChars = 0;
 
     for (const r of migratedData.receipts || []) {
       if (!r.id || typeof r.id !== 'string' || r.id.trim().length === 0) {
@@ -444,6 +442,23 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
         return {
           isValid: false,
           error: `Contenuto Data URL non valido o corrotto per la ricevuta "${r.fileName}".`,
+        };
+      }
+
+      // Validazione dimensione effettiva della stringa Data URL (Prevenzione attacchi di memoria / bypass fileSize)
+      const maxSingleReceiptDataUrlChars = Math.ceil(MAX_RECEIPT_FILE_SIZE_BYTES * 1.4) + 1024;
+      if (r.dataUrl.length > maxSingleReceiptDataUrlChars) {
+        return {
+          isValid: false,
+          error: `Il payload Data URL per la ricevuta "${r.fileName}" supera la dimensione massima di 10MB.`,
+        };
+      }
+      totalReceiptsDataUrlChars += r.dataUrl.length;
+      const maxTotalReceiptsDataUrlChars = Math.ceil(MAX_TOTAL_RECEIPTS_BACKUP_BYTES * 1.4) + 4096;
+      if (totalReceiptsDataUrlChars > maxTotalReceiptsDataUrlChars) {
+        return {
+          isValid: false,
+          error: `Il totale dei dati delle ricevute allegate supera il limite di sicurezza di 50MB per il backup.`,
         };
       }
 
@@ -616,7 +631,9 @@ export function exportComponentsToCSV(
     const compEvents = eventsByComp.get(comp.id) || [];
     const status = computeComponentStatus(compEvents);
 
-    const purchase = compEvents.find((e) => e.type === 'PURCHASE') as PurchaseEvent | undefined;
+    const purchaseEvents = compEvents.filter((e): e is PurchaseEvent => e.type === 'PURCHASE');
+    const firstPurchase = purchaseEvents[0];
+    const totalPurchasePrice = purchaseEvents.reduce((sum, e) => sum + (e.price || 0), 0);
     const sale = compEvents.find((e) => e.type === 'SALE') as SaleEvent | undefined;
     const extraExpenses = compEvents
       .filter((e) => e.type === 'EXTRA_EXPENSE')
@@ -633,8 +650,8 @@ export function exportComponentsToCSV(
       comp.category,
       comp.serialNumber || '',
       status,
-      purchase ? purchase.date : '',
-      purchase ? purchase.price.toFixed(2) : '',
+      firstPurchase ? firstPurchase.date : '',
+      purchaseEvents.length > 0 ? totalPurchasePrice.toFixed(2) : '',
       extraExpenses > 0 ? extraExpenses.toFixed(2) : '0.00',
       sale ? sale.price.toFixed(2) : '',
       netCost.toFixed(2),
@@ -738,14 +755,25 @@ export function exportEventsToCSV(
 }
 
 /**
+ * Sanitizza il nome file rimuovendo caratteri non ammessi e path traversal.
+ */
+export function sanitizeDownloadFileName(fileName: string): string {
+  return fileName.replace(/\.\./g, '').replace(/[/\\?%*:|"<>]/g, '_').replace(/^\.+/, '') || 'download';
+}
+
+/**
  * Helper per avviare il download locale di un file nel browser.
  */
 export function downloadFile(fileName: string, content: string, mimeType: string): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const sanitizedFileName = sanitizeDownloadFileName(fileName);
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = fileName;
+  a.download = sanitizedFileName;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
