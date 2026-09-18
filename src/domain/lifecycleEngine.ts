@@ -95,20 +95,29 @@ export function resolveStatusFromSortedEvents(sorted: ComponentEvent[]): Compone
 
 /**
  * Calcola lo stato derivato di un componente a partire dalla sequenza di eventi.
+ * Accetta un flag facoltativo eventsAlreadySorted per evitare sort ridondanti se l'array è già ordinato.
  */
-export function computeComponentStatus(events: ComponentEvent[]): ComponentStatus {
+export function computeComponentStatus(
+  events: ComponentEvent[],
+  eventsAlreadySorted: boolean = false
+): ComponentStatus {
   if (events.length === 0) {
     return 'IN_STORAGE';
   }
-  const sorted = sortEventsChronologically(events);
+  const sorted = eventsAlreadySorted ? events : sortEventsChronologically(events);
   return resolveStatusFromSortedEvents(sorted);
 }
 
 /**
  * Calcola i giorni totali di effettivo montaggio nel PC.
+ * Accetta un flag facoltativo eventsAlreadySorted per evitare sort ridondanti se l'array è già ordinato.
  */
-export function computeDaysInUse(events: ComponentEvent[], referenceDate?: string): number {
-  const sorted = sortEventsChronologically(events);
+export function computeDaysInUse(
+  events: ComponentEvent[],
+  referenceDate?: string,
+  eventsAlreadySorted: boolean = false
+): number {
+  const sorted = eventsAlreadySorted ? events : sortEventsChronologically(events);
   const today = referenceDate || getLocalDateISO();
 
   let totalDays = 0;
@@ -152,7 +161,7 @@ export function computeComponentComputedState(
     allEvents.filter((e) => e.componentId === component.id)
   );
 
-  const status = computeComponentStatus(compEvents);
+  const status = computeComponentStatus(compEvents, true);
 
   let totalPurchaseCost = 0;
   let totalSaleRevenue = 0;
@@ -187,7 +196,7 @@ export function computeComponentComputedState(
   }
 
   const netCost = totalPurchaseCost - totalSaleRevenue;
-  const daysInUse = computeDaysInUse(compEvents, referenceDate);
+  const daysInUse = computeDaysInUse(compEvents, referenceDate, true);
 
   const today = referenceDate || getLocalDateISO();
   const terminalDate = saleDate || giftDate || disposalDate || today;

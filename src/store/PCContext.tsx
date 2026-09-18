@@ -678,12 +678,13 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const result: InstalledComponentItem[] = [];
 
     for (const comp of data.components) {
-      const compEvents = sortEventsChronologically(data.events.filter((e) => e.componentId === comp.id));
       const computed = computeComponentComputedState(comp, data.events);
 
       if (computed.status === 'IN_USE') {
+        const compEvents = data.events.filter((e) => e.componentId === comp.id);
         const installEvents = compEvents.filter((e): e is InstallEvent => e.type === 'INSTALL');
-        const lastInstall = installEvents[installEvents.length - 1];
+        const sortedInstalls = installEvents.length > 1 ? (sortEventsChronologically(installEvents) as InstallEvent[]) : installEvents;
+        const lastInstall = sortedInstalls[sortedInstalls.length - 1];
         result.push({
           component: comp,
           lastInstallEvent: lastInstall,
@@ -1428,57 +1429,70 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     showNotification('success', 'Ricevuta eliminata dalla cassaforte.');
   };
 
-  const contextValue: PCStoreState = {
-    components: data.components,
-    events: data.events,
-    upgrades: data.upgrades,
-    settings: data.settings,
-    checkpoints: data.checkpoints || [],
-    isLoading,
-    error,
-    notification,
-    totalPurchased,
-    totalRecovered,
-    historicalNetCost,
-    currentRigCost,
-    rigStats,
-    dismissNotification,
-    showNotification,
-    reloadFromDB,
-    createComponentWithOptionalPurchase,
-    updateComponent,
-    deleteComponent,
-    installComponent,
-    uninstallComponent,
-    replaceComponent,
-    recordSale,
-    recordExtraExpense,
-    recordGift,
-    recordDisposal,
-    executeUpgrade,
-    getComponentComputed,
-    getComponentEvents,
-    getInstalledComponents,
-    getAvailableForInstallComponents,
-    getSellableComponents,
-    getNonTerminalComponents,
-    addEvent: handleAddEvent,
-    addUpgrade: handleAddUpgrade,
-    removeEvent: handleRemoveEvent,
-    deleteComponentEvent: handleDeleteComponentEvent,
-    updateComponentEvent: handleUpdateComponentEvent,
-    updateSettings,
-    resetSettingsToDefault,
-    importQuickSetupData: handleImportQuickSetupData,
-    createCheckpointFromCurrent,
-    createCheckpointFromPosition,
-    updateCheckpoint: handleUpdateCheckpoint,
-    deleteCheckpoint: handleDeleteCheckpoint,
-    getComponentWarranty,
-    getComponentReceipts,
-    uploadReceipt,
-    deleteReceipt,
-  };
+  const contextValue: PCStoreState = useMemo(
+    () => ({
+      components: data.components,
+      events: data.events,
+      upgrades: data.upgrades,
+      settings: data.settings,
+      checkpoints: data.checkpoints || [],
+      isLoading,
+      error,
+      notification,
+      totalPurchased,
+      totalRecovered,
+      historicalNetCost,
+      currentRigCost,
+      rigStats,
+      dismissNotification,
+      showNotification,
+      reloadFromDB,
+      createComponentWithOptionalPurchase,
+      updateComponent,
+      deleteComponent,
+      installComponent,
+      uninstallComponent,
+      replaceComponent,
+      recordSale,
+      recordExtraExpense,
+      recordGift,
+      recordDisposal,
+      executeUpgrade,
+      getComponentComputed,
+      getComponentEvents,
+      getInstalledComponents,
+      getAvailableForInstallComponents,
+      getSellableComponents,
+      getNonTerminalComponents,
+      addEvent: handleAddEvent,
+      addUpgrade: handleAddUpgrade,
+      removeEvent: handleRemoveEvent,
+      deleteComponentEvent: handleDeleteComponentEvent,
+      updateComponentEvent: handleUpdateComponentEvent,
+      updateSettings,
+      resetSettingsToDefault,
+      importQuickSetupData: handleImportQuickSetupData,
+      createCheckpointFromCurrent,
+      createCheckpointFromPosition,
+      updateCheckpoint: handleUpdateCheckpoint,
+      deleteCheckpoint: handleDeleteCheckpoint,
+      getComponentWarranty,
+      getComponentReceipts,
+      uploadReceipt,
+      deleteReceipt,
+    }),
+    [
+      data,
+      isLoading,
+      error,
+      notification,
+      totalPurchased,
+      totalRecovered,
+      historicalNetCost,
+      currentRigCost,
+      rigStats,
+    ]
+  );
 
   return <PCContext.Provider value={contextValue}>{children}</PCContext.Provider>;
 };
