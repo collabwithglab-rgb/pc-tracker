@@ -294,12 +294,11 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       setIsLoading(true);
       setError(null);
       const initialized = await isDatabaseInitialized();
-      let dbData = await loadFullDatabase();
+      const dbData = await loadFullDatabase();
 
       // Se IndexedDB non è mai stato inizializzato (primo avvio su installazione vergine)
       if (!initialized) {
         await setDatabaseInitialized(true);
-        dbData = await loadFullDatabase();
       }
 
       setData(dbData);
@@ -307,13 +306,14 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       const msg = `Errore durante il caricamento da IndexedDB: ${(err as Error).message}`;
       setError(msg);
       setNotification({ type: 'error', message: msg });
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    reloadFromDB();
+    reloadFromDB().catch(() => {});
   }, []);
 
   /**
