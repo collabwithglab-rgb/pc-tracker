@@ -69,7 +69,7 @@ const KNOWN_CPU_TDP: Array<{ pattern: RegExp; tdp: number; label: string }> = [
   { pattern: /i9-?14900/i, tdp: 253, label: 'Intel Core i9-14900 (PL2 Turbo: 253W)' },
   { pattern: /i7-?14700/i, tdp: 253, label: 'Intel Core i7-14700 (PL2 Turbo: 253W)' },
   { pattern: /i5-?14600/i, tdp: 181, label: 'Intel Core i5-14600 (PL2 Turbo: 181W)' },
-  { pattern: /i5-?14500/i, tdp: 154, label: 'Intel Core i5-14500 (PL2 Turbo: 154W / Base 65W)' },
+  { pattern: /\b(?:i5-?)?14500\b/i, tdp: 154, label: 'Intel Core 14500 (PL2 Turbo: 154W / Base 65W)' },
   { pattern: /i5-?14400/i, tdp: 148, label: 'Intel Core i5-14400 (PL2 Turbo: 148W / Base 65W)' },
 
   // Intel Core 13th Gen
