@@ -77,11 +77,16 @@ import {
   RefreshCw,
   ExternalLink,
   ChevronRight,
+  BookOpen,
 } from 'lucide-react';
 
 export type MaintenanceTab = 'registro' | 'scan' | 'tools' | 'tuning';
 
-export const MaintenancePage: React.FC = () => {
+interface MaintenancePageProps {
+  onOpenWikiArticle?: (articleId: string) => void;
+}
+
+export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArticle }) => {
   const {
     maintenanceEntries,
     tuningProfiles,
@@ -435,6 +440,19 @@ export const MaintenancePage: React.FC = () => {
             </span>
           )}
         </button>
+
+        {onOpenWikiArticle && (
+          <button
+            type="button"
+            className="contextual-help-pill micro-press"
+            style={{ marginLeft: 'auto', alignSelf: 'center' }}
+            onClick={() => onOpenWikiArticle('windows-tools-explained')}
+            title="Cosa fanno gli strumenti di pulizia Windows? Leggi la guida ufficiale"
+          >
+            <BookOpen size={13} color="var(--accent-primary)" />
+            <span>Guida Strumenti Windows</span>
+          </button>
+        )}
       </nav>
 
       {/* ========================================================================= */}

@@ -20,18 +20,21 @@ import {
   Calendar,
   Sparkles,
   Layers,
+  BookOpen,
 } from 'lucide-react';
 
 interface MarketplacePageProps {
   onSelectComponent: (id: string) => void;
   onOpenSaleModal: (component?: Component) => void;
   onOpenListingModal: (component: Component) => void;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
 export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   onSelectComponent,
   onOpenSaleModal,
   onOpenListingModal,
+  onOpenWikiArticle,
 }) => {
   const {
     components,
@@ -94,21 +97,35 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onOpenSaleModal()}
-          className="btn btn-secondary micro-press"
-          style={{
-            fontSize: '13px',
-            padding: '8px 16px',
-            color: 'var(--accent-emerald)',
-            borderColor: 'var(--accent-emerald-border)',
-            backgroundColor: 'var(--accent-emerald-subtle)',
-          }}
-        >
-          <DollarSign size={15} />
-          <span>+ Registra Vendita</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenWikiArticle && (
+            <button
+              type="button"
+              className="contextual-help-pill micro-press"
+              onClick={() => onOpenWikiArticle('listing-generator-guide')}
+              title="Consigli per creare annunci efficaci e massimizzare il realizzo? Leggi la guida"
+            >
+              <BookOpen size={13} color="var(--accent-primary)" />
+              <span>Guida Vendite & Annunci</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onOpenSaleModal()}
+            className="btn btn-secondary micro-press"
+            style={{
+              fontSize: '13px',
+              padding: '8px 16px',
+              color: 'var(--accent-emerald)',
+              borderColor: 'var(--accent-emerald-border)',
+              backgroundColor: 'var(--accent-emerald-subtle)',
+            }}
+          >
+            <DollarSign size={15} />
+            <span>+ Registra Vendita</span>
+          </button>
+        </div>
       </div>
 
       {/* Mini-Dashboard KPI Mercato Hardware */}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { WIKI_ARTICLES, WIKI_CATEGORIES } from '../../constants/wikiData';
-import { searchWikiArticles, getWikiStats, normalizeSearchTerm } from '../wikiEngine';
+import { searchWikiArticles, getWikiStats, normalizeSearchTerm, formatArticleForClipboard } from '../wikiEngine';
 
 describe('Wiki Engine & Knowledge Base Suite', () => {
   it('should have properly configured categories metadata', () => {
@@ -115,5 +115,34 @@ describe('Wiki Engine & Knowledge Base Suite', () => {
       }
     }
     expect(sumCategories).toBe(WIKI_ARTICLES.length);
+    expect(stats.categoryCounts.glossary).toBe(11);
+  });
+
+  it('should search and retrieve hardware glossary technical terms accurately', () => {
+    const undervoltRes = searchWikiArticles(WIKI_ARTICLES, 'undervolt', 'all', 'ALL');
+    expect(undervoltRes.length).toBeGreaterThan(0);
+    expect(undervoltRes.some((a) => a.id === 'glossary-undervolt')).toBe(true);
+
+    const tdpRes = searchWikiArticles(WIKI_ARTICLES, 'tdp tgp', 'all', 'ALL');
+    expect(tdpRes.length).toBeGreaterThan(0);
+    expect(tdpRes.some((a) => a.id === 'glossary-tdp-tgp')).toBe(true);
+
+    const clRes = searchWikiArticles(WIKI_ARTICLES, 'cas latency cl30', 'all', 'ALL');
+    expect(clRes.length).toBeGreaterThan(0);
+    expect(clRes.some((a) => a.id === 'glossary-cas-latency')).toBe(true);
+  });
+
+  it('should format articles cleanly for clipboard in Markdown with all metadata', () => {
+    const sampleArticle = WIKI_ARTICLES.find((a) => a.id === 'glossary-cas-latency');
+    expect(sampleArticle).toBeDefined();
+
+    if (sampleArticle) {
+      const formatted = formatArticleForClipboard(sampleArticle);
+      expect(formatted).toContain(`# ${sampleArticle.title}`);
+      expect(formatted).toContain(`> ${sampleArticle.summary}`);
+      expect(formatted).toContain('Formula');
+      expect(formatted).toContain('Consigli Pro');
+      expect(formatted).toContain('PC Tracker');
+    }
   });
 });

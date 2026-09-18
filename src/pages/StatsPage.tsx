@@ -11,15 +11,17 @@ import {
   Sparkles,
   ArrowUpRight,
   ShieldCheck,
+  BookOpen,
 } from 'lucide-react';
 import { usePCStore } from '../store';
 import { COMPONENT_CATEGORY_LABELS, ComponentCategory } from '../types';
 
 interface StatsPageProps {
   onSelectComponent?: (id: string) => void;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
-export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent }) => {
+export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenWikiArticle }) => {
   const { rigStats } = usePCStore();
 
   const {
@@ -84,15 +86,28 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent }) => {
             Analisi economica, longevità hardware e andamento investimenti derivati deterministicamente dalla cronologia eventi.
           </p>
         </div>
-        <div className="stats-time-pill">
-          <Calendar size={13} />
-          <span>
-            {timeRange.firstYear && timeRange.lastYear
-              ? `${timeRange.firstYear} → ${timeRange.lastYear} (${timeRange.totalYearsCount} anni solari)`
-              : 'Nessun evento registrato'}
-          </span>
-          <span style={{ color: 'var(--text-muted)' }}>•</span>
-          <span style={{ color: 'var(--text-primary)' }}>{timeRange.totalComponentsCount} componenti</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {onOpenWikiArticle && (
+            <button
+              type="button"
+              className="contextual-help-pill micro-press"
+              onClick={() => onOpenWikiArticle('the-four-financial-metrics')}
+              title="Come vengono calcolate le 4 metriche finanziarie? Leggi la guida ufficiale"
+            >
+              <BookOpen size={13} color="var(--accent-primary)" />
+              <span>Guida Formule Finanziarie</span>
+            </button>
+          )}
+          <div className="stats-time-pill">
+            <Calendar size={13} />
+            <span>
+              {timeRange.firstYear && timeRange.lastYear
+                ? `${timeRange.firstYear} → ${timeRange.lastYear} (${timeRange.totalYearsCount} anni solari)`
+                : 'Nessun evento registrato'}
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ color: 'var(--text-primary)' }}>{timeRange.totalComponentsCount} componenti</span>
+          </div>
         </div>
       </div>
 

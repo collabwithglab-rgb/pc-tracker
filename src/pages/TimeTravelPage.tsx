@@ -38,9 +38,14 @@ import {
   Trash2,
   Edit3,
   Package,
+  BookOpen,
 } from 'lucide-react';
 
-export const TimeTravelPage: React.FC = () => {
+interface TimeTravelPageProps {
+  onOpenWikiArticle?: (articleId: string) => void;
+}
+
+export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticle }) => {
   const { components, events, checkpoints, deleteCheckpoint } = usePCStore();
 
   // Calcola estremi ed eventi della timeline
@@ -321,6 +326,18 @@ export const TimeTravelPage: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {onOpenWikiArticle && (
+            <button
+              type="button"
+              className="contextual-help-pill micro-press"
+              onClick={() => onOpenWikiArticle('checkpoints-immutability')}
+              title="Come funziona la differenza tra Time Travel e Checkpoint? Leggi la guida ufficiale"
+            >
+              <BookOpen size={13} color="var(--accent-primary)" />
+              <span>Guida Time Travel</span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsCheckpointListOpen(!isCheckpointListOpen)}
             className="btn btn-secondary"

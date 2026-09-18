@@ -3834,4 +3834,113 @@
   margin: 0;
 }
 
+/* Evidenziazione Termini Cercati */
+.wiki-highlight {
+  background: rgba(56, 189, 248, 0.24);
+  color: #fff;
+  padding: 1px 3px;
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+}
+
+/* Kbd Hint per Scorciatoia Tasto / */
+.wiki-search-kbd-hint {
+  position: absolute;
+  right: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Effetto Evidenziazione Articolo Target (Deep-Link) */
+.wiki-article-card.target-highlighted {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 24px -4px rgba(56, 189, 248, 0.35) !important;
+  animation: wikiTargetPulse 2.5s ease-out;
+}
+
+@keyframes wikiTargetPulse {
+  0% {
+    box-shadow: 0 0 32px 0 rgba(56, 189, 248, 0.6);
+  }
+  100% {
+    box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* Pulsanti Bookmark & Copy nella Scheda Wiki */
+.wiki-card-action-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.wiki-icon-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.wiki-icon-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-elevated);
+  border-color: var(--border-subtle);
+}
+
+.wiki-bookmark-btn.bookmarked {
+  color: #f59e0b !important;
+}
+
+.wiki-bookmark-btn.bookmarked:hover {
+  background-color: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.wiki-copy-btn.copied {
+  color: var(--accent-emerald) !important;
+  border-color: var(--accent-emerald-border) !important;
+  background-color: var(--accent-emerald-subtle) !important;
+}
+
+/* Pill di Aiuto Contestuale Just-in-Time per le Schermate Chiave */
+.contextual-help-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  user-select: none;
+}
+
+.contextual-help-pill:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary-border);
+  background-color: var(--accent-primary-subtle);
+}
+
+
 

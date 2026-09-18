@@ -113,4 +113,39 @@ describe('Wiki Polish & Interactive Deep-Links Suite', () => {
       expect(resFaq.every((a) => a.badge === 'FAQ')).toBe(true);
     });
   });
+
+  describe('5. Aiuto Contestuale & Link Target Nelle Pagine', () => {
+    it('tutti gli ID degli articoli usati nell\'aiuto contestuale esistono nella Knowledge Base', () => {
+      const contextualTargetIds = [
+        'checkpoints-immutability',
+        'the-four-financial-metrics',
+        'windows-tools-explained',
+        'listing-generator-guide',
+      ];
+
+      contextualTargetIds.forEach((targetId) => {
+        const found = WIKI_ARTICLES.find((a) => a.id === targetId);
+        expect(found).toBeDefined();
+        expect(found?.title.trim().length).toBeGreaterThan(0);
+      });
+    });
+
+    it('la categoria glossary contiene gli 11 concetti tecnici essenziali per PC enthusiast', () => {
+      const glossaryArticles = WIKI_ARTICLES.filter((a) => a.category === 'glossary');
+      expect(glossaryArticles).toHaveLength(11);
+
+      const glossaryIds = glossaryArticles.map((a) => a.id);
+      expect(glossaryIds).toContain('glossary-tdp-tgp');
+      expect(glossaryIds).toContain('glossary-undervolt');
+      expect(glossaryIds).toContain('glossary-thermal-throttling');
+      expect(glossaryIds).toContain('glossary-coil-whine');
+      expect(glossaryIds).toContain('glossary-xmp-expo');
+      expect(glossaryIds).toContain('glossary-cas-latency');
+      expect(glossaryIds).toContain('glossary-bottleneck');
+      expect(glossaryIds).toContain('glossary-rma');
+      expect(glossaryIds).toContain('glossary-pcie-gen');
+      expect(glossaryIds).toContain('glossary-dual-channel');
+      expect(glossaryIds).toContain('glossary-80-plus-atx3');
+    });
+  });
 });

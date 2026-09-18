@@ -47,6 +47,11 @@ export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
     description: 'Architettura 100% locale su IndexedDB e salvataggi JSON',
   },
   {
+    id: 'glossary',
+    label: '📖 Glossario Hardware',
+    description: 'Acronimi e termini tecnici spiegati in breve per veri enthusiast',
+  },
+  {
     id: 'faq',
     label: 'Domande Frequenti (FAQ)',
     description: 'Risposte rapide a domande comuni su hardware e software',
@@ -549,6 +554,227 @@ export const WIKI_ARTICLES: WikiArticle[] = [
     keywords: ['offline', 'internet', 'connessione', 'rete', 'funzionamento', 'faq'],
     actionLinks: [
       { label: 'Apri Impostazioni', targetSection: 'settings', iconName: 'Settings' },
+    ],
+  },
+
+  // --- GLOSSARIO HARDWARE ---
+  {
+    id: 'glossary-tdp-tgp',
+    title: 'TDP vs TGP: Potenza e Dissipazione Termica',
+    category: 'glossary',
+    badge: 'CONCETTO CHIAVE',
+    readTime: '1 min',
+    summary: 'Cosa indicano il Thermal Design Power di CPU e il Total Graphics Power delle schede video.',
+    content: [
+      'Il TDP (Thermal Design Power) indica il calore massimo in Watt che il sistema di raffreddamento della CPU deve essere in grado di dissipare sotto carichi di lavoro intensi.',
+      'Il TGP (Total Graphics Power) misura invece il consumo energetico complessivo dell\'intera scheda video: non solo il silicio della GPU, ma anche le memorie VRAM, le fasi di alimentazione VRM, le ventole e i LED RGB.',
+    ],
+    tips: [
+      'Quando scegli l\'alimentatore (PSU) o un dissipatore ad aria/liquido, controlla sempre il picco massimo assorbito (Package Power o Power Limit) e non solo il TDP base.',
+    ],
+    keywords: ['tdp', 'tgp', 'consumo', 'watt', 'calore', 'dissipazione', 'potenza', 'alimentatore', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Il Mio PC', targetSection: 'current-rig', iconName: 'Cpu' },
+    ],
+  },
+  {
+    id: 'glossary-undervolt',
+    title: 'Undervolt: Ridurre Temperature e Consumi a Parità di Prestazioni',
+    category: 'glossary',
+    badge: 'TIP PRO',
+    readTime: '2 min',
+    summary: 'La tecnica di ottimizzazione della curva tensione/frequenza più usata dagli appassionati.',
+    content: [
+      'L\'undervolting consiste nel ridurre la tensione elettrica (Vcore per la CPU o VGPU per la scheda grafica) fornita dal circuito di alimentazione, mantenendo inalterate le frequenze di clock.',
+      'Poiché la potenza termica dissipata scala in modo quadratico con il voltaggio, un calo di appena 50-100mV consente di abbattere le temperature di 5-10°C, eliminare il thermal throttling e ridurre drasticamente il rumore delle ventole.',
+    ],
+    tips: [
+      'Testa sempre la stabilità del sistema con benchmark e sessioni prolungate di gioco, e annota le impostazioni stabili nel Tuning Journal del Centro Manutenzione.',
+    ],
+    keywords: ['undervolt', 'voltaggio', 'tensione', 'vcore', 'temperature', 'silenziosita', 'efficienza', 'curva', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Centro Manutenzione', targetSection: 'maintenance', iconName: 'Wrench' },
+    ],
+  },
+  {
+    id: 'glossary-thermal-throttling',
+    title: 'Thermal Throttling: Meccanismo di Autoprotezione Termica',
+    category: 'glossary',
+    badge: 'CONCETTO CHIAVE',
+    readTime: '1 min',
+    summary: 'Come e perché processore e scheda video tagliano le frequenze quando superano le temperature critiche.',
+    content: [
+      'Quando un chip raggiunge la temperatura limite di giunzione (TjMax, tipicamente tra 90°C e 105°C), i sensori interni ordinano un calo repentino di frequenza e tensione per evitare danni irreversibili al silicio.',
+      'Questo fenomeno, detto "thermal throttling", si manifesta nei videogiochi con improvvisi cali di framerate (stuttering) e nei rendering con tempi di completamento sensibilmente dilatati.',
+    ],
+    tips: [
+      'Se il tuo PC soffre di thermal throttling, verifica che i radiatori non siano intasati da polvere o valuta una sostituzione della pasta termica nel Centro Manutenzione.',
+    ],
+    keywords: ['thermal throttling', 'throttling', 'temperature alte', 'surriscaldamento', 'calo frame', 'stuttering', 'tjmax', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Centro Manutenzione', targetSection: 'maintenance', iconName: 'Wrench' },
+    ],
+  },
+  {
+    id: 'glossary-coil-whine',
+    title: 'Coil Whine: Origine del Ronzio Elettrico e Mitigazione',
+    category: 'glossary',
+    badge: 'FAQ',
+    readTime: '1 min',
+    summary: 'Cosa provoca il tipico sibilo/ronzio nelle schede video ad alti framerate e come attenuarlo.',
+    content: [
+      'Il coil whine è una vibrazione fisica ad altissima frequenza che interessa gli induttori (bobine) dei circuiti VRM sulla scheda video o nell\'alimentatore quando attraversati da correnti intense.',
+      'Si tratta di un fenomeno del tutto fisiologico e innocuo che non compromette la vita utile o le prestazioni dell\'hardware.',
+    ],
+    tips: [
+      'Attivare G-Sync/FreeSync o limitare il framerate massimo (es. a 144 FPS) riduce drasticamente l\'assorbimento negli induttori attenuando o azzerando il ronzio.',
+    ],
+    keywords: ['coil whine', 'fischio', 'ronzio', 'induttori', 'vrm', 'scheda video', 'rumore elettrico', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Centro Manutenzione', targetSection: 'maintenance', iconName: 'Wrench' },
+    ],
+  },
+  {
+    id: 'glossary-xmp-expo',
+    title: 'XMP vs EXPO: Profili di Overclock della Memoria RAM',
+    category: 'glossary',
+    badge: 'CONCETTO CHIAVE',
+    readTime: '2 min',
+    summary: 'La differenza tra i profili Intel Extreme Memory Profile e AMD Extended Profiles for Overclocking.',
+    content: [
+      'Di fabbrica, qualsiasi kit di RAM si avvia alle frequenze conservative stabilite dallo standard JEDEC (es. 4800MHz per DDR5). Per sfruttare la velocità nominale acquistata (es. 6000MHz), è indispensabile abilitare il profilo nel BIOS.',
+      '• XMP: Standard sviluppato da Intel per le piattaforme Core.',
+      '• EXPO: Standard royalty-free sviluppato da AMD per la piattaforma AM5 / Ryzen 7000-9000, con timing ottimizzati specificamente per l\'architettura Zen.',
+    ],
+    tips: [
+      'Le schede madri recenti permettono di abilitare kit XMP su processori AMD (tramite DOCP/EXPO emulation) e moduli EXPO su Intel in totale trasparenza.',
+    ],
+    keywords: ['xmp', 'expo', 'overclock ram', 'frequenza ram', 'bios', 'profilo memoria', 'jedec', 'docp', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Il Mio PC', targetSection: 'current-rig', iconName: 'Cpu' },
+    ],
+  },
+  {
+    id: 'glossary-cas-latency',
+    title: 'CAS Latency (CL) & Timing delle Memorie RAM',
+    category: 'glossary',
+    badge: 'CONCETTO CHIAVE',
+    readTime: '2 min',
+    summary: 'Come interpretare la sigla CL30, CL36 o CL40 e il calcolo della latenza reale in nanosecondi.',
+    content: [
+      'La CAS Latency (CL) indica il numero di cicli di clock che la RAM impiega per fornire un dato al processore una volta inviato il comando di lettura.',
+      'A parità di frequenza operativa (es. 6000MHz), un valore CL più basso (es. CL30 rispetto a CL36) corrisponde a una latenza effettiva minore e a migliori tempi di risposta del sistema.',
+    ],
+    formula: {
+      title: 'Formula Latenza Reale della Memoria (in Nanosecondi)',
+      equation: 'Latenza Reale (ns) = (CL * 2000) / Frequenza Nominale in MHz\nEsempio DDR5-6000 CL30: (30 * 2000) / 6000 = 10,00 ns\nEsempio DDR5-6000 CL36: (36 * 2000) / 6000 = 12,00 ns',
+      explanation: 'Una memoria con frequenza leggermente inferiore ma CL molto basso può risultare più veloce nei tempi di accesso rispetto a una memoria ad alti MHz con CL elevato.',
+    },
+    tips: [
+      'Per i processori AMD Ryzen serie 7000 e 9000, il miglior compromesso qualità/prezzo e prestazioni è rappresentato da moduli DDR5 a 6000MHz con timing CL30.',
+    ],
+    keywords: ['cas latency', 'cl', 'timing', 'cl30', 'cl36', 'latenza ram', 'nanosecondi', 'formula ram', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Archivio Pezzi', targetSection: 'archive', iconName: 'Archive' },
+    ],
+  },
+  {
+    id: 'glossary-bottleneck',
+    title: 'Bottleneck Hardware: Collo di Bottiglia tra CPU e GPU',
+    category: 'glossary',
+    badge: 'TIP PRO',
+    readTime: '2 min',
+    summary: 'Come capire quale componente sta limitando le prestazioni massime del tuo computer.',
+    content: [
+      'Si parla di collo di bottiglia (bottleneck) quando le prestazioni complessive del sistema sono vincolate dal componente più lento della catena, lasciando gli altri sottoutilizzati.',
+      '• CPU Bottleneck: Si verifica tipicamente a risoluzioni basse (1080p) con impostazioni competitive ad altissimo framerate. La scheda grafica lavora al 60-70% perché il processore non riesce a preparare abbastanza frame.',
+      '• GPU Bottleneck: Si verifica a risoluzioni elevate (1440p / 4K) o con Ray Tracing attivo. La GPU lavora al 99-100% delle sue capacità mentre la CPU è rilassata.',
+    ],
+    tips: [
+      'In qualsiasi computer da gaming esisterà sempre un componente limitante: la configurazione ideale è quella con GPU al 99% alla risoluzione desiderata.',
+    ],
+    keywords: ['bottleneck', 'collo di bottiglia', 'cpu limit', 'gpu limit', 'bilanciamento', 'framerate', 'glossario'],
+    actionLinks: [
+      { label: 'Vedi Storico Upgrade', targetSection: 'upgrades', iconName: 'ArrowUpRight' },
+    ],
+  },
+  {
+    id: 'glossary-rma',
+    title: 'RMA (Return Merchandise Authorization): Garanzie e Resi',
+    category: 'glossary',
+    badge: 'CONCETTO CHIAVE',
+    readTime: '1 min',
+    summary: 'Cos\'è e come funziona la procedura formale di reso o sostituzione con il produttore hardware.',
+    content: [
+      'L\'RMA è il codice univoco di autorizzazione al reso fornito dal produttore dell\'hardware (es. Corsair, Seasonic, ASUS, MSI) per consentire la spedizione di un pezzo difettoso ai centri di assistenza.',
+      'Molti marchi offrono garanzie estese da 3 a 10 anni (specialmente su memorie RAM, dissipatori a liquido e alimentatori) che subentrano dopo i 24 mesi di garanzia legale del venditore.',
+    ],
+    tips: [
+      'Carica sempre la foto dello scontrino o fattura nel Vault Ricevute di PC Tracker: ti consentirà di avviare una pratica RMA in 2 minuti fornendo prova immediata di acquisto.',
+    ],
+    keywords: ['rma', 'garanzia', 'reso', 'riparazione', 'sostituzione', 'guasto', 'produttore', 'assistenza', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Archivio Pezzi', targetSection: 'archive', iconName: 'Archive' },
+    ],
+  },
+  {
+    id: 'glossary-pcie-gen',
+    title: 'PCI Express: Differenze tra PCIe 4.0 e PCIe 5.0',
+    category: 'glossary',
+    badge: 'CONCETTO CHIAVE',
+    readTime: '2 min',
+    summary: 'Raddoppio della banda passante per linea e compatibilità tra GPU e SSD NVMe moderni.',
+    content: [
+      'Ogni generazione del bus PCI Express raddoppia la velocità di trasferimento teorica per singola corsia (lane):',
+      '• PCIe 4.0: ~2 GB/s per corsia (~32 GB/s su slot x16). Ideale per tutte le attuali schede video gaming e per SSD con velocità fino a 7.500 MB/s.',
+      '• PCIe 5.0: ~4 GB/s per corsia (~64 GB/s su slot x16). Consente agli SSD NVMe di superare i 14.000 MB/s di lettura sequenziale.',
+      'Gli slot PCIe sono completamente retrocompatibili: un componente PCIe 4.0 può essere installato in uno slot PCIe 5.0 e viceversa senza alcun problema.',
+    ],
+    tips: [
+      'Nei videogiochi attuali, la differenza prestazionale tra PCIe 4.0 x16 e PCIe 5.0 x16 è inferiore all\'1%. Non serve cambiare scheda madre solo per il PCIe 5.0 sulla GPU!',
+    ],
+    keywords: ['pcie', 'pci express', 'pcie 4.0', 'pcie 5.0', 'banda passante', 'linee pcie', 'nvme gen5', 'corsie', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Il Mio PC', targetSection: 'current-rig', iconName: 'Cpu' },
+    ],
+  },
+  {
+    id: 'glossary-dual-channel',
+    title: 'Dual Channel: Perché Montare 2 Banchi Raddoppia la Banda',
+    category: 'glossary',
+    badge: 'TIP PRO',
+    readTime: '2 min',
+    summary: 'L\'importanza di montare i banchi di memoria negli slot corretti della scheda madre.',
+    content: [
+      'Il Dual Channel permette al memory controller integrato nella CPU di dialogare simultaneamente con due canali a 64-bit distinti, raddoppiando l\'ampiezza di banda complessiva rispetto all\'uso di un solo banco (Single Channel).',
+      'Sulle schede madri a 4 slot, per attivare il Dual Channel i due moduli devono essere inseriti negli slot corretti indicati dal produttore (nella quasi totalità delle schede: slot 2 e slot 4, ovvero A2 e B2).',
+    ],
+    tips: [
+      'Evita categoricamente di assemblare un PC gaming con un singolo banco da 16GB o 32GB: il Single Channel dimezza il transfer rate della RAM e causa gravi cali di 1% Low nei giochi.',
+    ],
+    keywords: ['dual channel', 'canali memoria', 'slot a2 b2', 'single channel', 'banda ram', 'prestazioni ram', 'glossario'],
+    actionLinks: [
+      { label: 'Nuovo Movimento', actionType: 'new-movement', iconName: 'Plus' },
+    ],
+  },
+  {
+    id: 'glossary-80-plus-atx3',
+    title: 'Certificazioni 80 Plus & Standard ATX 3.0 degli Alimentatori',
+    category: 'glossary',
+    badge: 'CONCETTO CHIAVE',
+    readTime: '2 min',
+    summary: 'Efficienza energetica (Bronze, Gold, Platinum) e gestione dei picchi transitori con connettore 12V-2x6.',
+    content: [
+      'La certificazione 80 Plus misura l\'efficienza con cui l\'alimentatore converte la corrente alternata (dalla presa a muro) in corrente continua per i componenti del PC:',
+      '• 80 Plus Gold: Garantisce almeno il 90% di efficienza al 50% di carico, riducendo la dispersione termica e i consumi in bolletta.',
+      '• Standard ATX 3.0 / 3.1: Specifica introdotta per gestire i picchi transitori di assorbimento (power spikes fino al 200% della potenza nominale) e dotata del connettore nativo a 16-pin (12V-2x6 / 12VHPWR) per alimentare le schede video più energivore.',
+    ],
+    tips: [
+      'Un alimentatore di qualità garantisce una tensione pulita a tutte le componenti e può sopravvivere a più generazioni di PC: è l\'investimento più duraturo dell\'intera build.',
+    ],
+    keywords: ['alimentatore', 'psu', '80 plus', 'gold', 'platinum', 'atx 3.0', '12vhpwr', '12v-2x6', 'efficienza', 'picchi transitori', 'glossario'],
+    actionLinks: [
+      { label: 'Apri Il Mio PC', targetSection: 'current-rig', iconName: 'Cpu' },
     ],
   },
 ];

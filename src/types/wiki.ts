@@ -8,6 +8,7 @@ export type WikiCategory =
   | 'marketplace'
   | 'maintenance'
   | 'backup-privacy'
+  | 'glossary'
   | 'faq';
 
 export type WikiBadge =

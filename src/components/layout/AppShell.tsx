@@ -362,8 +362,19 @@ export const AppShell: React.FC = () => {
     document.documentElement.setAttribute('data-typography', settings.typographyPreset || 'default');
   }, [settings.reducedMotion, settings.uiDensity, settings.accentColor, settings.environmentTheme, settings.typographyPreset]);
 
+  const [wikiTargetArticleId, setWikiTargetArticleId] = useState<string | null>(null);
+
   const handleSelectSection = (section: NavSection) => {
+    if (section !== 'wiki') {
+      setWikiTargetArticleId(null);
+    }
     setCurrentSection(section);
+    setSelectedComponentId(null);
+  };
+
+  const handleOpenWikiArticle = (articleId?: string) => {
+    setWikiTargetArticleId(articleId || null);
+    setCurrentSection('wiki');
     setSelectedComponentId(null);
   };
 
@@ -472,7 +483,7 @@ export const AppShell: React.FC = () => {
           />
         );
       case 'time-travel':
-        return <TimeTravelPage />;
+        return <TimeTravelPage onOpenWikiArticle={handleOpenWikiArticle} />;
       case 'archive':
         return (
           <ArchivePage
@@ -496,15 +507,22 @@ export const AppShell: React.FC = () => {
             onSelectComponent={handleSelectComponent}
             onOpenSaleModal={(comp) => handleOpenSaleModal(comp)}
             onOpenListingModal={(comp) => setListingTargetComponent(comp)}
+            onOpenWikiArticle={handleOpenWikiArticle}
           />
         );
       case 'stats':
-        return <StatsPage onSelectComponent={handleSelectComponent} />;
+        return (
+          <StatsPage
+            onSelectComponent={handleSelectComponent}
+            onOpenWikiArticle={handleOpenWikiArticle}
+          />
+        );
       case 'maintenance':
-        return <MaintenancePage />;
+        return <MaintenancePage onOpenWikiArticle={handleOpenWikiArticle} />;
       case 'wiki':
         return (
           <WikiPage
+            initialArticleId={wikiTargetArticleId}
             onNavigate={handleSelectSection}
             onOpenMovementSelector={handleOpenMovementSelector}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}

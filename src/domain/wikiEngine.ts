@@ -81,6 +81,7 @@ export function getWikiStats(articles: WikiArticle[]) {
     marketplace: 0,
     maintenance: 0,
     'backup-privacy': 0,
+    glossary: 0,
     faq: 0,
   };
 
@@ -109,3 +110,41 @@ export function getWikiStats(articles: WikiArticle[]) {
     badgeCounts,
   };
 }
+
+/**
+ * Formatta un articolo della Wiki in Markdown pulito per la copia negli appunti
+ */
+export function formatArticleForClipboard(article: WikiArticle): string {
+  const sections: string[] = [
+    `# ${article.title}`,
+    `*${article.badge} · Categoria: ${article.category} · Tempo di lettura: ${article.readTime}*`,
+    '',
+    `> ${article.summary}`,
+    '',
+    ...article.content,
+  ];
+
+  if (article.steps && article.steps.length > 0) {
+    sections.push('', '### Procedura Passo-Passo:');
+    article.steps.forEach((step, idx) => {
+      sections.push(`${idx + 1}. ${step}`);
+    });
+  }
+
+  if (article.formula) {
+    sections.push('', `### Formula: ${article.formula.title}`);
+    sections.push('```', article.formula.equation, '```');
+    sections.push(article.formula.explanation);
+  }
+
+  if (article.tips && article.tips.length > 0) {
+    sections.push('', '### Consigli Pro:');
+    article.tips.forEach((tip) => {
+      sections.push(`💡 ${tip}`);
+    });
+  }
+
+  sections.push('', '---', 'PC Tracker — Hardware Lifecycle & Knowledge Base');
+  return sections.join('\n');
+}
+
