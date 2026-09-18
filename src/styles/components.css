@@ -2896,6 +2896,23 @@
   gap: var(--space-sm);
 }
 
+.power-budget-callout-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: var(--accent-amber-subtle);
+  border: 1px solid var(--accent-amber-border);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.power-budget-callout-banner strong {
+  color: var(--text-primary);
+}
+
 .power-budget-kpi-card {
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);

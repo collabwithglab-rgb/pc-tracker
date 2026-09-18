@@ -35,7 +35,12 @@ export interface Component {
   category: ComponentCategory;
   serialNumber?: string;
   notes?: string;
-  powerRating?: number; // Potenza nominale o TDP opzionale in Watt
+  /**
+   * Valore nominale/proxy di potenza in Watt (es. TDP di fabbrica, PL2 Turbo, capacità PSU di targa).
+   * NOTA SEMANTICA: Rappresenta un parametro tecnico o una stima di riferimento per il Power Budget,
+   * e NON costituisce una misurazione elettrica reale in tempo reale (nessun monitoraggio da sensori).
+   */
+  powerRating?: number;
   powerRatingSource?: 'declared' | 'estimated' | 'userDefined';
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp

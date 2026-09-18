@@ -294,17 +294,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 {installedCount > 0 && powerBudget.hasAnyPowerData && (
                   <span className="power-budget-compact-pill" title={powerBudget.completenessNotice}>
                     <Zap size={12} color="var(--accent-amber)" />
-                    <span>~{powerBudget.estimatedPeakWatts} W picco</span>
-                    {powerBudget.psuCapacityWatts && (
+                    {powerBudget.isCompleteEstimate ? (
                       <>
-                        <span style={{ opacity: 0.4 }}>•</span>
-                        <span>PSU {powerBudget.psuCapacityWatts} W</span>
+                        <span>~{powerBudget.estimatedPeakWatts} W picco</span>
+                        {powerBudget.psuCapacityWatts && (
+                          <>
+                            <span style={{ opacity: 0.4 }}>•</span>
+                            <span>PSU {powerBudget.psuCapacityWatts} W</span>
+                          </>
+                        )}
+                        {powerBudget.estimatedHeadroomWatts !== null && (
+                          <>
+                            <span style={{ opacity: 0.4 }}>•</span>
+                            <span>Margine ~{powerBudget.estimatedHeadroomWatts} W</span>
+                          </>
+                        )}
                       </>
-                    )}
-                    {powerBudget.estimatedHeadroomWatts !== null && (
+                    ) : (
                       <>
+                        <span>~{powerBudget.knownPowerWatts} W noti</span>
+                        {powerBudget.psuCapacityWatts && (
+                          <>
+                            <span style={{ opacity: 0.4 }}>•</span>
+                            <span>PSU {powerBudget.psuCapacityWatts} W</span>
+                          </>
+                        )}
                         <span style={{ opacity: 0.4 }}>•</span>
-                        <span>Margine ~{powerBudget.estimatedHeadroomWatts} W</span>
+                        <span style={{ color: 'var(--accent-amber)' }}>Stima parziale</span>
                       </>
                     )}
                   </span>

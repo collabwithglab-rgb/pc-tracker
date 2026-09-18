@@ -49,9 +49,10 @@ export interface CategoryPowerBreakdown {
  */
 export interface RigPowerBudget {
   // Metriche di potenza
-  knownPowerWatts: number; // Somma esatta dei valori disponibili (Watt)
-  estimatedPeakWatts: number; // Fabbisogno energetico stimato di picco (Watt)
-  isPartialEstimate: boolean; // true se uno o più componenti non hanno dati di potenza sufficienti
+  knownPowerWatts: number; // Somma esatta dei soli carichi con specifiche disponibili (Watt)
+  estimatedPeakWatts: number | null; // Stima di picco dell'intero sistema (disponibile SOLO con dataset completo; null se parziale)
+  isPartialEstimate: boolean; // true se uno o più componenti montati non hanno dati di potenza sufficienti
+  isCompleteEstimate: boolean; // true SOLO se tutti i carichi montati dispongono di dati di potenza
   hasAnyPowerData: boolean; // true se almeno un componente ha un valore noto
 
   // Statistiche componenti
@@ -68,9 +69,9 @@ export interface RigPowerBudget {
   psuSource: PowerSource;
   hasPsu: boolean;
 
-  // Confronto e Margini (esclusivamente quando i dati sono sufficienti)
-  estimatedUtilizationPercent: number | null; // Arrotondato a intero, null se PSU assente o peak = 0
-  estimatedHeadroomWatts: number | null; // PSU - peak, null se dati insufficienti
-  headroomStatus: HeadroomStatus;
+  // Confronto e Margini (esclusivamente quando la base dati del sistema è completa e affidabile)
+  estimatedUtilizationPercent: number | null; // Arrotondato a intero; null se PSU assente o stima di sistema parziale
+  estimatedHeadroomWatts: number | null; // PSU - peak; null se PSU assente o stima di sistema parziale
+  headroomStatus: HeadroomStatus; // Valutato solo su stime complete; 'unknown' se dati parziali o PSU assente
   completenessNotice: string; // Frase descrittiva trasparente sull'attendibilità della stima
 }

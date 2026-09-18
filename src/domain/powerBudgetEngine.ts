@@ -332,22 +332,39 @@ export function computeRigPowerBudgetFromInstalled(
   const unknownComponentsCount = unknownComponents.length;
   const hasAnyPowerData = knownPowerWatts > 0;
   const isPartialEstimate = totalComponents > 0 && unknownComponentsCount > 0;
+  const isCompleteEstimate = totalComponents > 0 && unknownComponentsCount === 0 && hasAnyPowerData;
 
-  // Stima di picco del sistema (basata sui carichi noti disponibili)
-  const estimatedPeakWatts = knownPowerWatts;
+  // CORREZIONE SEMANTICA (Sessione 3 Pass):
+  // 1. estimatedPeakWatts rappresenta il picco dell'intero sistema.
+  //    Se la stima è parziale (mancano dati su componenti ausiliari come RAM, Mobo, ecc.),
+  //    il picco totale NON viene spacciato come dato noto e rimane null.
+  //    La UI mostra knownPowerWatts ("Potenza nota dei componenti").
+  const estimatedPeakWatts: number | null = isCompleteEstimate ? knownPowerWatts : null;
 
-  // Calcolo utilizzo e margine PSU (solo se PSU presente e con potenza nota)
+  // 2. Margine PSU (Headroom) e Percentuale di Utilizzo:
+  //    Vengono calcolati ed esposti SOLO quando il dataset del sistema è completo.
+  //    Se mancano dati di potenza per componenti del PC, la precisione apparente viene evitata
+  //    e le metriche restituiscono null ("Non determinabile").
   let estimatedUtilizationPercent: number | null = null;
   let estimatedHeadroomWatts: number | null = null;
 
-  if (psuCapacityWatts !== null && psuCapacityWatts > 0 && estimatedPeakWatts > 0) {
+  if (
+    isCompleteEstimate &&
+    psuCapacityWatts !== null &&
+    psuCapacityWatts > 0 &&
+    estimatedPeakWatts !== null &&
+    estimatedPeakWatts > 0
+  ) {
     const rawPercent = (estimatedPeakWatts / psuCapacityWatts) * 100;
     // Protezione totale da NaN e Infinity
     estimatedUtilizationPercent = Number.isFinite(rawPercent) ? Math.round(rawPercent) : null;
     estimatedHeadroomWatts = psuCapacityWatts - estimatedPeakWatts;
   }
 
-  const headroomStatus = evaluateHeadroomStatus(estimatedHeadroomWatts, psuCapacityWatts);
+  // Se la stima è parziale o la PSU è assente, lo stato qualitativo è rigorosamente 'unknown'
+  const headroomStatus: HeadroomStatus = isCompleteEstimate
+    ? evaluateHeadroomStatus(estimatedHeadroomWatts, psuCapacityWatts)
+    : 'unknown';
 
   // Scomposizione ordinata per categoria
   const categoriesPresent = Array.from(new Set(nonPsuComponents.map((c) => c.category)));
@@ -401,15 +418,17 @@ export function computeRigPowerBudgetFromInstalled(
   } else if (!hasAnyPowerData) {
     completenessNotice = 'Dati di potenza non disponibili per la configurazione attuale.';
   } else if (isPartialEstimate) {
-    completenessNotice = 'Stima parziale: calcolata sui soli componenti con dati di potenza disponibili (es. CPU e GPU).';
+    completenessNotice =
+      'Stima parziale: la potenza nota riflette solo i componenti con dati disponibili. Margine e picco totale di sistema non sono determinabili.';
   } else {
-    completenessNotice = 'Stima di picco basata sui dati dichiarati di tutti i componenti montati.';
+    completenessNotice = 'Stima completa di picco basata sulle specifiche dichiarate di tutti i componenti montati.';
   }
 
   return {
     knownPowerWatts,
     estimatedPeakWatts,
     isPartialEstimate,
+    isCompleteEstimate,
     hasAnyPowerData,
     totalComponents,
     knownComponentsCount,

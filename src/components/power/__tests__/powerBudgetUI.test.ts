@@ -70,7 +70,7 @@ describe('Power Budget UI Presentation & State Tests (Sessione 3)', () => {
     expect(ramCategory?.totalWatts).toBeNull();
   });
 
-  it('verifica che la stima su userRigSeed.json sia corretta e rifletta il Rig Reale', () => {
+  it('verifica che la stima su userRigSeed.json sia corretta e rifletta il Rig Reale (stima parziale)', () => {
     const components = userRigData.components as unknown as Component[];
     const events = userRigData.events as unknown as ComponentEvent[];
 
@@ -79,10 +79,12 @@ describe('Power Budget UI Presentation & State Tests (Sessione 3)', () => {
     expect(budget.hasPsu).toBe(true);
     expect(budget.psuCapacityWatts).toBe(750);
     expect(budget.psuComponent?.name).toContain('NZXT C750');
-    expect(budget.estimatedPeakWatts).toBe(354);
-    expect(budget.estimatedUtilizationPercent).toBe(47);
-    expect(budget.estimatedHeadroomWatts).toBe(396);
-    expect(budget.headroomStatus).toBe('high');
+    expect(budget.knownPowerWatts).toBe(354);
     expect(budget.isPartialEstimate).toBe(true);
+    expect(budget.isCompleteEstimate).toBe(false);
+    expect(budget.estimatedPeakWatts).toBeNull();
+    expect(budget.estimatedUtilizationPercent).toBeNull();
+    expect(budget.estimatedHeadroomWatts).toBeNull();
+    expect(budget.headroomStatus).toBe('unknown');
   });
 });
