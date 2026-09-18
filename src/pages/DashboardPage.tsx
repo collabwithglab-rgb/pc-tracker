@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Sparkles,
   Share2,
+  BookOpen,
 } from 'lucide-react';
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
@@ -40,6 +41,7 @@ interface DashboardPageProps {
   onSelectComponent?: (id: string) => void;
   onOpenQuickSetup?: () => void;
   onOpenExportModal?: () => void;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
 const CATEGORY_PRIORITY: Record<ComponentCategory, number> = {
@@ -64,6 +66,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onSelectComponent,
   onOpenQuickSetup,
   onOpenExportModal,
+  onOpenWikiArticle,
 }) => {
   const {
     components,
@@ -210,16 +213,45 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', maxWidth: '540px', margin: '0 auto 20px', lineHeight: 1.5 }}>
             Il tuo database locale è pronto. Inizia a configurare il tuo PC aggiungendo il primo componente hardware.
           </p>
-          {onOpenCreateModal && (
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {onOpenCreateModal && (
               <button onClick={onOpenCreateModal} className="btn btn-primary micro-press" id="btn-add-first-component">
                 <Plus size={15} />
                 <span>Aggiungi il Primo Componente</span>
               </button>
-            </div>
-          )}
+            )}
+            {onOpenWikiArticle && (
+              <button
+                type="button"
+                onClick={() => onOpenWikiArticle('first-rig-setup')}
+                className="btn btn-secondary micro-press"
+                style={{ fontSize: '13px' }}
+              >
+                <BookOpen size={14} color="var(--accent-primary)" />
+                <span>Guida Primi Passi</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
+
+      {/* Intestazione Metriche Finanziarie con Pill Contestuale */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px', marginTop: '-4px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+          Metriche Economiche Fondamentali
+        </span>
+        {onOpenWikiArticle && (
+          <button
+            type="button"
+            className="contextual-help-pill"
+            onClick={() => onOpenWikiArticle('the-four-financial-metrics')}
+            title="Spiegazione formale delle 4 metriche finanziarie di PC Tracker"
+          >
+            <BookOpen size={12} />
+            <span>Spiegazione 4 Metriche</span>
+          </button>
+        )}
+      </div>
 
       {/* LIVELLO 1: 4 Metriche Finanziarie Formalizzate (Apple-Style Staggered con Halo Cromatico) */}
       <div style={gridStyle}>

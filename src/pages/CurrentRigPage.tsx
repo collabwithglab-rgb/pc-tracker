@@ -28,6 +28,7 @@ import {
   Sliders,
   Sparkles,
   Share2,
+  BookOpen,
 } from 'lucide-react';
 import { CheckpointModal } from '../components/checkpoint';
 import { PowerBudgetCard } from '../components/power';
@@ -40,6 +41,7 @@ interface CurrentRigPageProps {
   onOpenReplaceModal: (component: Component, lastInstallEvent?: InstallEvent) => void;
   onOpenQuickSetup?: () => void;
   onOpenExportModal?: () => void;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
 interface CategoryGroup {
@@ -94,6 +96,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
   onOpenReplaceModal,
   onOpenQuickSetup,
   onOpenExportModal,
+  onOpenWikiArticle,
 }) => {
   const { getInstalledComponents, isLoading, settings } = usePCStore();
   const [isSaveCheckpointOpen, setIsSaveCheckpointOpen] = React.useState<boolean>(false);
@@ -173,6 +176,18 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenWikiArticle && (
+            <button
+              type="button"
+              className="contextual-help-pill"
+              onClick={() => onOpenWikiArticle('first-rig-setup')}
+              title="Guida su come configurare e gestire i componenti montati nel PC"
+            >
+              <BookOpen size={13} />
+              <span>Guida Rig</span>
+            </button>
+          )}
+
           {onOpenQuickSetup && (
             <button
               onClick={onOpenQuickSetup}

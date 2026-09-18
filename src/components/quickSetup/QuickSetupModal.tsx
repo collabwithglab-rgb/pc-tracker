@@ -13,6 +13,7 @@ import {
   Check,
   Plus,
   Upload,
+  BookOpen,
 } from 'lucide-react';
 import { ComponentCategory, Component } from '../../types';
 import { usePCStore, QuickSetupImportItem } from '../../store';
@@ -23,6 +24,7 @@ interface QuickSetupModalProps {
   onClose: () => void;
   onCompleted?: () => void;
   onImportBackup?: () => void;
+  onOpenWikiGuide?: (articleId: string) => void;
 }
 
 interface EditableDetectedItem extends DetectedComponent {
@@ -108,6 +110,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   onClose,
   onCompleted,
   onImportBackup,
+  onOpenWikiGuide,
 }) => {
   const { settings, updateSettings, importQuickSetupData, getInstalledComponents } = usePCStore();
 
@@ -413,29 +416,64 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
               </button>
             </div>
 
-            {onImportBackup && (
-              <div style={{ textAlign: 'center', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onImportBackup();
-                  }}
-                  className="btn btn-secondary micro-press"
-                  style={{
-                    fontSize: '12px',
-                    padding: '6px 14px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    color: 'var(--text-secondary)',
-                    margin: '0 auto',
-                  }}
-                  id="btn-quicksetup-import-backup"
-                >
-                  <Upload size={13} color="var(--accent-primary)" />
-                  <span>Hai già un file di backup? <strong>Ripristina da JSON</strong></span>
-                </button>
+            {(onImportBackup || onOpenWikiGuide) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  marginTop: '14px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--border-subtle)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                {onImportBackup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onImportBackup();
+                    }}
+                    className="btn btn-secondary micro-press"
+                    style={{
+                      fontSize: '12px',
+                      padding: '6px 14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      color: 'var(--text-secondary)',
+                    }}
+                    id="btn-quicksetup-import-backup"
+                  >
+                    <Upload size={13} color="var(--accent-primary)" />
+                    <span>Hai già un backup? <strong>Ripristina da JSON</strong></span>
+                  </button>
+                )}
+
+                {onOpenWikiGuide && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenWikiGuide('first-rig-setup');
+                    }}
+                    className="btn btn-secondary micro-press"
+                    style={{
+                      fontSize: '12px',
+                      padding: '6px 14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      color: 'var(--text-secondary)',
+                    }}
+                    id="btn-quicksetup-wiki-guide"
+                  >
+                    <BookOpen size={13} color="var(--accent-primary)" />
+                    <span>Guida Primi Passi</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

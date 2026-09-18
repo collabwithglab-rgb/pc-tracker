@@ -8,6 +8,7 @@ import {
   Recycle,
   ChevronRight,
   ArrowUpRight,
+  BookOpen,
 } from 'lucide-react';
 import { Component } from '../../types';
 import { ComponentForm } from './ComponentFormModal';
@@ -33,6 +34,7 @@ export interface MovementSelectorModalProps {
   onSelectOption?: (option: MovementType) => void;
   onSuccessPurchase?: (created: Component) => void;
   onSelectUpgrade?: () => void;
+  onOpenWikiGuide?: (articleId: string) => void;
 }
 
 export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
@@ -41,6 +43,7 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
   onSelectOption,
   onSuccessPurchase,
   onSelectUpgrade,
+  onOpenWikiGuide,
 }) => {
   const [activeType, setActiveType] = useState<MovementType | null>(null);
 
@@ -254,6 +257,46 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
               </button>
             ))}
           </div>
+
+          {onOpenWikiGuide && (
+            <div
+              style={{
+                marginTop: '16px',
+                paddingTop: '12px',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Dubbi su quale movimento registrare?
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenWikiGuide('component-states-explained');
+                }}
+                className="micro-press"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-primary)',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  padding: '2px 6px',
+                }}
+              >
+                <BookOpen size={13} />
+                <span>Guida Movimenti & Ciclo di Vita</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 

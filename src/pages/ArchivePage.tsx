@@ -40,6 +40,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldX,
+  BookOpen,
 } from 'lucide-react';
 
 interface ArchivePageProps {
@@ -48,6 +49,7 @@ interface ArchivePageProps {
   onOpenEditModal: (component: Component) => void;
   onOpenDeleteModal: (component: Component) => void;
   onInstallComponent?: (component: Component) => void;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
 export const ArchivePage: React.FC<ArchivePageProps> = ({
@@ -56,6 +58,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
   onOpenEditModal,
   onOpenDeleteModal,
   onInstallComponent,
+  onOpenWikiArticle,
 }) => {
   const { components, getComponentComputed, getComponentWarranty, isLoading, settings } = usePCStore();
 
@@ -208,10 +211,22 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
           <p className="empty-state-desc">
             Nessun componente è presente su IndexedDB. Inizia registrando il primo pezzo del tuo computer per tracciarne la vita, i costi e gli upgrade.
           </p>
-          <button onClick={onOpenCreateModal} className="btn btn-primary micro-press">
-            <Plus size={15} strokeWidth={2.2} />
-            <span>Aggiungi il Primo Componente</span>
-          </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={onOpenCreateModal} className="btn btn-primary micro-press">
+              <Plus size={15} strokeWidth={2.2} />
+              <span>Aggiungi il Primo Componente</span>
+            </button>
+            {onOpenWikiArticle && (
+              <button
+                type="button"
+                onClick={() => onOpenWikiArticle('first-rig-setup')}
+                className="btn btn-secondary micro-press"
+              >
+                <BookOpen size={14} color="var(--accent-primary)" />
+                <span>Guida Primi Passi</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -379,6 +394,18 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
             <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginLeft: '4px' }}>
               ({sortedComponents.length} di {components.length})
             </span>
+
+            {onOpenWikiArticle && (
+              <button
+                type="button"
+                className="contextual-help-pill"
+                onClick={() => onOpenWikiArticle('component-states-explained')}
+                title="Spiegazione di come funzionano gli stati derivati (IN_USE, IN_STORAGE, SOLD, ecc.) e ciclo di vita"
+              >
+                <BookOpen size={12} />
+                <span>Guida Stati</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

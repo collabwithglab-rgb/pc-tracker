@@ -363,19 +363,32 @@ export const AppShell: React.FC = () => {
   }, [settings.reducedMotion, settings.uiDensity, settings.accentColor, settings.environmentTheme, settings.typographyPreset]);
 
   const [wikiTargetArticleId, setWikiTargetArticleId] = useState<string | null>(null);
+  const [wikiReferrerSection, setWikiReferrerSection] = useState<NavSection | null>(null);
 
   const handleSelectSection = (section: NavSection) => {
     if (section !== 'wiki') {
       setWikiTargetArticleId(null);
+      setWikiReferrerSection(null);
     }
     setCurrentSection(section);
     setSelectedComponentId(null);
   };
 
   const handleOpenWikiArticle = (articleId?: string) => {
+    if (currentSection !== 'wiki') {
+      setWikiReferrerSection(currentSection);
+    }
     setWikiTargetArticleId(articleId || null);
     setCurrentSection('wiki');
     setSelectedComponentId(null);
+  };
+
+  const handleBackToReferrer = () => {
+    if (wikiReferrerSection) {
+      setCurrentSection(wikiReferrerSection);
+      setWikiReferrerSection(null);
+      setWikiTargetArticleId(null);
+    }
   };
 
   const handleSelectComponent = (id: string) => {
@@ -469,6 +482,7 @@ export const AppShell: React.FC = () => {
             onSelectComponent={handleSelectComponent}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
             onOpenExportModal={() => setIsRigExportOpen(true)}
+            onOpenWikiArticle={handleOpenWikiArticle}
           />
         );
       case 'current-rig':
@@ -480,6 +494,7 @@ export const AppShell: React.FC = () => {
             onOpenReplaceModal={handleOpenReplaceModal}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
             onOpenExportModal={() => setIsRigExportOpen(true)}
+            onOpenWikiArticle={handleOpenWikiArticle}
           />
         );
       case 'time-travel':
@@ -492,6 +507,7 @@ export const AppShell: React.FC = () => {
             onOpenEditModal={(comp) => setComponentToEdit(comp)}
             onOpenDeleteModal={(comp) => setComponentToDelete(comp)}
             onInstallComponent={(comp) => handleOpenInstallModal(undefined, comp)}
+            onOpenWikiArticle={handleOpenWikiArticle}
           />
         );
       case 'upgrades':
@@ -499,6 +515,7 @@ export const AppShell: React.FC = () => {
           <UpgradesPage
             onSelectComponent={handleSelectComponent}
             onOpenUpgradeWizard={() => handleOpenUpgradeWizard()}
+            onOpenWikiArticle={handleOpenWikiArticle}
           />
         );
       case 'marketplace':
@@ -523,6 +540,8 @@ export const AppShell: React.FC = () => {
         return (
           <WikiPage
             initialArticleId={wikiTargetArticleId}
+            referrerSection={wikiReferrerSection}
+            onBackToReferrer={handleBackToReferrer}
             onNavigate={handleSelectSection}
             onOpenMovementSelector={handleOpenMovementSelector}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
@@ -535,6 +554,7 @@ export const AppShell: React.FC = () => {
             hasUpdateAvailable={updateInfo.available}
             onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
             updateInfo={updateInfo}
+            onOpenWikiArticle={handleOpenWikiArticle}
           />
         );
       default:
@@ -546,6 +566,7 @@ export const AppShell: React.FC = () => {
             onOpenReplaceModal={handleOpenReplaceModal}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
             onOpenExportModal={() => setIsRigExportOpen(true)}
+            onOpenWikiArticle={handleOpenWikiArticle}
           />
         );
     }
@@ -565,7 +586,7 @@ export const AppShell: React.FC = () => {
           subtitle={selectedComponentId && currentSection === 'archive' ? 'Scheda tecnica e cronologia' : metadata.subtitle}
           onNewMovement={handleOpenMovementSelector}
           onImportBackup={triggerImportFlow}
-          onOpenWiki={() => handleSelectSection('wiki')}
+          onOpenWiki={currentSection !== 'wiki' ? () => handleOpenWikiArticle() : undefined}
         />
         <main style={styles.content}>{renderContent()}</main>
       </div>
@@ -579,6 +600,7 @@ export const AppShell: React.FC = () => {
           setSelectedComponentId(created.id);
           setCurrentSection('archive');
         }}
+        onOpenWikiGuide={handleOpenWikiArticle}
       />
 
       {/* Modale Registrazione Vendita */}
@@ -736,6 +758,7 @@ export const AppShell: React.FC = () => {
           setCurrentSection('current-rig');
         }}
         onImportBackup={triggerImportFlow}
+        onOpenWikiGuide={handleOpenWikiArticle}
       />
 
       {/* Modale Esportazione & Condivisione Scheda PC (Gemini AI, Discord, WhatsApp, PDF) */}

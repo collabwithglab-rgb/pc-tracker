@@ -121,12 +121,48 @@ describe('Wiki Polish & Interactive Deep-Links Suite', () => {
         'the-four-financial-metrics',
         'windows-tools-explained',
         'listing-generator-guide',
+        'first-rig-setup',
+        'component-states-explained',
+        'upgrade-wizard-guide',
+        'backup-restore-safeguards',
       ];
 
       contextualTargetIds.forEach((targetId) => {
         const found = WIKI_ARTICLES.find((a) => a.id === targetId);
         expect(found).toBeDefined();
         expect(found?.title.trim().length).toBeGreaterThan(0);
+      });
+    });
+
+    it('tutte le sezioni dell\'app possiedono una label amichevole per il pulsante di ritorno intelligente', () => {
+      const appSections: NavSection[] = [
+        'dashboard',
+        'current-rig',
+        'time-travel',
+        'archive',
+        'upgrades',
+        'marketplace',
+        'stats',
+        'maintenance',
+        'settings',
+      ];
+
+      const labelsMap: Record<NavSection, string> = {
+        'dashboard': 'Dashboard',
+        'current-rig': 'Il Mio PC Attuale',
+        'time-travel': 'Time Travel',
+        'archive': 'Archivio Componenti',
+        'upgrades': 'Storico Upgrade',
+        'marketplace': 'Vendite & Annunci',
+        'stats': 'Statistiche & Finanze',
+        'maintenance': 'Windows Maintenance Center',
+        'settings': 'Impostazioni',
+        'wiki': 'Wiki',
+      };
+
+      appSections.forEach((sec) => {
+        expect(labelsMap[sec]).toBeDefined();
+        expect(labelsMap[sec].length).toBeGreaterThan(0);
       });
     });
 

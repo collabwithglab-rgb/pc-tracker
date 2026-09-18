@@ -18,16 +18,19 @@ import {
   Info,
   Plus,
   Bookmark,
+  BookOpen,
 } from 'lucide-react';
 
 interface UpgradesPageProps {
   onSelectComponent?: (id: string) => void;
   onOpenUpgradeWizard?: () => void;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
 export const UpgradesPage: React.FC<UpgradesPageProps> = ({
   onSelectComponent,
   onOpenUpgradeWizard,
+  onOpenWikiArticle,
 }) => {
   const { upgrades, components, events, getComponentComputed, settings, checkpoints } = usePCStore();
 
@@ -199,6 +202,18 @@ export const UpgradesPage: React.FC<UpgradesPageProps> = ({
             ))}
           </select>
 
+          {onOpenWikiArticle && (
+            <button
+              type="button"
+              className="contextual-help-pill"
+              onClick={() => onOpenWikiArticle('upgrade-wizard-guide')}
+              title="Guida al calcolo differenziali e al wizard cambio generazionale"
+            >
+              <BookOpen size={13} />
+              <span>Guida Upgrade</span>
+            </button>
+          )}
+
           {onOpenUpgradeWizard && (
             <button
               onClick={onOpenUpgradeWizard}
@@ -225,12 +240,25 @@ export const UpgradesPage: React.FC<UpgradesPageProps> = ({
               ? 'Nessun cambio generazionale corrisponde ai criteri di filtro o ricerca impostati.'
               : 'Non ci sono ancora passaggi generazionali registrati nel sistema. I cambi tra componenti hardware verranno mostrati qui con il relativo bilancio economico.'}
           </p>
-          {onOpenUpgradeWizard && (
-            <button onClick={onOpenUpgradeWizard} className="btn btn-primary" style={{ fontSize: '13px' }}>
-              <Plus size={15} />
-              <span>Registra il tuo primo upgrade</span>
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {onOpenUpgradeWizard && (
+              <button onClick={onOpenUpgradeWizard} className="btn btn-primary micro-press" style={{ fontSize: '13px' }}>
+                <Plus size={15} />
+                <span>Registra il tuo primo upgrade</span>
+              </button>
+            )}
+            {onOpenWikiArticle && (
+              <button
+                type="button"
+                onClick={() => onOpenWikiArticle('upgrade-wizard-guide')}
+                className="btn btn-secondary micro-press"
+                style={{ fontSize: '13px' }}
+              >
+                <BookOpen size={14} color="var(--accent-primary)" />
+                <span>Come funzionano gli Upgrade?</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

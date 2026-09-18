@@ -25,6 +25,7 @@ import {
   Star,
   Copy,
   Check,
+  ArrowLeft,
 } from 'lucide-react';
 import { WIKI_ARTICLES, WIKI_CATEGORIES } from '../constants/wikiData';
 import { WikiActionLink, WikiArticle, WikiBadge, WikiCategory } from '../types/wiki';
@@ -33,13 +34,42 @@ import { NavSection } from '../components/layout/Sidebar';
 
 interface WikiPageProps {
   initialArticleId?: string | null;
+  referrerSection?: NavSection | null;
+  onBackToReferrer?: () => void;
   onNavigate?: (section: NavSection) => void;
   onOpenMovementSelector?: () => void;
   onOpenQuickSetup?: () => void;
 }
 
+const getReferrerLabel = (section: NavSection): string => {
+  switch (section) {
+    case 'dashboard':
+      return 'Dashboard';
+    case 'current-rig':
+      return 'Il Mio PC Attuale';
+    case 'time-travel':
+      return 'Time Travel';
+    case 'archive':
+      return 'Archivio Componenti';
+    case 'upgrades':
+      return 'Storico Upgrade';
+    case 'marketplace':
+      return 'Vendite & Annunci';
+    case 'stats':
+      return 'Statistiche & Finanze';
+    case 'maintenance':
+      return 'Windows Maintenance Center';
+    case 'settings':
+      return 'Impostazioni';
+    default:
+      return 'Schermata Precedente';
+  }
+};
+
 export const WikiPage: React.FC<WikiPageProps> = ({
   initialArticleId,
+  referrerSection,
+  onBackToReferrer,
   onNavigate,
   onOpenMovementSelector,
   onOpenQuickSetup,
@@ -285,6 +315,24 @@ export const WikiPage: React.FC<WikiPageProps> = ({
 
   return (
     <div className="wiki-container" id="wiki-page">
+      {/* Banner di Ritorno Intelligente alla Schermata Precedente */}
+      {referrerSection && onBackToReferrer && (
+        <div className="wiki-referrer-banner animate-slide-up">
+          <button
+            type="button"
+            className="wiki-back-to-referrer-btn micro-press"
+            onClick={onBackToReferrer}
+            id="btn-wiki-back-to-referrer"
+          >
+            <ArrowLeft size={14} />
+            <span>Torna a {getReferrerLabel(referrerSection)}</span>
+          </button>
+          <span className="wiki-referrer-hint">
+            Stavi visualizzando questa sezione prima di aprire la guida
+          </span>
+        </div>
+      )}
+
       {/* 1. Hero & Search Header */}
       <section className="wiki-hero">
         <div className="wiki-hero-header">

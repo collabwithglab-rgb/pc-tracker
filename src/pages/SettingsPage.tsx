@@ -21,6 +21,7 @@ import {
   Cpu,
   Package,
   RefreshCw,
+  BookOpen,
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import {
@@ -190,6 +191,7 @@ interface SettingsPageProps {
   hasUpdateAvailable?: boolean;
   onOpenWhatsNew?: () => void;
   updateInfo?: AppUpdateInfo | null;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -197,6 +199,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   hasUpdateAvailable = false,
   onOpenWhatsNew,
   updateInfo,
+  onOpenWikiArticle,
 }) => {
   const {
     settings,
@@ -1177,6 +1180,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           ========================================================================== */}
       {activeTab === 'backup' && (
         <section id="panel-backup" role="tabpanel" aria-labelledby="tab-backup" className="settings-section">
+          {onOpenWikiArticle && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
+              <button
+                type="button"
+                className="contextual-help-pill"
+                onClick={() => onOpenWikiArticle('backup-restore-safeguards')}
+                title="Consulta la guida sulla resilienza, sicurezza e ripristino del backup"
+              >
+                <BookOpen size={13} />
+                <span>Guida Backup & Resilienza Dati</span>
+              </button>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px' }}>
             {/* Gruppo 1: Backup di Sistema (JSON) */}
             <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
