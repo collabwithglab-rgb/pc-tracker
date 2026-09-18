@@ -249,7 +249,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   versionTabBtnActive: {
     backgroundColor: 'var(--accent-primary-subtle)',
-    borderColor: 'var(--accent-primary-border)',
+    border: '1px solid var(--accent-primary-border)',
     color: 'var(--accent-primary)',
     fontWeight: 700,
   },
