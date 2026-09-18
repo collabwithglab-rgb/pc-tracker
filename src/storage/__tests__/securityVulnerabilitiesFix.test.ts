@@ -104,7 +104,9 @@ describe('Security & Vulnerability Fixes Suite', () => {
 
       const result = validateImportJSON(JSON.stringify(backupWithMaliciousReceipt));
       expect(result.isValid).toBe(false);
-      expect(result.error).toContain('MIME type non autorizzato');
+      if (!result.isValid) {
+        expect(result.error).toContain('MIME type non autorizzato');
+      }
     });
 
     it('should accept receipts with legitimate PDF or image data URLs', () => {

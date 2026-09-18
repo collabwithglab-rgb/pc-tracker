@@ -7,3 +7,4 @@ export * from './checkpoint';
 export * from './history';
 export * from './receipt';
 export * from './listing';
+export * from './power';

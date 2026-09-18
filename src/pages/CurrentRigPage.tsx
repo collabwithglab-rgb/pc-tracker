@@ -30,6 +30,8 @@ import {
   Share2,
 } from 'lucide-react';
 import { CheckpointModal } from '../components/checkpoint';
+import { PowerBudgetCard } from '../components/power';
+import { computeRigPowerBudgetFromInstalled } from '../domain';
 
 interface CurrentRigPageProps {
   onSelectComponent: (componentId: string) => void;
@@ -97,6 +99,16 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
   const [isSaveCheckpointOpen, setIsSaveCheckpointOpen] = React.useState<boolean>(false);
 
   const installedItems = getInstalledComponents();
+
+  const installedComponents = React.useMemo(
+    () => installedItems.map((item) => item.component),
+    [installedItems]
+  );
+
+  const powerBudget = React.useMemo(
+    () => computeRigPowerBudgetFromInstalled(installedComponents),
+    [installedComponents]
+  );
 
   // Raggruppa i componenti montati per categoria
   const installedByCategory = new Map<ComponentCategory, typeof installedItems>();
@@ -206,6 +218,11 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Widget Power Budget & Stima Consumi */}
+      {installedItems.length > 0 && (
+        <PowerBudgetCard budget={powerBudget} />
+      )}
 
       {/* Gruppi Hardware */}
       {CATEGORY_GROUPS.map((group, groupIdx) => {

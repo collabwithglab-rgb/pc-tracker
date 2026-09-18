@@ -24,6 +24,7 @@ import {
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
 import { NavSection } from '../components/layout/Sidebar';
+import { computeRigPowerBudgetFromInstalled } from '../domain';
 import {
   COMPONENT_CATEGORY_LABELS,
   EVENT_TYPE_LABELS,
@@ -78,6 +79,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const installed = getInstalledComponents();
   const installedCount = installed.length;
+
+  const installedComponents = useMemo(() => installed.map((item) => item.component), [installed]);
+  const powerBudget = useMemo(() => computeRigPowerBudgetFromInstalled(installedComponents), [installedComponents]);
 
   // Ordina i componenti attualmente montati per importanza hardware
   const sortedInstalled = useMemo(() => {
@@ -281,11 +285,31 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <Cpu size={18} color="var(--accent-primary)" />
                 <span>{settings.rigName ? `${settings.rigName} in Sintesi` : 'Rig Attuale in Sintesi'}</span>
               </h2>
-              <span className="dashboard-widget-subtitle">
-                {installedCount > 0
-                  ? `${installedCount} componenti attualmente operativi nel PC`
-                  : 'Nessun componente attualmente montato nel PC'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span className="dashboard-widget-subtitle">
+                  {installedCount > 0
+                    ? `${installedCount} componenti attualmente operativi nel PC`
+                    : 'Nessun componente attualmente montato nel PC'}
+                </span>
+                {installedCount > 0 && powerBudget.hasAnyPowerData && (
+                  <span className="power-budget-compact-pill" title={powerBudget.completenessNotice}>
+                    <Zap size={12} color="var(--accent-amber)" />
+                    <span>~{powerBudget.estimatedPeakWatts} W picco</span>
+                    {powerBudget.psuCapacityWatts && (
+                      <>
+                        <span style={{ opacity: 0.4 }}>•</span>
+                        <span>PSU {powerBudget.psuCapacityWatts} W</span>
+                      </>
+                    )}
+                    {powerBudget.estimatedHeadroomWatts !== null && (
+                      <>
+                        <span style={{ opacity: 0.4 }}>•</span>
+                        <span>Margine ~{powerBudget.estimatedHeadroomWatts} W</span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

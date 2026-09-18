@@ -13,7 +13,7 @@
 | :---: | :--- | :---: | :---: | :---: |
 | **Sessione 1** | 🛡️ **Task 1**: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault) | ✅ *Completata* | `358/358 pass` | Pronto per Release |
 | **Sessione 2** | 🏷️ **Task 2**: Generatore Automatico Annunci Vendita (Subito/eBay/Vinted) & Hub Vendite | ✅ *Completata* | `384/384 pass` | Pronto per Release |
-| **Sessione 3** | ⚡ **Task 3**: Power Budget & Stima Consumi / TDP del Rig Attuale | ⏳ *In attesa* | `0/0` | - |
+| **Sessione 3** | ⚡ **Task 3**: Power Budget & Stima Consumi / TDP del Rig Attuale | ✅ *Completata* | `407/407 pass` | Pronto per Release |
 | **Sessione 4** | 🧰 **Task 4**: Registro Manutenzione (Pasta Termica) & Profili Tuning/UV | ⏳ *In attesa* | `0/0` | - |
 | **Sessione 5** | ⚡ **Task 5**: Command Palette (`Ctrl+K`) & Confronto Rig Affiancato | ⏳ *In attesa* | `0/0` | - |
 
@@ -85,25 +85,28 @@
 
 ---
 
-### ⚡ SESSIONE 3 — Task 3: Power Budget & Calcolo Consumi / TDP del Rig Attuale
-**Obiettivo**: Fornire una stima chiara e immediata del consumo energetico del PC montato rispetto all'alimentatore installato.
+### ⚡ SESSIONE 3 — Task 3: Power Budget & Calcolo Consumi / TDP del Rig Attuale — [COMPLETATA ✅]
+**Obiettivo**: Fornire una stima chiara, trasparente e rigorosa del fabbisogno energetico di picco del PC montato rispetto alla capacità nominale dell'alimentatore installato.
 
-#### Specifiche Tecniche:
+#### Stato di Avanzamento:
+- [x] **Tranche 1**: Tipi di dominio (`src/types/power.ts`), contratti di tipo con discriminazione rigorosa delle fonti (`declared`, `estimated`, `userDefined`, `unknown`), estensione retrocompatibile del modello `Component` con campi opzionali `powerRating` e `powerRatingSource`.
+- [x] **Tranche 2**: Motore puro deterministico `src/domain/powerBudgetEngine.ts` con estrazione conservativa TDP da specifiche di fabbrica (CPU e GPU diffuse, note di targa, PL2 Turbo peak) e capacità nominale PSU (es. C750W, RM850x), calcolo utilizzo PSU, headroom in Watt e stato qualitativo prudente (high, reduced, critical, unknown), con esclusione totale di dati inventati per motherboard, RAM, storage e cooling (valori null distinti da zero).
+- [x] **Tranche 3**: Suite completa di test unitari `src/domain/__tests__/powerBudgetEngine.test.ts` su Vitest coprente tutti i 13 scenari di specifica + test di regressione centesimale su dataset reale `userRigSeed.json`.
+- [x] **Tranche 4**: Interfaccia utente con card dedicata "Power Budget & Stima Consumi" (`PowerBudgetCard.tsx`) in *Il Mio PC* (`CurrentRigPage.tsx`) con 4 KPI reattivi, scomposizione per categoria, badge qualitativo e avviso di completezza, oltre a micro-pill compatto nella sintesi del rig in *DashboardPage.tsx*.
+- [x] **Tranche 5**: Stili Vanilla CSS centralizzati (`components.css`) in stile Dark Hardware Enthusiast "Less, but better", verifica responsive mobile (375x812), test di adattamento temi cromatici (Nebula Violet, Emerald Matrix), 407/407 test passati al 100%, typecheck e build di produzione a zero errori.
+
+#### Specifiche Tecniche Completate:
 1. **Motore di Calcolo (`powerBudgetEngine.ts`)**:
-   - Campo opzionale `tdp` (Watt) nelle specifiche del componente (o stima euristica per le categorie CPU e GPU più comuni).
-   - Somma del TDP a pieno carico: $\text{TDP CPU} + \text{TDP GPU} + \text{TDP Scheda Madre/RAM/Storage/Ventole} (\sim 50\text{--}70\text{W})$.
+   - Rileva e somma i carichi dei componenti con potenza dichiarata o impostata dall'utente nel Rig Attuale (`IN_USE`).
+   - Nessun valore inventato per componenti ausiliari (Mobo, RAM, SSD, Ventole mantengono `watts: null` e fonte `unknown`).
 2. **Confronto con la PSU Montata**:
-   - Rileva automaticamente l'alimentatore installato (`IN_USE` con categoria `psu`) e la sua potenza nominale (es. `850W`).
-   - Calcolo del margine di sicurezza percentuale:
-     $$\text{Margine} = \frac{\text{Watt PSU} - \text{TDP Stimato}}{\text{Watt PSU}} \times 100$$
-   - Valutazione visiva con barra di carico ad anello o orizzontale:
-     - 🟢 *Ottimale (Margine 35-50%: efficienza massima della curva di alimentazione)*
-     - 🟡 *Accettabile (Margine 20-35%)*
-     - 🔴 *Attenzione / Sottodimensionato (Margine < 20%)*
-3. **Widget Visivo**:
-   - Inserimento del badge o micro-widget "Power Budget" nella vista **Il Mio PC** e nel widget di sintesi della **Dashboard**.
+   - Rileva automaticamente l'alimentatore installato e la sua potenza nominale (es. `750W` per NZXT C750).
+   - Calcolo del margine di sicurezza (Headroom in Watt) e percentuale stimata di utilizzo.
+   - Terminologia prudente (Ampio margine stimato $\ge 150\text{W}$, Margine ridotto $50\text{--}149\text{W}$, Margine critico $< 50\text{W}$).
+3. **Widget Visivo & Sintesi Dashboard**:
+   - Widget reattivo ed elegante in *Il Mio PC* e pill informativo non invasivo in *Dashboard*.
 4. **Criteri di Accettazione & Test**:
-   - Test unitari per il calcolo della potenza, gestione PSU mancante, stima margini.
+   - 407/407 test passati al 100%, zero warning TypeScript, zero errori console browser.
 
 ---
 

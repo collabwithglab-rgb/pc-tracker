@@ -35,6 +35,8 @@ export interface Component {
   category: ComponentCategory;
   serialNumber?: string;
   notes?: string;
+  powerRating?: number; // Potenza nominale o TDP opzionale in Watt
+  powerRatingSource?: 'declared' | 'estimated' | 'userDefined';
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
 }
