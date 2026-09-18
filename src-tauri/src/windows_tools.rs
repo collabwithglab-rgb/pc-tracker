@@ -463,6 +463,16 @@ mod windows_native {
         let start = Instant::now();
         let cmd_str = if let Some(dl) = drive_letter {
             let clean = dl.replace(':', "").trim().to_uppercase();
+            if clean.len() != 1 || !clean.chars().next().unwrap().is_ascii_alphabetic() {
+                return WindowsToolResult {
+                    status: "failed".to_string(),
+                    message: "Lettera di unità non valida.".to_string(),
+                    details: Some("La lettera di unità deve essere un singolo carattere da A a Z.".to_string()),
+                    data: None,
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    requires_elevation: false,
+                };
+            }
             format!("Clear-RecycleBin -DriveLetter {} -Force -ErrorAction Stop", clean)
         } else {
             "Clear-RecycleBin -Force -ErrorAction Stop".to_string()

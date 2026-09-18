@@ -180,6 +180,38 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
       }
     }
 
+    let parsedIdle: number | undefined;
+    if (tempIdle.trim()) {
+      parsedIdle = parseFloat(tempIdle.replace(',', '.'));
+      if (isNaN(parsedIdle)) {
+        newErrors.tempIdle = 'Temperatura non valida.';
+      }
+    }
+
+    let parsedLoad: number | undefined;
+    if (tempLoad.trim()) {
+      parsedLoad = parseFloat(tempLoad.replace(',', '.'));
+      if (isNaN(parsedLoad)) {
+        newErrors.tempLoad = 'Temperatura non valida.';
+      }
+    }
+
+    let parsedAmbient: number | undefined;
+    if (tempAmbient.trim()) {
+      parsedAmbient = parseFloat(tempAmbient.replace(',', '.'));
+      if (isNaN(parsedAmbient)) {
+        newErrors.tempAmbient = 'Temperatura non valida.';
+      }
+    }
+
+    let parsedPower: number | undefined;
+    if (observedPowerWatts.trim()) {
+      parsedPower = parseFloat(observedPowerWatts.replace(',', '.'));
+      if (isNaN(parsedPower) || parsedPower < 0) {
+        newErrors.observedPowerWatts = 'Valore di potenza non valido.';
+      }
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -188,11 +220,11 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
     setIsSubmitting(true);
     try {
       const temperatures =
-        tempIdle.trim() || tempLoad.trim() || tempAmbient.trim()
+        parsedIdle !== undefined || parsedLoad !== undefined || parsedAmbient !== undefined
           ? {
-              idle: tempIdle.trim() ? parseFloat(tempIdle.replace(',', '.')) : undefined,
-              load: tempLoad.trim() ? parseFloat(tempLoad.replace(',', '.')) : undefined,
-              ambient: tempAmbient.trim() ? parseFloat(tempAmbient.replace(',', '.')) : undefined,
+              idle: parsedIdle,
+              load: parsedLoad,
+              ambient: parsedAmbient,
             }
           : undefined;
 
@@ -216,9 +248,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
         stability,
         benchmarks,
         temperatures,
-        observedPowerWatts: observedPowerWatts.trim()
-          ? parseFloat(observedPowerWatts.replace(',', '.'))
-          : undefined,
+        observedPowerWatts: parsedPower,
         notes: notes.trim() || undefined,
       };
 
@@ -426,11 +456,12 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
             <input
               id="tune-idle"
               type="text"
-              className="input-field"
+              className={`input-field ${errors.tempIdle ? 'input-error' : ''}`}
               placeholder="es. 38"
               value={tempIdle}
               onChange={(e) => setTempIdle(e.target.value)}
             />
+            {errors.tempIdle && <span className="error-text" style={{ fontSize: '0.7rem' }}>{errors.tempIdle}</span>}
           </div>
 
           <div className="form-group">
@@ -441,11 +472,12 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
             <input
               id="tune-load"
               type="text"
-              className="input-field"
+              className={`input-field ${errors.tempLoad ? 'input-error' : ''}`}
               placeholder="es. 74"
               value={tempLoad}
               onChange={(e) => setTempLoad(e.target.value)}
             />
+            {errors.tempLoad && <span className="error-text" style={{ fontSize: '0.7rem' }}>{errors.tempLoad}</span>}
           </div>
 
           <div className="form-group">
@@ -455,11 +487,12 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
             <input
               id="tune-ambient"
               type="text"
-              className="input-field"
+              className={`input-field ${errors.tempAmbient ? 'input-error' : ''}`}
               placeholder="es. 22"
               value={tempAmbient}
               onChange={(e) => setTempAmbient(e.target.value)}
             />
+            {errors.tempAmbient && <span className="error-text" style={{ fontSize: '0.7rem' }}>{errors.tempAmbient}</span>}
           </div>
 
           <div className="form-group">
@@ -470,11 +503,12 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
             <input
               id="tune-power"
               type="text"
-              className="input-field"
+              className={`input-field ${errors.observedPowerWatts ? 'input-error' : ''}`}
               placeholder="es. 125"
               value={observedPowerWatts}
               onChange={(e) => setObservedPowerWatts(e.target.value)}
             />
+            {errors.observedPowerWatts && <span className="error-text" style={{ fontSize: '0.7rem' }}>{errors.observedPowerWatts}</span>}
           </div>
         </div>
 

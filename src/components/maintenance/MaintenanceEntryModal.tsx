@@ -96,6 +96,9 @@ export const MaintenanceEntryModal: React.FC<MaintenanceEntryModalProps> = ({
     if (cost.trim() && (isNaN(parsedCost!) || parsedCost! < 0)) {
       newErrors.cost = 'Inserisci un importo valido.';
     }
+    if (nextDueDate.trim() && date && nextDueDate.trim() < date) {
+      newErrors.nextDueDate = 'La data di prossima manutenzione non può essere antecedente alla data dell’intervento.';
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -294,10 +297,11 @@ export const MaintenanceEntryModal: React.FC<MaintenanceEntryModalProps> = ({
             <input
               id="maint-next-date"
               type="date"
-              className="input-field"
+              className={`input-field ${errors.nextDueDate ? 'input-error' : ''}`}
               value={nextDueDate}
               onChange={(e) => setNextDueDate(e.target.value)}
             />
+            {errors.nextDueDate && <span className="error-text">{errors.nextDueDate}</span>}
           </div>
         </div>
 

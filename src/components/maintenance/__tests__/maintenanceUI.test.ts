@@ -3,7 +3,6 @@ import {
   MaintenanceEntry,
   MaintenanceType,
   MAINTENANCE_TYPE_LABELS,
-  TuningProfile,
   TuningType,
   TUNING_TYPE_LABELS,
   TuningStability,
