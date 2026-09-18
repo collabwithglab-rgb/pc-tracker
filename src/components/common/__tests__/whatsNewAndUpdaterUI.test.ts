@@ -148,14 +148,14 @@ describe('Sistema Notifiche Aggiornamenti & Changelog WhatsNew', () => {
       };
 
       onConfirmWhatsNew(APP_VERSION);
-      expect(mockStorage['pctracker_last_seen_version']).toBe('0.2.1');
+      expect(mockStorage['pctracker_last_seen_version']).toBe(APP_VERSION);
     });
   });
 
-  describe('4. Predisposizione Mini-Wiki & Contenuti Release 0.2.1', () => {
-    it('include nella release 0.2.1 le 4 funzionalità cardine richieste', () => {
-      const changelog021 = getChangelogForVersion('0.2.1');
-      const addedTitles = changelog021.added.map((a) => a.title);
+  describe('4. Predisposizione Mini-Wiki & Contenuti Release Attuale', () => {
+    it('include nella release attuale le 4 funzionalità cardine richieste', () => {
+      const currentChangelog = getChangelogForVersion(APP_VERSION);
+      const addedTitles = currentChangelog.added.map((a) => a.title);
 
       expect(addedTitles).toContain('Power Budget & Stima Consumi TDP');
       expect(addedTitles).toContain('Generatore Automatico Annunci Vendita');
@@ -163,9 +163,9 @@ describe('Sistema Notifiche Aggiornamenti & Changelog WhatsNew', () => {
       expect(addedTitles).toContain('Sistema di Notifica Aggiornamenti & Note di Rilascio');
     });
 
-    it('include nella release 0.2.1 i miglioramenti all\'Auto-Updater e alla navigazione', () => {
-      const changelog021 = getChangelogForVersion('0.2.1');
-      const improvedTitles = changelog021.improved.map((i) => i.title);
+    it('include nella release attuale i miglioramenti all\'Auto-Updater e alla navigazione', () => {
+      const currentChangelog = getChangelogForVersion(APP_VERSION);
+      const improvedTitles = currentChangelog.improved.map((i) => i.title);
 
       expect(improvedTitles).toContain('Auto-Updater con Firma Crittografica Minisign Ed25519');
       expect(improvedTitles).toContain('Navigazione Riorganizzata a 4 Macro-Aree');

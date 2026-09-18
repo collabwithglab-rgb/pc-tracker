@@ -10,6 +10,7 @@ import {
   Upgrade,
   DatabaseSchema,
 } from '../../types';
+import { APP_VERSION } from '../../constants/version';
 
 // In-memory mock per gli Object Store IndexedDB (isolamento completo)
 const inMemoryStores = new Map<string, Map<string, unknown>>();
@@ -211,7 +212,7 @@ describe('Roadmap 9: Backup / Export Definitivo', () => {
       const parsed = JSON.parse(jsonString) as DatabaseSchema;
 
       expect(parsed.schemaVersion).toBe(1);
-      expect(parsed.appVersion).toBe('0.2.1');
+      expect(parsed.appVersion).toBe(APP_VERSION);
       expect(typeof parsed.exportedAt).toBe('string');
       expect(parsed.components).toHaveLength(1);
       expect(parsed.components[0].id).toBe('comp-1');

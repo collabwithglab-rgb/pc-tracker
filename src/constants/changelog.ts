@@ -27,7 +27,7 @@ export interface ReleaseChangelog {
 
 export const APP_CHANGELOG: ReleaseChangelog[] = [
   {
-    version: '0.2.1',
+    version: '0.2.2',
     date: '2026-09-18',
     title: 'Hardware Intelligence, Power Budget & Hub Vendite',
     summary:
