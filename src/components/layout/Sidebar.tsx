@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Analisi & Sistema',
       items: [
         { id: 'stats', label: 'Statistiche & Finanze', icon: BarChart3 },
-        { id: 'maintenance', label: 'Manutenzione PC', icon: Wrench },
+        { id: 'maintenance', label: 'Cura del PC', icon: Wrench },
         { id: 'wiki', label: 'Wiki & Guida', icon: BookOpen },
         { id: 'settings', label: 'Impostazioni', icon: Settings },
       ],

@@ -3,6 +3,7 @@ import {
   NavSection,
   NavigationTarget,
   MaintenanceTab,
+  normalizeMaintenanceTab,
   SettingsTab,
   MarketplaceTab,
   VALID_MAINTENANCE_TABS,
@@ -40,10 +41,10 @@ describe('Navigation Foundation Suite (Session 5 - Phase 1)', () => {
     it('supporta destinazioni composte per Maintenance, Settings e Marketplace', () => {
       const maintenanceTarget: NavigationTarget = {
         section: 'maintenance',
-        subTab: 'tools',
+        subTab: 'windows',
       };
       expect(maintenanceTarget.section).toBe('maintenance');
-      expect(maintenanceTarget.subTab).toBe('tools');
+      expect(maintenanceTarget.subTab).toBe('windows');
 
       const sTab: SettingsTab = 'backup';
       const settingsTarget: NavigationTarget = {
@@ -64,9 +65,9 @@ describe('Navigation Foundation Suite (Session 5 - Phase 1)', () => {
 
     it('valida i tab consentiti rispetto alle whitelist a runtime', () => {
       expect(VALID_MAINTENANCE_TABS).toContain('registro');
-      expect(VALID_MAINTENANCE_TABS).toContain('scan');
-      expect(VALID_MAINTENANCE_TABS).toContain('tools');
+      expect(VALID_MAINTENANCE_TABS).toContain('windows');
       expect(VALID_MAINTENANCE_TABS).toContain('tuning');
+      expect(VALID_MAINTENANCE_TABS).toHaveLength(3);
 
       expect(VALID_SETTINGS_TABS).toContain('preferences');
       expect(VALID_SETTINGS_TABS).toContain('appearance');
@@ -75,6 +76,16 @@ describe('Navigation Foundation Suite (Session 5 - Phase 1)', () => {
 
       expect(VALID_MARKETPLACE_TABS).toContain('storage');
       expect(VALID_MARKETPLACE_TABS).toContain('sold');
+    });
+
+    it('normalizza correttamente alias legacy scan e tools solo al bordo', () => {
+      expect(normalizeMaintenanceTab('scan')).toBe('windows');
+      expect(normalizeMaintenanceTab('tools')).toBe('windows');
+      expect(normalizeMaintenanceTab('windows')).toBe('windows');
+      expect(normalizeMaintenanceTab('registro')).toBe('registro');
+      expect(normalizeMaintenanceTab('tuning')).toBe('tuning');
+      expect(normalizeMaintenanceTab('invalid')).toBe('registro');
+      expect(normalizeMaintenanceTab(undefined)).toBe('registro');
     });
 
     it('simula la transizione di requestedTab su pagina già montata', () => {
@@ -89,13 +100,19 @@ describe('Navigation Foundation Suite (Session 5 - Phase 1)', () => {
 
       expect(activeTab).toBe('registro');
 
-      // Nuova navigazione profonda verso 'tools' mentre la pagina è già montata
-      simulateRequestedTabChange('tools');
-      expect(activeTab).toBe('tools');
+      // Nuova navigazione profonda verso 'windows' mentre la pagina è già montata
+      simulateRequestedTabChange('windows');
+      expect(activeTab).toBe('windows');
 
-      // Nuova navigazione verso 'scan'
-      simulateRequestedTabChange('scan');
-      expect(activeTab).toBe('scan');
+      // Nuova navigazione verso 'tuning'
+      simulateRequestedTabChange('tuning');
+      expect(activeTab).toBe('tuning');
+
+      // Con normalizzazione legacy di bordo: 'scan' e 'tools' portano a 'windows'
+      simulateRequestedTabChange(normalizeMaintenanceTab('scan'));
+      expect(activeTab).toBe('windows');
+      simulateRequestedTabChange(normalizeMaintenanceTab('tools'));
+      expect(activeTab).toBe('windows');
     });
   });
 

@@ -10,7 +10,7 @@ export type NavSection =
   | 'wiki'
   | 'settings';
 
-export type MaintenanceTab = 'registro' | 'scan' | 'tools' | 'tuning';
+export type MaintenanceTab = 'registro' | 'windows' | 'tuning';
 export type SettingsTab = 'preferences' | 'appearance' | 'backup' | 'data';
 export type MarketplaceTab = 'storage' | 'sold';
 
@@ -21,10 +21,27 @@ export type NavigationSubTab =
 
 export const VALID_MAINTENANCE_TABS: readonly MaintenanceTab[] = [
   'registro',
-  'scan',
-  'tools',
+  'windows',
   'tuning',
 ] as const;
+
+/**
+ * Alias legacy gestiti esclusivamente al bordo di ingresso:
+ * 'scan' e 'tools' vengono normalizzati trasparentemente verso 'windows'.
+ */
+export type LegacyMaintenanceTab = 'scan' | 'tools';
+
+export function normalizeMaintenanceTab(
+  tab?: MaintenanceTab | LegacyMaintenanceTab | string | null
+): MaintenanceTab {
+  if (tab === 'windows' || tab === 'scan' || tab === 'tools') {
+    return 'windows';
+  }
+  if (tab === 'tuning') {
+    return 'tuning';
+  }
+  return 'registro';
+}
 
 export const VALID_SETTINGS_TABS: readonly SettingsTab[] = [
   'preferences',
@@ -41,7 +58,7 @@ export const VALID_MARKETPLACE_TABS: readonly MarketplaceTab[] = [
 export type NavigationTarget =
   | {
       section: 'maintenance';
-      subTab?: MaintenanceTab;
+      subTab?: MaintenanceTab | LegacyMaintenanceTab;
       componentId?: never;
       referrer?: NavSection;
     }

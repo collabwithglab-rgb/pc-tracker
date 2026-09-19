@@ -46,6 +46,7 @@ import {
   NavigationTarget,
   NavigationSubTab,
   MaintenanceTab,
+  normalizeMaintenanceTab,
   SettingsTab,
   MarketplaceTab,
   CommandItem,
@@ -359,8 +360,8 @@ export const AppShell: React.FC = () => {
         };
       case 'maintenance':
         return {
-          title: 'Windows Maintenance Center',
-          subtitle: 'Registro interventi, diagnostica di sistema, strumenti Windows e tuning journal',
+          title: 'Cura del PC',
+          subtitle: 'Registro interventi fisici, diagnostica e strumenti Windows, tuning journal',
         };
       case 'wiki':
         return {
@@ -421,7 +422,11 @@ export const AppShell: React.FC = () => {
     setSelectedComponentId(null);
     setComponentReferrerSection(null);
     setCurrentSection(dest.section);
-    setActiveSubTab(dest.subTab || null);
+    if (dest.section === 'maintenance') {
+      setActiveSubTab(dest.subTab ? normalizeMaintenanceTab(dest.subTab) : null);
+    } else {
+      setActiveSubTab((dest.subTab as NavigationSubTab | undefined) || null);
+    }
 
     if (dest.section === 'wiki') {
       setWikiReferrerSection(dest.referrer || null);

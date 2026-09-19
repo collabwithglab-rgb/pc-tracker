@@ -80,12 +80,16 @@ import {
   BookOpen,
 } from 'lucide-react';
 
-import { MaintenanceTab, VALID_MAINTENANCE_TABS } from '../types';
+import {
+  MaintenanceTab,
+  LegacyMaintenanceTab,
+  normalizeMaintenanceTab,
+} from '../types';
 export type { MaintenanceTab };
 
 interface MaintenancePageProps {
   onOpenWikiArticle?: (articleId: string) => void;
-  requestedTab?: MaintenanceTab;
+  requestedTab?: MaintenanceTab | LegacyMaintenanceTab;
   onTabChange?: (tab: MaintenanceTab) => void;
 }
 
@@ -105,12 +109,12 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   } = usePCStore();
 
   const [activeTab, setActiveTab] = useState<MaintenanceTab>(
-    requestedTab && VALID_MAINTENANCE_TABS.includes(requestedTab) ? requestedTab : 'registro'
+    requestedTab ? normalizeMaintenanceTab(requestedTab) : 'registro'
   );
 
   useEffect(() => {
-    if (requestedTab && VALID_MAINTENANCE_TABS.includes(requestedTab)) {
-      setActiveTab(requestedTab);
+    if (requestedTab) {
+      setActiveTab(normalizeMaintenanceTab(requestedTab));
     }
   }, [requestedTab]);
 
@@ -180,7 +184,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   };
 
   useEffect(() => {
-    if (activeTab === 'tools' || activeTab === 'scan') {
+    if (activeTab === 'windows') {
       loadWindowsToolsData();
     }
   }, [activeTab]);
@@ -384,7 +388,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
       {/* Tablist orizzontale */}
-      <nav className="settings-tablist" role="tablist" aria-label="Sezioni Manutenzione">
+      <nav className="settings-tablist" role="tablist" aria-label="Sezioni Cura del PC">
         <button
           type="button"
           role="tab"
@@ -394,7 +398,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           className={`settings-tab-btn ${activeTab === 'registro' ? 'is-active' : ''}`}
         >
           <Wrench size={15} />
-          <span>Registro Manutenzione</span>
+          <span>Registro Interventi</span>
           {maintenanceEntries.length > 0 && (
             <span
               style={{
@@ -414,25 +418,13 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         <button
           type="button"
           role="tab"
-          id="tab-scan"
-          aria-selected={activeTab === 'scan'}
-          onClick={() => handleTabChange('scan')}
-          className={`settings-tab-btn ${activeTab === 'scan' ? 'is-active' : ''}`}
-        >
-          <Activity size={15} />
-          <span>Scan Now (Diagnostica)</span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          id="tab-tools"
-          aria-selected={activeTab === 'tools'}
-          onClick={() => handleTabChange('tools')}
-          className={`settings-tab-btn ${activeTab === 'tools' ? 'is-active' : ''}`}
+          id="tab-windows"
+          aria-selected={activeTab === 'windows'}
+          onClick={() => handleTabChange('windows')}
+          className={`settings-tab-btn ${activeTab === 'windows' ? 'is-active' : ''}`}
         >
           <Terminal size={15} />
-          <span>Strumenti Windows</span>
+          <span>Sistema Windows</span>
         </button>
 
         <button
@@ -759,10 +751,10 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: SCAN NOW (DIAGNOSTICA NON DISTRUTTIVA) */}
+      {/* TAB 2: SISTEMA WINDOWS (DIAGNOSTICA SCAN NOW & STRUMENTI) */}
       {/* ========================================================================= */}
-      {activeTab === 'scan' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {activeTab === 'windows' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Header Banner informativo */}
           <div
             className="card"
@@ -872,7 +864,12 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
-                          onClick={() => handleTabChange('tools')}
+                          onClick={() => {
+                            const el = document.getElementById('windows-direct-tools');
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }}
                           style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}
                         >
                           Vai a Strumenti
@@ -1028,31 +1025,30 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* TAB 3: STRUMENTI WINDOWS (OPERAZIONI ESPLICITE E SICURE) */}
-      {/* ========================================================================= */}
-      {activeTab === 'tools' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div
-            style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              background: 'rgba(56, 189, 248, 0.05)',
-              border: '1px solid rgba(56, 189, 248, 0.2)',
-              fontSize: '0.85rem',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.45,
-            }}
-          >
-            <strong>Manutenzione Tecnica Diretta:</strong> ogni strumento viene eseguito singolarmente
-            su richiesta esplicita. Le operazioni che necessitano di privilegi amministrativi mostrano la
-            richiesta di elevazione UAC standard di Windows.
-          </div>
+          {/* Sezione Strumenti Windows di Manutenzione Diretta */}
+          <div id="windows-direct-tools" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
+            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Terminal size={18} color="var(--accent-primary)" />
+              <span>Strumenti Windows di Manutenzione Diretta</span>
+            </div>
+            <div
+              style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                background: 'rgba(56, 189, 248, 0.05)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.45,
+              }}
+            >
+              <strong>Manutenzione Tecnica Diretta:</strong> ogni strumento viene eseguito singolarmente
+              su richiesta esplicita. Le operazioni che necessitano di privilegi amministrativi mostrano la
+              richiesta di elevazione UAC standard di Windows.
+            </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
             {/* Tool 1: TRIM per Unità SSD */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
               <div>
@@ -1336,10 +1332,11 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: TUNING JOURNAL (PROFILI HARDWARE) */}
+      {/* TAB 3: TUNING JOURNAL (PROFILI HARDWARE) */}
       {/* ========================================================================= */}
       {activeTab === 'tuning' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

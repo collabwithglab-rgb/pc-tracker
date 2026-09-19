@@ -195,13 +195,13 @@ describe('Command Palette UI & Execution Integration Suite', () => {
 
     it('esegue deep navigation verso subTab con target discriminato', () => {
       const env = createEnv('current-rig');
-      const item = STATIC_NAVIGATION_COMMANDS.find((c) => c.id === 'deep-maintenance-tools')!;
+      const item = STATIC_NAVIGATION_COMMANDS.find((c) => c.id === 'deep-maintenance-windows')!;
 
       executeCommand(env, item);
 
       expect(env.navigatedTarget).toEqual({
         section: 'maintenance',
-        subTab: 'tools',
+        subTab: 'windows',
         referrer: 'current-rig',
       });
       expect(env.isPaletteOpen).toBe(false);

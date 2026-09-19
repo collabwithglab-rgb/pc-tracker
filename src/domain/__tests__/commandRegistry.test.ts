@@ -34,14 +34,13 @@ describe('Command Registry & Deterministic Ranking Suite', () => {
       });
     });
 
-    it('include esattamente 10 comandi di deep navigation verso subTab specifici', () => {
+    it('include esattamente 9 comandi di deep navigation verso subTab specifici', () => {
       const deepNavCommands = STATIC_NAVIGATION_COMMANDS.filter((c) => c.category === 'deep-navigation');
-      expect(deepNavCommands).toHaveLength(10);
+      expect(deepNavCommands).toHaveLength(9);
 
-      // Maintenance (4 tab)
+      // Maintenance (3 tab: registro, windows, tuning)
       expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'registro')).toBeDefined();
-      expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'scan')).toBeDefined();
-      expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'tools')).toBeDefined();
+      expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'windows')).toBeDefined();
       expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'tuning')).toBeDefined();
 
       // Settings (4 tab)
@@ -151,8 +150,8 @@ describe('Command Registry & Deterministic Ranking Suite', () => {
     });
 
     it('assegna 40 punti per match su keyword secondaria', () => {
-      const toolsCmd = STATIC_NAVIGATION_COMMANDS.find((c) => c.id === 'deep-maintenance-tools')!;
-      // 'sfc' è tra le keywords di deep-maintenance-tools
+      const toolsCmd = STATIC_NAVIGATION_COMMANDS.find((c) => c.id === 'deep-maintenance-windows')!;
+      // 'sfc' è tra le keywords di deep-maintenance-windows
       const score = computeCommandScore(toolsCmd, 'sfc');
       expect(score).toBe(40);
     });
@@ -177,17 +176,17 @@ describe('Command Registry & Deterministic Ranking Suite', () => {
       // Query "tools" o "strumenti"
       const res = searchCommands('strumenti', allCommands, 10);
       expect(res.length).toBeGreaterThan(0);
-      expect(res[0].id).toBe('deep-maintenance-tools');
+      expect(res[0].id).toBe('deep-maintenance-windows');
     });
 
     it('trova comandi tramite keyword tecniche (es. trim, sfc, chkdsk)', () => {
       const resTrim = searchCommands('trim', allCommands, 5);
       expect(resTrim.length).toBeGreaterThan(0);
-      expect(resTrim[0].id).toBe('deep-maintenance-tools');
+      expect(resTrim[0].id).toBe('deep-maintenance-windows');
 
       const resSfc = searchCommands('sfc', allCommands, 5);
       expect(resSfc.length).toBeGreaterThan(0);
-      expect(resSfc[0].id).toBe('deep-maintenance-tools');
+      expect(resSfc[0].id).toBe('deep-maintenance-windows');
     });
 
     it('trova componenti reali del database per nome, marca o modello', () => {
