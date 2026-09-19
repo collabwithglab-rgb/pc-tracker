@@ -95,3 +95,108 @@ export function evaluateScanNowRecommendations(
 
   return actions;
 }
+
+/**
+ * Classifica lo stato di salute di un'unità fisica basandosi su parametri S.M.A.R.T. e contatori di affidabilità.
+ */
+export function classifyDiskHealth(smart: import('../types/windowsTools').DiskSmartHealth): {
+  status: 'healthy' | 'warning' | 'critical';
+  label: string;
+  badgeClass: string;
+} {
+  const isHealthyStr = (smart.healthStatus || '').toLowerCase().includes('healthy');
+  const hasErrors = smart.readErrorsTotal > 0 || smart.writeErrorsTotal > 0;
+  const isOverheating = smart.temperatureCelsius !== undefined && smart.temperatureCelsius >= 70;
+  const isHighWear = smart.wearPercentage !== undefined && smart.wearPercentage >= 80;
+  const isCriticalWear = smart.wearPercentage !== undefined && smart.wearPercentage >= 95;
+
+  if (!isHealthyStr || isCriticalWear) {
+    return {
+      status: 'critical',
+      label: 'Attenzione Critica',
+      badgeClass: 'badge-ruby',
+    };
+  }
+
+  if (hasErrors || isOverheating || isHighWear) {
+    return {
+      status: 'warning',
+      label: 'Monitorare',
+      badgeClass: 'badge-amber',
+    };
+  }
+
+  return {
+    status: 'healthy',
+    label: 'Ottimo / Integro',
+    badgeClass: 'badge-emerald',
+  };
+}
+
+/**
+ * Formatta la temperatura in gradi Celsius o restituisce 'N/D'.
+ */
+export function formatTemperatureCelsius(temp?: number): string {
+  if (temp === undefined || isNaN(temp)) return 'N/D';
+  return `${Math.round(temp)}°C`;
+}
+
+/**
+ * Formatta la percentuale di usura (Wear) riportata dal controller SSD.
+ */
+export function formatWearPercentage(wear?: number): string {
+  if (wear === undefined || isNaN(wear)) return 'N/D';
+  const remaining = Math.max(0, 100 - wear);
+  return `${wear}% consumato (${remaining}% vita residua)`;
+}
+
+/**
+ * Valuta l'audit di sicurezza e kernel restituendo un punteggio e le eventuali raccomandazioni.
+ */
+export function evaluateSecurityAuditStatus(audit: import('../types/windowsTools').SecurityAuditData): {
+  isOptimal: boolean;
+  score: number;
+  maxScore: number;
+  recommendations: string[];
+} {
+  let score = 0;
+  const maxScore = 5;
+  const recommendations: string[] = [];
+
+  if (audit.secureBootEnabled) {
+    score += 1;
+  } else {
+    recommendations.push('Secure Boot non attivo: abilitalo nel BIOS UEFI per proteggere il bootloader.');
+  }
+
+  if (audit.tpmPresent && audit.tpmReady) {
+    score += 1;
+  } else {
+    recommendations.push('Modulo TPM 2.0 assente o non pronto: richiesto per sicurezza Windows 11 e BitLocker.');
+  }
+
+  if (audit.vbsRunning) {
+    score += 1;
+  } else {
+    recommendations.push('Virtualization-Based Security (VBS) non attiva: abilitala per isolamento kernel hardware.');
+  }
+
+  if (audit.hvciRunning) {
+    score += 1;
+  } else {
+    recommendations.push('Integrità Memoria (HVCI) non attiva: protegge il kernel da iniezioni di codice nocivo.');
+  }
+
+  if (audit.hostsFileClean) {
+    score += 1;
+  } else {
+    recommendations.push(`File hosts contiene ${audit.hostsCustomEntriesCount} regole custom: verifica che non vi siano dirottamenti.`);
+  }
+
+  return {
+    isOptimal: score === maxScore,
+    score,
+    maxScore,
+    recommendations,
+  };
+}

@@ -17,6 +17,9 @@ import {
   HibernateStatus,
   TrimConfigStatus,
   ScanNowResult,
+  SecurityAuditData,
+  DiskSmartHealth,
+  WinGetUpdateItem,
 } from '../types';
 import {
   formatDate as formatWithSettings,
@@ -35,6 +38,10 @@ import {
   formatBytes,
   computeDriveUsagePercentage,
   getLocalDateISO,
+  classifyDiskHealth,
+  formatTemperatureCelsius,
+  formatWearPercentage,
+  evaluateSecurityAuditStatus,
 } from '../domain';
 import {
   scanStorageVolumes,
@@ -48,6 +55,14 @@ import {
   verifySystemFiles,
   checkDiskReadonly,
   executeDiagnosticScanNow,
+  createRestorePoint,
+  querySecurityAudit,
+  getStorageSmartHealth,
+  enableUltimatePerformance,
+  cleanGpuShaderCache,
+  cleanComponentStore,
+  rebootToUefi,
+  checkWinGetUpdates,
 } from '../services/windowsToolsService';
 import {
   MaintenanceEntryModal,
@@ -55,6 +70,7 @@ import {
   RecycleBinConfirmModal,
   ToolResultModal,
 } from '../components/maintenance';
+import { Modal } from '../components/common/Modal';
 import {
   Wrench,
   Activity,
@@ -78,6 +94,12 @@ import {
   ExternalLink,
   ChevronRight,
   BookOpen,
+  Shield,
+  Zap,
+  Gauge,
+  Power,
+  Download,
+  RotateCcw,
 } from 'lucide-react';
 
 import {
@@ -160,14 +182,28 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [selectedChkdskDrive, setSelectedChkdskDrive] = useState<string>('C:');
   const [runningTool, setRunningTool] = useState<string | null>(null);
 
+  // Nuovi stati Tranche 3: Sicurezza, S.M.A.R.T., WinGet & Modali di sicurezza
+  const [securityAudit, setSecurityAudit] = useState<SecurityAuditData | null>(null);
+  const [isLoadingSecurityAudit, setIsLoadingSecurityAudit] = useState(false);
+  const [smartHealthList, setSmartHealthList] = useState<DiskSmartHealth[]>([]);
+  const [isLoadingSmartHealth, setIsLoadingSmartHealth] = useState(false);
+  const [wingetUpdates, setWingetUpdates] = useState<WinGetUpdateItem[] | null>(null);
+  const [isLoadingWinGet, setIsLoadingWinGet] = useState(false);
+
+  const [isUefiConfirmModalOpen, setIsUefiConfirmModalOpen] = useState(false);
+  const [isRestorePointModalOpen, setIsRestorePointModalOpen] = useState(false);
+  const [restorePointDesc, setRestorePointDesc] = useState('PC Tracker Safety Point');
+
   // Caricamento dati iniziali per la tab Strumenti
   const loadWindowsToolsData = async () => {
     try {
-      const [vols, trim, bin, hiber] = await Promise.all([
+      const [vols, trim, bin, hiber, smart, sec] = await Promise.all([
         scanStorageVolumes(),
         queryTrimConfiguration(),
         queryRecycleBin(),
         getHibernateStatus(),
+        getStorageSmartHealth(),
+        querySecurityAudit(),
       ]);
 
       if (vols.data && vols.data.length > 0) {
@@ -178,6 +214,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       if (trim.data) setTrimStatus(trim.data);
       if (bin.data) setRecycleBin(bin.data);
       if (hiber.data) setHibernate(hiber.data);
+      if (smart.data) setSmartHealthList(smart.data);
+      if (sec.data) setSecurityAudit(sec.data);
     } catch (err) {
       console.warn('Errore caricamento dati strumenti Windows:', err);
     }
@@ -302,6 +340,137 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     } finally {
       setRunningTool(null);
     }
+  };
+
+  // Punto di Ripristino di Sicurezza
+  const handleCreateRestorePoint = async () => {
+    setIsRestorePointModalOpen(false);
+    setRunningTool('restore_point');
+    try {
+      const res = await createRestorePoint(restorePointDesc);
+      setToolResult(res);
+      setToolResultTitle('Punto di Ripristino di Sistema');
+      setIsToolResultOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore creazione punto di ripristino: ${(err as Error).message}`);
+    } finally {
+      setRunningTool(null);
+    }
+  };
+
+  // Ricarica Audit Sicurezza
+  const handleRunSecurityAudit = async () => {
+    setIsLoadingSecurityAudit(true);
+    try {
+      const res = await querySecurityAudit();
+      if (res.data) setSecurityAudit(res.data);
+      setToolResult(res);
+      setToolResultTitle('Audit Sicurezza & Integrità Kernel');
+      setIsToolResultOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore audit sicurezza: ${(err as Error).message}`);
+    } finally {
+      setIsLoadingSecurityAudit(false);
+    }
+  };
+
+  // Ricarica S.M.A.R.T. Dischi
+  const handleRefreshSmartHealth = async () => {
+    setIsLoadingSmartHealth(true);
+    try {
+      const res = await getStorageSmartHealth();
+      if (res.data) setSmartHealthList(res.data);
+      showNotification('success', 'Dati S.M.A.R.T. aggiornati.');
+    } catch (err) {
+      showNotification('error', `Errore interrogazione S.M.A.R.T.: ${(err as Error).message}`);
+    } finally {
+      setIsLoadingSmartHealth(false);
+    }
+  };
+
+  // Ultimate Performance
+  const handleEnableUltimatePerformance = async () => {
+    setRunningTool('ultimate_perf');
+    try {
+      const res = await enableUltimatePerformance();
+      setToolResult(res);
+      setToolResultTitle('Schema Prestazioni Eccellenti (Ultimate Performance)');
+      setIsToolResultOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore sblocco schema energetico: ${(err as Error).message}`);
+    } finally {
+      setRunningTool(null);
+    }
+  };
+
+  // Pulizia Shader Cache GPU
+  const handleCleanGpuShaderCache = async () => {
+    setRunningTool('shader_cache');
+    try {
+      const res = await cleanGpuShaderCache();
+      setToolResult(res);
+      setToolResultTitle('Pulizia Shader Cache GPU (DirectX)');
+      setIsToolResultOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore pulizia cache shader: ${(err as Error).message}`);
+    } finally {
+      setRunningTool(null);
+    }
+  };
+
+  // Pulizia WinSxS Component Store
+  const handleCleanComponentStore = async () => {
+    setRunningTool('component_store');
+    try {
+      const res = await cleanComponentStore();
+      setToolResult(res);
+      setToolResultTitle('Pulizia Repository WinSxS Component Store (DISM)');
+      setIsToolResultOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore pulizia WinSxS: ${(err as Error).message}`);
+    } finally {
+      setRunningTool(null);
+    }
+  };
+
+  // Riavvio Diretto BIOS/UEFI
+  const handleConfirmRebootUefi = async () => {
+    setIsUefiConfirmModalOpen(false);
+    setRunningTool('reboot_uefi');
+    try {
+      const res = await rebootToUefi();
+      setToolResult(res);
+      setToolResultTitle('Riavvio nel BIOS / UEFI');
+      setIsToolResultOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore riavvio UEFI: ${(err as Error).message}`);
+    } finally {
+      setRunningTool(null);
+    }
+  };
+
+  // Controllo Aggiornamenti WinGet
+  const handleCheckWinGetUpdates = async () => {
+    setIsLoadingWinGet(true);
+    try {
+      const res = await checkWinGetUpdates();
+      if (res.data) setWingetUpdates(res.data);
+      setToolResult(res);
+      setToolResultTitle('Controllo Aggiornamenti Software (WinGet)');
+      setIsToolResultOpen(true);
+    } catch (err) {
+      showNotification('error', `Errore controllo WinGet: ${(err as Error).message}`);
+    } finally {
+      setIsLoadingWinGet(false);
+    }
+  };
+
+  // Scorciatoie Applet di Sistema
+  const handleOpenApplet = (appletCmd: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(appletCmd);
+    }
+    showNotification('success', `Comando "${appletCmd}" copiato negli appunti (premi Win+R e incolla).`);
   };
 
   // Handler "Registra nel Registro Manutenzione" dal ToolResultModal
@@ -1027,311 +1196,711 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           )}
 
           {/* Sezione Strumenti Windows di Manutenzione Diretta */}
-          <div id="windows-direct-tools" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
-            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Terminal size={18} color="var(--accent-primary)" />
-              <span>Strumenti Windows di Manutenzione Diretta</span>
-            </div>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                background: 'rgba(56, 189, 248, 0.05)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
-                fontSize: '0.85rem',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.45,
-              }}
-            >
-              <strong>Manutenzione Tecnica Diretta:</strong> ogni strumento viene eseguito singolarmente
-              su richiesta esplicita. Le operazioni che necessitano di privilegi amministrativi mostrano la
-              richiesta di elevazione UAC standard di Windows.
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
-            {/* Tool 1: TRIM per Unità SSD */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+          {/* Sezione Strumenti Windows di Manutenzione Diretta, Tweak & Diagnostica */}
+          <div id="windows-direct-tools" style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HardDrive size={18} color="var(--accent-primary)" />
-                    Ottimizzazione TRIM (SSD)
-                  </div>
-                  <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
-                    Richiede UAC
-                  </span>
+                <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Terminal size={18} color="var(--accent-primary)" />
+                  <span>Strumenti Windows, Ottimizzazioni & Tweak</span>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-                  Invia comandi ReTrim nativi al controller SSD per informarlo dei blocchi logici non più in uso,
-                  ottimizzando le prestazioni di scrittura nel tempo.
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '3px' }}>
+                  Suite di diagnostica hardware, sicurezza kernel, pulizia profonda e quality-of-life per Windows 10/11.
                 </div>
+              </div>
 
-                {trimStatus && (
-                  <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    TRIM Windows OS:{' '}
-                    <strong style={{ color: trimStatus.enabled ? 'var(--accent-emerald)' : 'var(--accent-ruby)' }}>
-                      {trimStatus.enabled ? '✓ Attivo' : '✗ Disattivato'}
-                    </strong>
+              {/* Azione Rapida: Crea Punto di Ripristino di Sicurezza */}
+              <button
+                type="button"
+                className="btn btn-secondary micro-press"
+                onClick={() => setIsRestorePointModalOpen(true)}
+                disabled={runningTool !== null}
+                style={{ borderColor: 'rgba(56, 189, 248, 0.3)', color: 'var(--accent-primary)', fontSize: '12.5px' }}
+              >
+                <Shield size={14} />
+                <span>+ Crea Punto di Ripristino</span>
+              </button>
+            </div>
+
+            {/* ======================================================== */}
+            {/* AREA 1: INTEGRITÀ HARDWARE, S.M.A.R.T. & SICUREZZA KERNEL */}
+            {/* ======================================================== */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                <ShieldCheck size={16} color="var(--accent-emerald)" />
+                <span>1. Integrità Hardware, S.M.A.R.T. & Sicurezza Kernel</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
+                {/* Tool: S.M.A.R.T. Dischi Fisici */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HardDrive size={18} color="var(--accent-primary)" />
+                        Salute S.M.A.R.T. Dischi Nativi
+                      </div>
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
+                        Read-Only
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Interroga i contatori di affidabilità e i sensori hardware dei controller SSD NVMe e SATA (usura %, temperatura, errori I/O).
+                    </div>
+
+                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {smartHealthList.length === 0 ? (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', padding: '8px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                          Nessun dato S.M.A.R.T. caricato. Fai clic su Aggiorna per interrogare i dischi.
+                        </div>
+                      ) : (
+                        smartHealthList.map((d) => {
+                          const health = classifyDiskHealth(d);
+                          return (
+                            <div
+                              key={d.deviceId}
+                              style={{
+                                padding: '8px 10px',
+                                background: 'var(--bg-input)',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-subtle)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  {d.friendlyName}
+                                </span>
+                                <span className={`badge ${health.badgeClass}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                                  {health.label}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                <span>Temp: <strong style={{ color: 'var(--text-secondary)' }}>{formatTemperatureCelsius(d.temperatureCelsius)}</strong></span>
+                                <span>Usura: <strong style={{ color: 'var(--text-secondary)' }}>{formatWearPercentage(d.wearPercentage)}</strong></span>
+                                <span>Errori: <strong style={{ color: (d.readErrorsTotal + d.writeErrorsTotal > 0) ? 'var(--accent-ruby)' : 'var(--text-secondary)' }}>{d.readErrorsTotal + d.writeErrorsTotal}</strong></span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-                )}
 
-                <div style={{ marginTop: '12px' }}>
-                  <label className="form-label" style={{ fontSize: '0.75rem' }}>
-                    Seleziona Unità SSD
-                  </label>
-                  <select
-                    className="input-field select-field"
-                    value={selectedTrimDrive}
-                    onChange={(e) => setSelectedTrimDrive(e.target.value)}
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={isLoadingSmartHealth}
+                    onClick={handleRefreshSmartHealth}
+                    style={{ width: '100%', justifyContent: 'center' }}
                   >
-                    {volumes.map((v) => (
-                      <option key={v.driveLetter} value={v.driveLetter}>
-                        {v.driveLetter} {v.label ? `(${v.label})` : ''} — {v.busType || v.mediaType || 'Disco'}
-                      </option>
-                    ))}
-                  </select>
+                    <RefreshCw size={13} className={isLoadingSmartHealth ? 'spin' : ''} style={{ marginRight: '6px' }} />
+                    {isLoadingSmartHealth ? 'Interrogazione in corso...' : 'Ricarica Dati S.M.A.R.T.'}
+                  </button>
                 </div>
-              </div>
 
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={runningTool !== null}
-                onClick={handleExecuteTrim}
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                {runningTool === 'trim' ? 'Esecuzione TRIM in corso...' : `Esegui TRIM su ${selectedTrimDrive}`}
-              </button>
-            </div>
+                {/* Tool: Audit Sicurezza & Kernel */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ShieldCheck size={18} color="var(--accent-emerald)" />
+                        Audit Sicurezza & Kernel Windows
+                      </div>
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
+                        Read-Only
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Controlla lo stato di protezione hardware: Secure Boot UEFI, TPM 2.0, Virtualization-Based Security (VBS), HVCI e integrità file hosts.
+                    </div>
 
-            {/* Tool 2: Cestino di Windows */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Trash2 size={18} color="var(--accent-ruby)" />
-                    Cestino di Windows
+                    {securityAudit && (() => {
+                      const evalAudit = evaluateSecurityAuditStatus(securityAudit);
+                      return (
+                        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Punteggio Sicurezza:</span>
+                            <span className={`badge ${evalAudit.isOptimal ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                              {evalAudit.score}/{evalAudit.maxScore} controlli superati
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Secure Boot UEFI:</span>
+                            <strong style={{ color: securityAudit.secureBootEnabled ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
+                              {securityAudit.secureBootEnabled ? '✓ Attivo' : '✗ Non attivo'}
+                            </strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Modulo TPM 2.0:</span>
+                            <strong style={{ color: (securityAudit.tpmPresent && securityAudit.tpmReady) ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
+                              {(securityAudit.tpmPresent && securityAudit.tpmReady) ? '✓ Pronto' : '✗ Assente/Non pronto'}
+                            </strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Isolamento Core / VBS:</span>
+                            <strong style={{ color: securityAudit.vbsRunning ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
+                              {securityAudit.vbsRunning ? '✓ Attivo' : 'Non attivo'}
+                            </strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Integrità File Hosts:</span>
+                            <strong style={{ color: securityAudit.hostsFileClean ? 'var(--accent-emerald)' : 'var(--accent-ruby)' }}>
+                              {securityAudit.hostsFileClean ? '✓ Pulito' : `⚠️ ${securityAudit.hostsCustomEntriesCount} regole custom`}
+                            </strong>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
-                    Standard
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-                  Elimina definitivamente i file e le cartelle cestinate presenti su tutte le unità locali, liberando lo spazio occupato.
-                </div>
 
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '10px 12px',
-                    background: 'var(--bg-input)',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Stato attuale:</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {recycleBin ? `${recycleBin.itemCount} elementi (${formatBytes(recycleBin.totalSizeBytes)})` : 'In caricamento...'}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={async () => {
-                    const b = await queryRecycleBin();
-                    if (b.data) setRecycleBin(b.data);
-                  }}
-                  title="Aggiorna conteggio"
-                >
-                  <RefreshCw size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  disabled={runningTool !== null || !recycleBin || recycleBin.itemCount === 0}
-                  onClick={() => setIsRecycleBinModalOpen(true)}
-                  style={{ flex: 1, justifyContent: 'center' }}
-                >
-                  Svuota Cestino...
-                </button>
-              </div>
-            </div>
-
-            {/* Tool 3: Ibernazione Windows */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Moon size={18} color="var(--accent-purple)" />
-                    Ibernazione Windows (hiberfil.sys)
-                  </div>
-                  <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
-                    Richiede UAC
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-                  Disabilitando l'ibernazione su PC desktop è possibile recuperare vari gigabyte di spazio dal disco di sistema (pari a una porzione della RAM).
-                </div>
-
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '10px 12px',
-                    background: 'var(--bg-input)',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Stato:</span>
-                  <span
-                    style={{
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                      color: hibernate?.enabled ? 'var(--accent-amber)' : 'var(--accent-emerald)',
-                    }}
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={isLoadingSecurityAudit}
+                    onClick={handleRunSecurityAudit}
+                    style={{ width: '100%', justifyContent: 'center' }}
                   >
-                    {hibernate?.enabled ? 'Attivo' : 'Disattivato (Spazio Liberato)'}
-                  </span>
+                    <RefreshCw size={13} className={isLoadingSecurityAudit ? 'spin' : ''} style={{ marginRight: '6px' }} />
+                    {isLoadingSecurityAudit ? 'Analisi sicurezza in corso...' : 'Esegui Audit Sicurezza Completo'}
+                  </button>
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={runningTool !== null || hibernate?.enabled === false}
-                  onClick={() => handleToggleHibernate(false)}
-                  style={{ flex: 1, justifyContent: 'center' }}
-                >
-                  Disattiva Ibernazione
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={runningTool !== null || hibernate?.enabled === true}
-                  onClick={() => handleToggleHibernate(true)}
-                  style={{ flex: 1, justifyContent: 'center' }}
-                >
-                  Abilita Ibernazione
-                </button>
-              </div>
-            </div>
-
-            {/* Tool 4: Pulizia Disco cleanmgr.exe */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Sparkles size={18} color="var(--accent-cyan)" />
-                    Pulizia Disco (cleanmgr.exe)
+                {/* Tool: Verifica Integrità File di Sistema (SFC /verifyonly) */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Shield size={18} color="var(--accent-cyan)" />
+                        Verifica File di Sistema (SFC)
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
+                        Richiede UAC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Esegue <code style={{ color: 'var(--accent-primary)' }}>sfc /verifyonly</code> in modalità sola lettura,
+                      verificando l'integrità dei binari di sistema protetti senza apportare modifiche o sovrascritture arbitrarie.
+                    </div>
                   </div>
-                  <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
-                    Standard
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-                  Avvia l'utility nativa ufficiale di Windows che consente di selezionare file temporanei, log di sistema,
-                  cache delle miniature e vecchie installazioni di Windows in piena sicurezza.
-                </div>
-              </div>
 
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={runningTool !== null}
-                onClick={handleOpenCleanmgr}
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                <ExternalLink size={14} style={{ marginRight: '6px' }} />
-                Apri Pulizia disco di Windows
-              </button>
-            </div>
-
-            {/* Tool 5: Verifica Integrità File di Sistema (SFC /verifyonly) */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShieldCheck size={18} color="var(--accent-emerald)" />
-                    Verifica File di Sistema (SFC)
-                  </div>
-                  <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
-                    Richiede UAC
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-                  Esegue <code style={{ color: 'var(--accent-primary)' }}>sfc /verifyonly</code> in modalità sola lettura,
-                  verificando se i file protetti del sistema operativo sono integri senza apportare modifiche o sovrascritture arbitrarie.
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={runningTool !== null}
-                onClick={handleRunSfc}
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                {runningTool === 'sfc' ? 'Verifica in corso (può richiedere 1-2 min)...' : 'Esegui sfc /verifyonly'}
-              </button>
-            </div>
-
-            {/* Tool 6: Scansione File System (CHKDSK /scan) */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HardDrive size={18} color="var(--accent-amber)" />
-                    Scansione File System (CHKDSK)
-                  </div>
-                  <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
-                    Richiede UAC
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-                  Esegue <code style={{ color: 'var(--accent-primary)' }}>chkdsk /scan</code> in modalità online non distruttiva.
-                  Rileva eventuali inconsistenze del file system NTFS senza bloccare il volume e senza forzare riparazioni premature.
-                </div>
-
-                <div style={{ marginTop: '12px' }}>
-                  <label className="form-label" style={{ fontSize: '0.75rem' }}>
-                    Seleziona Volume
-                  </label>
-                  <select
-                    className="input-field select-field"
-                    value={selectedChkdskDrive}
-                    onChange={(e) => setSelectedChkdskDrive(e.target.value)}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={handleRunSfc}
+                    style={{ width: '100%', justifyContent: 'center' }}
                   >
-                    {volumes.map((v) => (
-                      <option key={v.driveLetter} value={v.driveLetter}>
-                        {v.driveLetter} {v.label ? `(${v.label})` : ''} — {v.fileSystem}
-                      </option>
-                    ))}
-                  </select>
+                    {runningTool === 'sfc' ? 'Verifica in corso (può richiedere 1-2 min)...' : 'Esegui sfc /verifyonly'}
+                  </button>
+                </div>
+
+                {/* Tool: Scansione File System (CHKDSK /scan) */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HardDrive size={18} color="var(--accent-amber)" />
+                        Scansione File System (CHKDSK)
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
+                        Richiede UAC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Esegue <code style={{ color: 'var(--accent-primary)' }}>chkdsk /scan</code> online non distruttivo per rilevare inconsistenze NTFS.
+                    </div>
+
+                    <div style={{ marginTop: '12px' }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                        Seleziona Volume
+                      </label>
+                      <select
+                        className="input-field select-field"
+                        value={selectedChkdskDrive}
+                        onChange={(e) => setSelectedChkdskDrive(e.target.value)}
+                      >
+                        {volumes.map((v) => (
+                          <option key={v.driveLetter} value={v.driveLetter}>
+                            {v.driveLetter} {v.label ? `(${v.label})` : ''} — {v.fileSystem}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={handleRunChkdsk}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    {runningTool === 'chkdsk' ? 'Scansione in corso...' : `Esegui chkdsk /scan su ${selectedChkdskDrive}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ======================================================== */}
+            {/* AREA 2: PULIZIA PROFONDA & RECUPERO SPAZIO REALE */}
+            {/* ======================================================== */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                <Sparkles size={16} color="var(--accent-cyan)" />
+                <span>2. Pulizia Profonda & Recupero Spazio Reale</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
+                {/* Tool: Pulizia WinSxS Component Store (DISM) */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HardDrive size={18} color="var(--accent-cyan)" />
+                        Pulizia WinSxS Component Store (DISM)
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
+                        Richiede UAC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Esegue <code style={{ color: 'var(--accent-primary)' }}>dism /online /cleanup-image /startcomponentcleanup</code> per rimuovere
+                      versioni obsolete di aggiornamenti Windows archiviate nel repository WinSxS (spesso libera 4-15 GB).
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={handleCleanComponentStore}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    {runningTool === 'component_store' ? 'Pulizia DISM in corso...' : 'Esegui Pulizia WinSxS Component Store'}
+                  </button>
+                </div>
+
+                {/* Tool: Pulizia Shader Cache GPU */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Cpu size={18} color="var(--accent-amber)" />
+                        Pulizia Shader Cache GPU (DirectX)
+                      </div>
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
+                        Standard
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Pulisce in sicurezza le cache shader DirectX/GPU compresse in AppData. Elimina micro-stuttering e cali di framerate causati da vecchi shader dopo l'aggiornamento dei driver video.
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={handleCleanGpuShaderCache}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    {runningTool === 'shader_cache' ? 'Pulizia cache in corso...' : 'Pulisci Shader Cache GPU'}
+                  </button>
+                </div>
+
+                {/* Tool: Ibernazione Windows */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Moon size={18} color="var(--accent-purple, #a855f7)" />
+                        Ibernazione Windows (hiberfil.sys)
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
+                        Richiede UAC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Disabilitando l'ibernazione su PC desktop è possibile recuperare svariati gigabyte di spazio su disco C: (pari a una porzione della memoria RAM installata).
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: '12px',
+                        padding: '10px 12px',
+                        background: 'var(--bg-input)',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Stato:</span>
+                      <span
+                        style={{
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          color: hibernate?.enabled ? 'var(--accent-amber)' : 'var(--accent-emerald)',
+                        }}
+                      >
+                        {hibernate?.enabled ? 'Attivo' : 'Disattivato (Spazio Liberato)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={runningTool !== null || hibernate?.enabled === false}
+                      onClick={() => handleToggleHibernate(false)}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Disattiva
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={runningTool !== null || hibernate?.enabled === true}
+                      onClick={() => handleToggleHibernate(true)}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Abilita
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tool: Cestino di Windows */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Trash2 size={18} color="var(--accent-ruby)" />
+                        Cestino di Windows
+                      </div>
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
+                        Standard
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Elimina definitivamente file e cartelle cestinate presenti su tutte le unità locali, liberando lo spazio occupato.
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: '12px',
+                        padding: '10px 12px',
+                        background: 'var(--bg-input)',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Stato attuale:</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {recycleBin ? `${recycleBin.itemCount} elementi (${formatBytes(recycleBin.totalSizeBytes)})` : 'In caricamento...'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={async () => {
+                        const b = await queryRecycleBin();
+                        if (b.data) setRecycleBin(b.data);
+                      }}
+                      title="Aggiorna conteggio"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      disabled={runningTool !== null || !recycleBin || recycleBin.itemCount === 0}
+                      onClick={() => setIsRecycleBinModalOpen(true)}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Svuota Cestino...
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tool: Pulizia Disco cleanmgr */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Sparkles size={18} color="var(--accent-cyan)" />
+                        Pulizia Disco (cleanmgr.exe)
+                      </div>
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
+                        Standard
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Avvia l'utility nativa ufficiale di Windows che consente di selezionare file temporanei, log di sistema e cache miniature.
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={handleOpenCleanmgr}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <ExternalLink size={14} style={{ marginRight: '6px' }} />
+                    Apri Pulizia disco di Windows
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ======================================================== */}
+            {/* AREA 3: PERFORMANCE & GAMING TWEAKS REALI */}
+            {/* ======================================================== */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                <Zap size={16} color="var(--accent-amber)" />
+                <span>3. Performance & Gaming Tweaks Reali</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
+                {/* Tool: Ultimate Performance Power Plan */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Zap size={18} color="var(--accent-amber)" />
+                        Schema Prestazioni Eccellenti
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
+                        Richiede UAC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Sblocca e attiva lo schema energetico nativo per workstation (<code style={{ color: 'var(--accent-primary)' }}>Ultimate Performance</code>).
+                      Elimina le micro-latenze di transizione energetica dei core CPU su desktop gaming di fascia alta.
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={handleEnableUltimatePerformance}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    {runningTool === 'ultimate_perf' ? 'Attivazione in corso...' : 'Sblocca & Attiva Ultimate Performance'}
+                  </button>
+                </div>
+
+                {/* Tool: Ottimizzazione TRIM SSD */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HardDrive size={18} color="var(--accent-primary)" />
+                        Ottimizzazione TRIM (SSD)
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
+                        Richiede UAC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Invia comandi ReTrim nativi al controller SSD per informarlo dei blocchi logici non più in uso,
+                      ottimizzando le prestazioni di scrittura nel tempo.
+                    </div>
+
+                    {trimStatus && (
+                      <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        TRIM Windows OS:{' '}
+                        <strong style={{ color: trimStatus.enabled ? 'var(--accent-emerald)' : 'var(--accent-ruby)' }}>
+                          {trimStatus.enabled ? '✓ Attivo' : '✗ Disattivato'}
+                        </strong>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '12px' }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                        Seleziona Unità SSD
+                      </label>
+                      <select
+                        className="input-field select-field"
+                        value={selectedTrimDrive}
+                        onChange={(e) => setSelectedTrimDrive(e.target.value)}
+                      >
+                        {volumes.map((v) => (
+                          <option key={v.driveLetter} value={v.driveLetter}>
+                            {v.driveLetter} {v.label ? `(${v.label})` : ''} — {v.busType || v.mediaType || 'Disco'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={handleExecuteTrim}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    {runningTool === 'trim' ? 'Esecuzione TRIM in corso...' : `Esegui TRIM su ${selectedTrimDrive}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ======================================================== */}
+            {/* AREA 4: QUALITY OF LIFE & STRUMENTI RAPIDI */}
+            {/* ======================================================== */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                <Gauge size={16} color="var(--accent-primary)" />
+                <span>4. Quality of Life & Strumenti Rapidi</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
+                {/* Tool: Riavvio Diretto BIOS / UEFI */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <RotateCcw size={18} color="var(--accent-amber)" />
+                        Riavvio Diretto nel BIOS / UEFI
+                      </div>
+                      <span className="badge badge-amber" style={{ fontSize: '0.68rem' }}>
+                        Richiede UAC
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Riavvia istantaneamente il computer entrando direttamente nel setup BIOS/UEFI della scheda madre.
+                      Perfetto per chi effettua overclock o cambio profili RAM senza dover premere tasti durante il boot.
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={runningTool !== null}
+                    onClick={() => setIsUefiConfirmModalOpen(true)}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <Power size={14} style={{ marginRight: '6px' }} />
+                    Riavvia nel BIOS / UEFI...
+                  </button>
+                </div>
+
+                {/* Tool: Controllo Aggiornamenti WinGet */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Download size={18} color="var(--accent-emerald)" />
+                        Aggiornamenti Software (WinGet)
+                      </div>
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
+                        Standard
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Interroga il Windows Package Manager (<code style={{ color: 'var(--accent-primary)' }}>winget upgrade</code>) per verificare
+                      se ci sono nuove versioni disponibili per le applicazioni installate e i runtime di sistema.
+                    </div>
+
+                    {wingetUpdates && (
+                      <div style={{ marginTop: '10px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Aggiornamenti rilevati: <strong style={{ color: wingetUpdates.length > 0 ? 'var(--accent-primary)' : 'var(--accent-emerald)' }}>{wingetUpdates.length} pacchetti</strong>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={isLoadingWinGet}
+                    onClick={handleCheckWinGetUpdates}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <RefreshCw size={13} className={isLoadingWinGet ? 'spin' : ''} style={{ marginRight: '6px' }} />
+                    {isLoadingWinGet ? 'Controllo in corso...' : 'Verifica Aggiornamenti WinGet'}
+                  </button>
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={runningTool !== null}
-                onClick={handleRunChkdsk}
-                style={{ width: '100%', justifyContent: 'center' }}
+              {/* Applet Rapidi di Sistema Windows */}
+              <div
+                className="card"
+                style={{
+                  padding: '16px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  background: 'rgba(255, 255, 255, 0.015)',
+                }}
               >
-                {runningTool === 'chkdsk' ? 'Scansione in corso...' : `Esegui chkdsk /scan su ${selectedChkdskDrive}`}
-              </button>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Scorciatoie Rapide Applet Native di Sistema:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenApplet('perfmon /rel')}
+                    title="Monitoraggio Affidabilità e Cronologia Problemi di Windows"
+                  >
+                    <Activity size={13} style={{ marginRight: '4px' }} />
+                    Affidabilità Sistema (perfmon /rel)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenApplet('devmgmt.msc')}
+                    title="Gestione Dispositivi e Driver Hardware"
+                  >
+                    <Cpu size={13} style={{ marginRight: '4px' }} />
+                    Gestione Dispositivi
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenApplet('dxdiag')}
+                    title="Strumento di Diagnostica DirectX"
+                  >
+                    <Terminal size={13} style={{ marginRight: '4px' }} />
+                    Diagnostica DirectX (dxdiag)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenApplet('mrt.exe')}
+                    title="Strumento Rimozione Malware di Windows"
+                  >
+                    <ShieldCheck size={13} style={{ marginRight: '4px' }} />
+                    Rimozione Malware (MRT)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenApplet('msconfig')}
+                    title="Configurazione di Sistema"
+                  >
+                    <Sliders size={13} style={{ marginRight: '4px' }} />
+                    Configurazione di Sistema (msconfig)
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
       </div>
       )}
 
@@ -1656,6 +2225,103 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         toolTitle={toolResultTitle}
         onRegisterInMaintenance={handleRegisterFromToolResult}
       />
+
+      {/* Modale Conferma Riavvio Diretto BIOS/UEFI */}
+      <Modal
+        isOpen={isUefiConfirmModalOpen}
+        onClose={() => setIsUefiConfirmModalOpen(false)}
+        title="Riavvio Diretto nel BIOS / UEFI"
+        maxWidth="480px"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <AlertTriangle size={24} color="var(--accent-amber)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Il computer verrà riavviato immediatamente e istruirà il firmware della scheda madre ad accedere
+              direttamente alla schermata del <strong>BIOS/UEFI</strong> al boot successivo.
+            </div>
+          </div>
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: '6px',
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              fontSize: '12px',
+              color: 'var(--text-primary)',
+            }}
+          >
+            ⚠️ <strong>Attenzione:</strong> salva tutti i file aperti e chiudi le applicazioni attive prima di procedere.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsUefiConfirmModalOpen(false)}
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              className="btn btn-warning"
+              onClick={handleConfirmRebootUefi}
+              style={{ backgroundColor: 'var(--accent-amber)', color: '#000', fontWeight: 600 }}
+            >
+              Riavvia Ora nel BIOS
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modale Creazione Punto di Ripristino */}
+      <Modal
+        isOpen={isRestorePointModalOpen}
+        onClose={() => setIsRestorePointModalOpen(false)}
+        title="Crea Punto di Ripristino di Sistema"
+        maxWidth="480px"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreateRestorePoint();
+          }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+        >
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+            Crea uno snapshot istantaneo dello stato del registro di Windows e dei file di sistema.
+            Richiede privilegi amministrativi (UAC).
+          </div>
+          <div>
+            <label className="form-label" style={{ fontSize: '12px' }}>
+              Nome / Descrizione Punto di Ripristino
+            </label>
+            <input
+              type="text"
+              className="input-field"
+              value={restorePointDesc}
+              onChange={(e) => setRestorePointDesc(e.target.value)}
+              placeholder="es. PC Tracker Pre-Tweak Safety Point"
+              required
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsRestorePointModalOpen(false)}
+            >
+              Annulla
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={runningTool !== null || !restorePointDesc.trim()}
+            >
+              Crea Punto di Ripristino
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

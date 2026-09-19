@@ -21,6 +21,14 @@ pub fn run() {
       windows_tools::open_disk_cleanup,
       windows_tools::verify_system_files,
       windows_tools::check_disk_readonly,
+      windows_tools::create_restore_point,
+      windows_tools::query_security_audit,
+      windows_tools::get_storage_smart_health,
+      windows_tools::enable_ultimate_performance,
+      windows_tools::clean_gpu_shader_cache,
+      windows_tools::clean_component_store,
+      windows_tools::reboot_to_uefi,
+      windows_tools::check_winget_updates,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

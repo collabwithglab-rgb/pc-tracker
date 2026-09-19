@@ -74,3 +74,39 @@ export interface ScanNowResult {
     driveLetter?: string;
   }[];
 }
+
+export interface SecurityAuditData {
+  secureBootEnabled: boolean;
+  tpmPresent: boolean;
+  tpmReady: boolean;
+  vbsRunning: boolean;
+  hvciRunning: boolean;
+  hostsFileClean: boolean;
+  hostsCustomEntriesCount: number;
+  details: string;
+}
+
+export interface DiskSmartHealth {
+  deviceId: string;
+  friendlyName: string;
+  mediaType: string;
+  temperatureCelsius?: number;
+  wearPercentage?: number;
+  readErrorsTotal: number;
+  writeErrorsTotal: number;
+  powerOnHours?: number;
+  healthStatus: string;
+}
+
+export interface ShaderCacheCleanResult {
+  filesRemoved: number;
+  bytesFreed: number;
+  details: string;
+}
+
+export interface WinGetUpdateItem {
+  name: string;
+  id: string;
+  installedVersion: string;
+  availableVersion: string;
+}

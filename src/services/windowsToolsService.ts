@@ -5,6 +5,10 @@ import {
   HibernateStatus,
   TrimConfigStatus,
   ScanNowResult,
+  SecurityAuditData,
+  DiskSmartHealth,
+  ShaderCacheCleanResult,
+  WinGetUpdateItem,
 } from '../types/windowsTools';
 import { isDesktopApp } from './desktopService';
 import { evaluateScanNowRecommendations } from '../domain/windowsToolsEngine';
@@ -54,6 +58,63 @@ const MOCK_HIBERNATE: HibernateStatus = {
   canToggle: true,
   details: 'Lo spazio su disco dedicato ad hiberfil.sys è stato liberato.',
 };
+
+const MOCK_SECURITY_AUDIT: SecurityAuditData = {
+  secureBootEnabled: true,
+  tpmPresent: true,
+  tpmReady: true,
+  vbsRunning: true,
+  hvciRunning: true,
+  hostsFileClean: true,
+  hostsCustomEntriesCount: 0,
+  details: 'Configurazione di sicurezza kernel e bootloader ottimale.',
+};
+
+const MOCK_SMART_HEALTH: DiskSmartHealth[] = [
+  {
+    deviceId: '0',
+    friendlyName: 'Samsung SSD 990 PRO 2TB',
+    mediaType: 'SSD',
+    temperatureCelsius: 41,
+    wearPercentage: 3,
+    readErrorsTotal: 0,
+    writeErrorsTotal: 0,
+    powerOnHours: 2450,
+    healthStatus: 'Healthy',
+  },
+  {
+    deviceId: '1',
+    friendlyName: 'Crucial P3 Plus 1TB SSD',
+    mediaType: 'SSD',
+    temperatureCelsius: 38,
+    wearPercentage: 1,
+    readErrorsTotal: 0,
+    writeErrorsTotal: 0,
+    powerOnHours: 1200,
+    healthStatus: 'Healthy',
+  },
+];
+
+const MOCK_SHADER_CACHE: ShaderCacheCleanResult = {
+  filesRemoved: 142,
+  bytesFreed: 1024 * 1024 * 380, // ~380 MB
+  details: 'Rimossi 142 file di cache temporanea DirectX/GPU.',
+};
+
+const MOCK_WINGET_UPDATES: WinGetUpdateItem[] = [
+  {
+    name: 'Microsoft Visual C++ 2015-2022 Redistributable (x64)',
+    id: 'Microsoft.VCRedist.2015+.x64',
+    installedVersion: '14.40.33810.0',
+    availableVersion: '14.42.34433.0',
+  },
+  {
+    name: '7-Zip',
+    id: '7zip.7zip',
+    installedVersion: '24.08',
+    availableVersion: '24.09',
+  },
+];
 
 /**
  * Verifica se PC Tracker è in esecuzione con privilegi amministrativi (UAC).
@@ -427,3 +488,234 @@ export async function executeDiagnosticScanNow(): Promise<ScanNowResult> {
     recommendedActions: recommendations,
   };
 }
+
+/**
+ * Crea un punto di ripristino di sistema 1-click prima di qualsiasi modifica.
+ */
+export async function createRestorePoint(description?: string): Promise<WindowsToolResult<string>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<string>>('create_restore_point', {
+        description: description || null,
+      });
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore creazione punto di ripristino: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: true,
+      };
+    }
+  }
+
+  // Web fallback
+  const pointName = description || 'PC Tracker Pre-Tweak Safety Point';
+  return {
+    status: 'success',
+    message: `Punto di ripristino '${pointName}' creato con successo (simulato).`,
+    details: 'Snapshot del registro di sistema e dei file critici salvato nel catalogo Ripristino configurazione di sistema.',
+    data: pointName,
+    durationMs: 1450,
+    requiresElevation: true,
+  };
+}
+
+/**
+ * Esegue l'audit rapido di sicurezza e integrità kernel (Secure Boot, TPM, VBS, HVCI, Hosts).
+ */
+export async function querySecurityAudit(): Promise<WindowsToolResult<SecurityAuditData>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<SecurityAuditData>>('query_security_audit');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore audit sicurezza: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: false,
+      };
+    }
+  }
+
+  // Web fallback
+  return {
+    status: 'success',
+    message: 'Audit sicurezza di sistema completato (simulato).',
+    data: MOCK_SECURITY_AUDIT,
+    durationMs: 160,
+    requiresElevation: false,
+  };
+}
+
+/**
+ * Interroga lo stato di salute S.M.A.R.T. e i contatori di affidabilità dei dischi fisici.
+ */
+export async function getStorageSmartHealth(): Promise<WindowsToolResult<DiskSmartHealth[]>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<DiskSmartHealth[]>>('get_storage_smart_health');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore interrogazione S.M.A.R.T.: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: false,
+      };
+    }
+  }
+
+  // Web fallback
+  return {
+    status: 'success',
+    message: `Rilevati dati S.M.A.R.T. per ${MOCK_SMART_HEALTH.length} dischi fisici (simulato).`,
+    data: MOCK_SMART_HEALTH,
+    durationMs: 240,
+    requiresElevation: false,
+  };
+}
+
+/**
+ * Sblocca e attiva lo schema energetico Prestazioni Eccellenti (Ultimate Performance).
+ */
+export async function enableUltimatePerformance(): Promise<WindowsToolResult<string>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<string>>('enable_ultimate_performance');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore sblocco Ultimate Performance: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: true,
+      };
+    }
+  }
+
+  // Web fallback
+  return {
+    status: 'success',
+    message: 'Schema Prestazioni Eccellenti (Ultimate Performance) sbloccato e attivato con successo (simulato).',
+    details: 'GUID schema: e9a42b02-d5df-448d-aa00-03f14749eb61 attivato.',
+    data: 'e9a42b02-d5df-448d-aa00-03f14749eb61',
+    durationMs: 400,
+    requiresElevation: true,
+  };
+}
+
+/**
+ * Pulisce in sicurezza le cache shader DirectX e GPU di sistema.
+ */
+export async function cleanGpuShaderCache(): Promise<WindowsToolResult<ShaderCacheCleanResult>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<ShaderCacheCleanResult>>('clean_gpu_shader_cache');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore pulizia cache shader: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: false,
+      };
+    }
+  }
+
+  // Web fallback
+  return {
+    status: 'success',
+    message: `Pulizia Shader Cache GPU completata: ${MOCK_SHADER_CACHE.filesRemoved} file rimossi (380 MB liberati).`,
+    data: MOCK_SHADER_CACHE,
+    durationMs: 580,
+    requiresElevation: false,
+  };
+}
+
+/**
+ * Esegue la pulizia profonda del repository pacchetti Windows WinSxS Component Store.
+ */
+export async function cleanComponentStore(): Promise<WindowsToolResult<string>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<string>>('clean_component_store');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore pulizia WinSxS Component Store: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: true,
+      };
+    }
+  }
+
+  // Web fallback
+  return {
+    status: 'success',
+    message: 'Pulizia repository WinSxS Component Store completata con successo (simulato).',
+    details: 'Operazione DISM /Online /Cleanup-Image /StartComponentCleanup completata. Recuperati file di backup obsoleti.',
+    durationMs: 3200,
+    requiresElevation: true,
+  };
+}
+
+/**
+ * Riavvia il computer direttamente nel firmware BIOS/UEFI.
+ */
+export async function rebootToUefi(): Promise<WindowsToolResult<string>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<string>>('reboot_to_uefi');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore riavvio UEFI: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: true,
+      };
+    }
+  }
+
+  // Web fallback
+  return {
+    status: 'success',
+    message: 'Comando riavvio diretto nel BIOS/UEFI inviato (simulato in ambiente web).',
+    details: 'Eseguito shutdown.exe /r /fw /t 0 con privilegi amministrativi.',
+    data: 'reboot_uefi',
+    durationMs: 800,
+    requiresElevation: true,
+  };
+}
+
+/**
+ * Controlla la presenza di aggiornamenti software disponibili tramite WinGet.
+ */
+export async function checkWinGetUpdates(): Promise<WindowsToolResult<WinGetUpdateItem[]>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<WinGetUpdateItem[]>>('check_winget_updates');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Errore interrogazione WinGet: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: false,
+      };
+    }
+  }
+
+  // Web fallback
+  return {
+    status: 'success',
+    message: `Rilevati ${MOCK_WINGET_UPDATES.length} aggiornamenti software disponibili con WinGet.`,
+    data: MOCK_WINGET_UPDATES,
+    durationMs: 920,
+    requiresElevation: false,
+  };
+}
+

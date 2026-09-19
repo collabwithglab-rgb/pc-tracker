@@ -4,6 +4,10 @@ import {
   computeDriveUsagePercentage,
   formatDurationMs,
   evaluateScanNowRecommendations,
+  classifyDiskHealth,
+  formatTemperatureCelsius,
+  formatWearPercentage,
+  evaluateSecurityAuditStatus,
 } from '../windowsToolsEngine';
 
 describe('windowsToolsEngine', () => {
@@ -53,5 +57,82 @@ describe('windowsToolsEngine', () => {
     expect(actionTypes).toContain('trim');
     expect(actionTypes).toContain('clean_recycle_bin');
     expect(actionTypes).toContain('open_cleanmgr');
+  });
+
+  describe('S.M.A.R.T. Health & Security Audit', () => {
+    it('classifica la salute del disco (healthy, warning, critical)', () => {
+      // Caso 1: disco integro
+      const healthyDisk: import('../../types/windowsTools').DiskSmartHealth = {
+        deviceId: '0',
+        friendlyName: 'Samsung 980 Pro 1TB',
+        mediaType: 'SSD',
+        healthStatus: 'Healthy',
+        temperatureCelsius: 42,
+        wearPercentage: 10,
+        readErrorsTotal: 0,
+        writeErrorsTotal: 0,
+      };
+      const resHealthy = classifyDiskHealth(healthyDisk);
+      expect(resHealthy.status).toBe('healthy');
+      expect(resHealthy.badgeClass).toBe('badge-emerald');
+
+      // Caso 2: surriscaldamento o errori I/O (warning)
+      const warningDisk: import('../../types/windowsTools').DiskSmartHealth = {
+        ...healthyDisk,
+        temperatureCelsius: 72,
+      };
+      const resWarning = classifyDiskHealth(warningDisk);
+      expect(resWarning.status).toBe('warning');
+      expect(resWarning.badgeClass).toBe('badge-amber');
+
+      // Caso 3: salute non healthy o wear estremo (critical)
+      const criticalDisk: import('../../types/windowsTools').DiskSmartHealth = {
+        ...healthyDisk,
+        healthStatus: 'Bad / Failing',
+      };
+      const resCritical = classifyDiskHealth(criticalDisk);
+      expect(resCritical.status).toBe('critical');
+      expect(resCritical.badgeClass).toBe('badge-ruby');
+    });
+
+    it('formatta la temperatura e la percentuale di usura', () => {
+      expect(formatTemperatureCelsius(48.6)).toBe('49°C');
+      expect(formatTemperatureCelsius(undefined)).toBe('N/D');
+
+      expect(formatWearPercentage(15)).toBe('15% consumato (85% vita residua)');
+      expect(formatWearPercentage(undefined)).toBe('N/D');
+    });
+
+    it('valuta lo score dell audit di sicurezza', () => {
+      const allGreen: import('../../types/windowsTools').SecurityAuditData = {
+        secureBootEnabled: true,
+        tpmPresent: true,
+        tpmReady: true,
+        vbsRunning: true,
+        hvciRunning: true,
+        hostsFileClean: true,
+        hostsCustomEntriesCount: 0,
+        details: 'Configurazione ottimale',
+      };
+      const auditResult = evaluateSecurityAuditStatus(allGreen);
+      expect(auditResult.isOptimal).toBe(true);
+      expect(auditResult.score).toBe(5);
+      expect(auditResult.recommendations).toHaveLength(0);
+
+      const degraded: import('../../types/windowsTools').SecurityAuditData = {
+        secureBootEnabled: false,
+        tpmPresent: true,
+        tpmReady: false,
+        vbsRunning: false,
+        hvciRunning: false,
+        hostsFileClean: false,
+        hostsCustomEntriesCount: 4,
+        details: 'Configurazione da verificare',
+      };
+      const auditDegraded = evaluateSecurityAuditStatus(degraded);
+      expect(auditDegraded.isOptimal).toBe(false);
+      expect(auditDegraded.score).toBe(0);
+      expect(auditDegraded.recommendations.length).toBeGreaterThanOrEqual(4);
+    });
   });
 });

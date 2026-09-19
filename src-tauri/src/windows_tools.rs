@@ -52,6 +52,50 @@ pub struct TrimConfigStatus {
     pub details: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SecurityAuditData {
+    pub secure_boot_enabled: bool,
+    pub tpm_present: bool,
+    pub tpm_ready: bool,
+    pub vbs_running: bool,
+    pub hvci_running: bool,
+    pub hosts_file_clean: bool,
+    pub hosts_custom_entries_count: usize,
+    pub details: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DiskSmartHealth {
+    pub device_id: String,
+    pub friendly_name: String,
+    pub media_type: String,
+    pub temperature_celsius: Option<i32>,
+    pub wear_percentage: Option<u32>,
+    pub read_errors_total: u64,
+    pub write_errors_total: u64,
+    pub power_on_hours: Option<u64>,
+    pub health_status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ShaderCacheCleanResult {
+    pub files_removed: u64,
+    pub bytes_freed: u64,
+    pub details: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WinGetUpdateItem {
+    pub name: String,
+    pub id: String,
+    pub installed_version: String,
+    pub available_version: String,
+}
+
 #[cfg(target_os = "windows")]
 mod windows_native {
     use super::*;
@@ -765,6 +809,368 @@ mod windows_native {
             }
         }
     }
+
+    /// Crea un punto di ripristino di sistema 1-click prima di qualsiasi modifica
+    pub fn create_restore_point_native(description: &str) -> WindowsToolResult<String> {
+        let start = Instant::now();
+        let desc = if description.trim().is_empty() {
+            "PC Tracker Safety Point"
+        } else {
+            description.trim()
+        };
+        let escaped_desc = desc.replace('\'', "''");
+        let cmd = format!(
+            "Checkpoint-Computer -Description '{}' -RestorePointType 'MODIFY_SETTINGS'",
+            escaped_desc
+        );
+        let (status, msg, details, exit_code) = run_powershell_elevated_uac(&cmd);
+        WindowsToolResult {
+            status,
+            message: if exit_code == 0 {
+                format!("Punto di ripristino '{}' creato con successo.", desc)
+            } else {
+                msg
+            },
+            details: Some(details),
+            data: if exit_code == 0 { Some(desc.to_string()) } else { None },
+            duration_ms: start.elapsed().as_millis() as u64,
+            requires_elevation: true,
+        }
+    }
+
+    /// Esegue un audit di sicurezza rapido e non distruttivo (Secure Boot, TPM, VBS, HVCI, Hosts file)
+    pub fn query_security_audit_native() -> WindowsToolResult<SecurityAuditData> {
+        let start = Instant::now();
+        let cmd = r#"$sb = try { Confirm-SecureBootUEFI } catch { $false }
+$tpm = try { Get-Tpm } catch { $null }
+$dg = try { Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard } catch { $null }
+$hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
+$hostsLines = if (Test-Path $hostsPath) { @(Get-Content $hostsPath | Where-Object { $_ -notmatch '^\s*#' -and $_.Trim() -ne '' }) } else { @() }
+[PSCustomObject]@{
+  secureBoot = [bool]$sb
+  tpmPresent = if ($tpm) { [bool]$tpm.TpmPresent } else { $false }
+  tpmReady = if ($tpm) { [bool]$tpm.TpmReady } else { $false }
+  vbsRunning = if ($dg) { ($dg.SecurityServicesRunning -contains 1 -or $dg.VirtualizationBasedSecurityStatus -eq 2) } else { $false }
+  hvciRunning = if ($dg) { ($dg.SecurityServicesRunning -contains 2) } else { $false }
+  hostsClean = ($hostsLines.Count -le 5)
+  hostsCustomCount = $hostsLines.Count
+} | ConvertTo-Json -Compress"#;
+
+        match run_powershell_hidden(cmd) {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                #[derive(Deserialize)]
+                struct RawAudit {
+                    #[serde(rename = "secureBoot")]
+                    secure_boot: Option<bool>,
+                    #[serde(rename = "tpmPresent")]
+                    tpm_present: Option<bool>,
+                    #[serde(rename = "tpmReady")]
+                    tpm_ready: Option<bool>,
+                    #[serde(rename = "vbsRunning")]
+                    vbs_running: Option<bool>,
+                    #[serde(rename = "hvciRunning")]
+                    hvci_running: Option<bool>,
+                    #[serde(rename = "hostsClean")]
+                    hosts_clean: Option<bool>,
+                    #[serde(rename = "hostsCustomCount")]
+                    hosts_custom_count: Option<usize>,
+                }
+                let parsed: RawAudit = serde_json::from_str(&stdout).unwrap_or(RawAudit {
+                    secure_boot: Some(false),
+                    tpm_present: Some(false),
+                    tpm_ready: Some(false),
+                    vbs_running: Some(false),
+                    hvci_running: Some(false),
+                    hosts_clean: Some(true),
+                    hosts_custom_count: Some(0),
+                });
+                let data = SecurityAuditData {
+                    secure_boot_enabled: parsed.secure_boot.unwrap_or(false),
+                    tpm_present: parsed.tpm_present.unwrap_or(false),
+                    tpm_ready: parsed.tpm_ready.unwrap_or(false),
+                    vbs_running: parsed.vbs_running.unwrap_or(false),
+                    hvci_running: parsed.hvci_running.unwrap_or(false),
+                    hosts_file_clean: parsed.hosts_clean.unwrap_or(true),
+                    hosts_custom_entries_count: parsed.hosts_custom_count.unwrap_or(0),
+                    details: stdout,
+                };
+                WindowsToolResult {
+                    status: "success".to_string(),
+                    message: "Audit sicurezza di sistema completato.".to_string(),
+                    details: None,
+                    data: Some(data),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    requires_elevation: false,
+                }
+            }
+            Err(e) => WindowsToolResult {
+                status: "failed".to_string(),
+                message: format!("Impossibile completare l'audit di sicurezza: {}", e),
+                details: None,
+                data: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+        }
+    }
+
+    /// Interroga lo stato di salute S.M.A.R.T. e i contatori di affidabilità dei dischi fisici
+    pub fn get_storage_smart_health_native() -> WindowsToolResult<Vec<DiskSmartHealth>> {
+        let start = Instant::now();
+        let cmd = r#"$disks = Get-PhysicalDisk | Select-Object DeviceId, FriendlyName, MediaType, HealthStatus
+$counters = try { Get-PhysicalDisk | Get-StorageReliabilityCounter | Select-Object DeviceId, Temperature, Wear, ReadErrorsTotal, WriteErrorsTotal, PowerOnHours } catch { @() }
+$res = foreach ($d in $disks) {
+    $c = $counters | Where-Object { $_.DeviceId -eq $d.DeviceId } | Select-Object -First 1
+    [PSCustomObject]@{
+        deviceId = [string]$d.DeviceId
+        friendlyName = [string]$d.FriendlyName
+        mediaType = [string]$d.MediaType
+        healthStatus = [string]$d.HealthStatus
+        temperature = if ($c -and $c.Temperature -gt 0) { [int]$c.Temperature } else { $null }
+        wear = if ($c -and $c.Wear -ne $null) { [int]$c.Wear } else { $null }
+        readErrors = if ($c) { [int64]$c.ReadErrorsTotal } else { 0 }
+        writeErrors = if ($c) { [int64]$c.WriteErrorsTotal } else { 0 }
+        powerOnHours = if ($c) { [int64]$c.PowerOnHours } else { $null }
+    }
+}
+$res | ConvertTo-Json -Compress"#;
+
+        match run_powershell_hidden(cmd) {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                #[derive(Deserialize)]
+                struct RawSmart {
+                    #[serde(rename = "deviceId")]
+                    device_id: Option<String>,
+                    #[serde(rename = "friendlyName")]
+                    friendly_name: Option<String>,
+                    #[serde(rename = "mediaType")]
+                    media_type: Option<String>,
+                    #[serde(rename = "healthStatus")]
+                    health_status: Option<String>,
+                    #[serde(rename = "temperature")]
+                    temperature: Option<i32>,
+                    #[serde(rename = "wear")]
+                    wear: Option<u32>,
+                    #[serde(rename = "readErrors")]
+                    read_errors: Option<u64>,
+                    #[serde(rename = "writeErrors")]
+                    write_errors: Option<u64>,
+                    #[serde(rename = "powerOnHours")]
+                    power_on_hours: Option<u64>,
+                }
+
+                let items: Vec<RawSmart> = if stdout.starts_with('[') {
+                    serde_json::from_str(&stdout).unwrap_or_default()
+                } else if stdout.starts_with('{') {
+                    serde_json::from_str::<RawSmart>(&stdout).map(|i| vec![i]).unwrap_or_default()
+                } else {
+                    vec![]
+                };
+
+                let smart_list: Vec<DiskSmartHealth> = items
+                    .into_iter()
+                    .map(|i| DiskSmartHealth {
+                        device_id: i.device_id.unwrap_or_else(|| "0".to_string()),
+                        friendly_name: i.friendly_name.unwrap_or_else(|| "Disco Sconosciuto".to_string()),
+                        media_type: i.media_type.unwrap_or_else(|| "SSD".to_string()),
+                        temperature_celsius: i.temperature,
+                        wear_percentage: i.wear,
+                        read_errors_total: i.read_errors.unwrap_or(0),
+                        write_errors_total: i.write_errors.unwrap_or(0),
+                        power_on_hours: i.power_on_hours,
+                        health_status: i.health_status.unwrap_or_else(|| "Healthy".to_string()),
+                    })
+                    .collect();
+
+                WindowsToolResult {
+                    status: "success".to_string(),
+                    message: format!("Rilevati dati S.M.A.R.T. per {} dischi fisici.", smart_list.len()),
+                    details: None,
+                    data: Some(smart_list),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    requires_elevation: false,
+                }
+            }
+            Err(e) => WindowsToolResult {
+                status: "failed".to_string(),
+                message: format!("Impossibile interrogare i dati S.M.A.R.T.: {}", e),
+                details: None,
+                data: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+        }
+    }
+
+    /// Sblocca e attiva lo schema Prestazioni Eccellenti (Ultimate Performance)
+    pub fn enable_ultimate_performance_native() -> WindowsToolResult<String> {
+        let start = Instant::now();
+        let cmd = "powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61; powercfg /setactive e9a42b02-d5df-448d-aa00-03f14749eb61";
+        let (status, msg, details, exit_code) = run_powershell_elevated_uac(cmd);
+        WindowsToolResult {
+            status,
+            message: if exit_code == 0 {
+                "Schema Prestazioni Eccellenti (Ultimate Performance) sbloccato e attivato con successo.".to_string()
+            } else {
+                msg
+            },
+            details: Some(details),
+            data: if exit_code == 0 { Some("e9a42b02-d5df-448d-aa00-03f14749eb61".to_string()) } else { None },
+            duration_ms: start.elapsed().as_millis() as u64,
+            requires_elevation: true,
+        }
+    }
+
+    /// Pulisce in sicurezza le cache shader DirectX e GPU di sistema
+    pub fn clean_gpu_shader_cache_native() -> WindowsToolResult<ShaderCacheCleanResult> {
+        let start = Instant::now();
+        let cmd = r#"$paths = @(
+    "$env:LOCALAPPDATA\D3DSCache",
+    "$env:LOCALAPPDATA\NVIDIA\DXCache",
+    "$env:LOCALAPPDATA\AMD\DxCache"
+)
+$removed = 0
+$freed = [int64]0
+foreach ($p in $paths) {
+    if (Test-Path $p) {
+        Get-ChildItem -Path $p -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+            try {
+                $sz = $_.Length
+                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
+                $removed++
+                $freed += $sz
+            } catch {}
+        }
+    }
+}
+[PSCustomObject]@{
+    filesRemoved = $removed
+    bytesFreed = $freed
+} | ConvertTo-Json -Compress"#;
+
+        match run_powershell_hidden(cmd) {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                #[derive(Deserialize)]
+                struct RawShader {
+                    #[serde(rename = "filesRemoved")]
+                    files_removed: Option<u64>,
+                    #[serde(rename = "bytesFreed")]
+                    bytes_freed: Option<u64>,
+                }
+                let parsed: RawShader = serde_json::from_str(&stdout).unwrap_or(RawShader { files_removed: Some(0), bytes_freed: Some(0) });
+                let files = parsed.files_removed.unwrap_or(0);
+                let bytes = parsed.bytes_freed.unwrap_or(0);
+                WindowsToolResult {
+                    status: "success".to_string(),
+                    message: format!("Pulizia Shader Cache GPU completata: {} file rimossi ({:.1} MB liberati).", files, bytes as f64 / (1024.0 * 1024.0)),
+                    details: Some(stdout),
+                    data: Some(ShaderCacheCleanResult {
+                        files_removed: files,
+                        bytes_freed: bytes,
+                        details: format!("Rimossi {} file di cache DirectX/GPU.", files),
+                    }),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    requires_elevation: false,
+                }
+            }
+            Err(e) => WindowsToolResult {
+                status: "failed".to_string(),
+                message: format!("Errore durante la pulizia della cache shader: {}", e),
+                details: None,
+                data: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+        }
+    }
+
+    /// Esegue la pulizia profonda del repository pacchetti Windows WinSxS Component Store
+    pub fn clean_component_store_native() -> WindowsToolResult<String> {
+        let start = Instant::now();
+        let cmd = "DISM.exe /Online /Cleanup-Image /StartComponentCleanup";
+        let (status, msg, details, exit_code) = run_powershell_elevated_uac(cmd);
+        WindowsToolResult {
+            status,
+            message: if exit_code == 0 {
+                "Pulizia repository WinSxS Component Store completata con successo.".to_string()
+            } else {
+                msg
+            },
+            details: Some(details),
+            data: if exit_code == 0 { Some("DISM StartComponentCleanup completed".to_string()) } else { None },
+            duration_ms: start.elapsed().as_millis() as u64,
+            requires_elevation: true,
+        }
+    }
+
+    /// Riavvia il computer direttamente nel firmware BIOS/UEFI
+    pub fn reboot_to_uefi_native() -> WindowsToolResult<String> {
+        let start = Instant::now();
+        let cmd = "shutdown.exe /r /fw /t 0";
+        let (status, msg, details, exit_code) = run_powershell_elevated_uac(cmd);
+        WindowsToolResult {
+            status,
+            message: if exit_code == 0 {
+                "Riavvio nel BIOS/UEFI avviato con successo.".to_string()
+            } else {
+                msg
+            },
+            details: Some(details),
+            data: if exit_code == 0 { Some("reboot_uefi".to_string()) } else { None },
+            duration_ms: start.elapsed().as_millis() as u64,
+            requires_elevation: true,
+        }
+    }
+
+    /// Controlla la presenza di aggiornamenti software disponibili tramite WinGet
+    pub fn check_winget_updates_native() -> WindowsToolResult<Vec<WinGetUpdateItem>> {
+        let start = Instant::now();
+        let cmd = "winget upgrade --include-unknown";
+        match run_powershell_hidden(cmd) {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let mut updates = Vec::new();
+                for line in stdout.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.is_empty() || trimmed.starts_with("Name") || trimmed.starts_with("Nome") || trimmed.starts_with('-') {
+                        continue;
+                    }
+                    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                    if parts.len() >= 4 {
+                        let name = parts[0];
+                        let id = parts[1];
+                        let installed = parts[2];
+                        let available = parts[3];
+                        updates.push(WinGetUpdateItem {
+                            name: name.to_string(),
+                            id: id.to_string(),
+                            installed_version: installed.to_string(),
+                            available_version: available.to_string(),
+                        });
+                    }
+                }
+                WindowsToolResult {
+                    status: "success".to_string(),
+                    message: format!("Rilevati {} aggiornamenti disponibili con WinGet.", updates.len()),
+                    details: Some(stdout),
+                    data: Some(updates),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    requires_elevation: false,
+                }
+            }
+            Err(e) => WindowsToolResult {
+                status: "failed".to_string(),
+                message: format!("Impossibile interrogare WinGet: {}", e),
+                details: None,
+                data: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+        }
+    }
 }
 
 // --- COMANDI TAURI ESPOSTI AL FRONTEND ---
@@ -967,6 +1373,158 @@ pub async fn check_disk_readonly(drive_letter: String) -> Result<WindowsToolResu
             data: None,
             duration_ms: 0,
             requires_elevation: true,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn create_restore_point(description: Option<String>) -> Result<WindowsToolResult<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::create_restore_point_native(&description.unwrap_or_default()))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: true,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn query_security_audit() -> Result<WindowsToolResult<SecurityAuditData>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::query_security_audit_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: false,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn get_storage_smart_health() -> Result<WindowsToolResult<Vec<DiskSmartHealth>>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::get_storage_smart_health_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: false,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn enable_ultimate_performance() -> Result<WindowsToolResult<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::enable_ultimate_performance_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: true,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn clean_gpu_shader_cache() -> Result<WindowsToolResult<ShaderCacheCleanResult>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::clean_gpu_shader_cache_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: false,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn clean_component_store() -> Result<WindowsToolResult<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::clean_component_store_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: true,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn reboot_to_uefi() -> Result<WindowsToolResult<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::reboot_to_uefi_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: true,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn check_winget_updates() -> Result<WindowsToolResult<Vec<WinGetUpdateItem>>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::check_winget_updates_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: false,
         })
     }
 }

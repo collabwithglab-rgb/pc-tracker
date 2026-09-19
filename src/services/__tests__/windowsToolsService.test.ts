@@ -80,4 +80,71 @@ describe('windowsToolsService', () => {
     expect(scan.fileSystemHealth.healthy).toBe(true);
     expect(scan.recommendedActions.length).toBeGreaterThan(0);
   });
+
+  describe('Tranche 3 Advanced System & Tweak Tools', () => {
+    it('crea un punto di ripristino di sistema', async () => {
+      const { createRestorePoint } = await import('../windowsToolsService');
+      const res = await createRestorePoint('Test PC Care Point');
+      expect(res.status).toBe('success');
+      expect(res.requiresElevation).toBe(true);
+      expect(res.message).toContain('Punto di ripristino');
+    });
+
+    it('interroga la sicurezza kernel e integrità hardware', async () => {
+      const { querySecurityAudit } = await import('../windowsToolsService');
+      const res = await querySecurityAudit();
+      expect(res.status).toBe('success');
+      expect(res.data).toBeDefined();
+      expect(res.data?.secureBootEnabled).toBe(true);
+      expect(res.data?.tpmPresent).toBe(true);
+    });
+
+    it('interroga lo stato S.M.A.R.T. delle unità fisiche', async () => {
+      const { getStorageSmartHealth } = await import('../windowsToolsService');
+      const res = await getStorageSmartHealth();
+      expect(res.status).toBe('success');
+      expect(res.data).toBeDefined();
+      expect(res.data!.length).toBeGreaterThan(0);
+      expect(res.data![0].healthStatus).toBe('Healthy');
+    });
+
+    it('sblocca e attiva lo schema Prestazioni Eccellenti', async () => {
+      const { enableUltimatePerformance } = await import('../windowsToolsService');
+      const res = await enableUltimatePerformance();
+      expect(res.status).toBe('success');
+      expect(res.requiresElevation).toBe(true);
+    });
+
+    it('esegue la pulizia della cache shader GPU (DirectX, NVIDIA, AMD)', async () => {
+      const { cleanGpuShaderCache } = await import('../windowsToolsService');
+      const res = await cleanGpuShaderCache();
+      expect(res.status).toBe('success');
+      expect(res.data).toBeDefined();
+      expect(res.data?.bytesFreed).toBeGreaterThan(0);
+    });
+
+    it('esegue la pulizia del WinSxS Component Store con DISM', async () => {
+      const { cleanComponentStore } = await import('../windowsToolsService');
+      const res = await cleanComponentStore();
+      expect(res.status).toBe('success');
+      expect(res.requiresElevation).toBe(true);
+      expect(res.message).toContain('WinSxS');
+    });
+
+    it('invia il comando di riavvio nel BIOS UEFI', async () => {
+      const { rebootToUefi } = await import('../windowsToolsService');
+      const res = await rebootToUefi();
+      expect(res.status).toBe('success');
+      expect(res.requiresElevation).toBe(true);
+    });
+
+    it('interroga la disponibilità di aggiornamenti via WinGet', async () => {
+      const { checkWinGetUpdates } = await import('../windowsToolsService');
+      const res = await checkWinGetUpdates();
+      expect(res.status).toBe('success');
+      expect(res.data).toBeDefined();
+      expect(res.data!.length).toBeGreaterThan(0);
+      expect(res.data![0].name).toBeDefined();
+    });
+  });
 });
