@@ -153,20 +153,25 @@ describe('Sistema Notifiche Aggiornamenti & Changelog WhatsNew', () => {
   });
 
   describe('4. Predisposizione Mini-Wiki & Contenuti Release Attuale', () => {
-    it('include nella release attuale le 4 funzionalità cardine richieste', () => {
+    it('include nella release attuale (v0.3.0) le funzionalità cardine della Sessione 5', () => {
       const currentChangelog = getChangelogForVersion(APP_VERSION);
       const addedTitles = currentChangelog.added.map((a) => a.title);
+
+      expect(addedTitles).toContain('Command Palette Globale (Ctrl+K / Cmd+K)');
+      expect(addedTitles).toContain('Rig Comparison (Confronto Configurazioni Hardware)');
+      expect(addedTitles).toContain('Navigation Foundation & Deep Tab Navigation');
+    });
+
+    it('include nella release 0.2.2 i contenuti cardine di Hardware Intelligence', () => {
+      const v022 = getChangelogForVersion('0.2.2');
+      const addedTitles = v022.added.map((a) => a.title);
 
       expect(addedTitles).toContain('Power Budget & Stima Consumi TDP');
       expect(addedTitles).toContain('Generatore Automatico Annunci Vendita');
       expect(addedTitles).toContain('Gestione Garanzie & Cassaforte Ricevute (Receipt Vault)');
       expect(addedTitles).toContain('Sistema di Notifica Aggiornamenti & Note di Rilascio');
-    });
 
-    it('include nella release attuale i miglioramenti all\'Auto-Updater e alla navigazione', () => {
-      const currentChangelog = getChangelogForVersion(APP_VERSION);
-      const improvedTitles = currentChangelog.improved.map((i) => i.title);
-
+      const improvedTitles = v022.improved.map((i) => i.title);
       expect(improvedTitles).toContain('Auto-Updater con Firma Crittografica Minisign Ed25519');
       expect(improvedTitles).toContain('Navigazione Riorganizzata a 4 Macro-Aree');
     });

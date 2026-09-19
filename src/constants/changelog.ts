@@ -27,6 +27,56 @@ export interface ReleaseChangelog {
 
 export const APP_CHANGELOG: ReleaseChangelog[] = [
   {
+    version: '0.3.0',
+    date: '2026-09-19',
+    title: 'Command Palette Globale (Ctrl+K), Rig Comparison & Deep Navigation',
+    summary:
+      'Una release fondamentale per produttività ed analisi hardware: la nuova Command Palette universale per navigare e cercare in un istante, il motore di confronto Rig Comparison con diff costi e consumi, e una Navigation Foundation a 3 livelli sincronizzata.',
+    wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
+    added: [
+      {
+        title: 'Command Palette Globale (Ctrl+K / Cmd+K)',
+        description:
+          'Interfaccia Spotlight-style accessibile da qualsiasi pagina per eseguire comandi rapidi, deep link verso sotto-schede e ricerca istantanea dei componenti reali.',
+        tag: 'Produttività',
+      },
+      {
+        title: 'Rig Comparison (Confronto Configurazioni Hardware)',
+        description:
+          'Diff punto a punto tra il PC Attuale, Checkpoint storici congelati o date di timeline con calcolo delta spesa (€ e %), variazione pezzi e delta Power Budget in Watt (W).',
+        tag: 'Analisi',
+      },
+      {
+        title: 'Navigation Foundation & Deep Tab Navigation',
+        description:
+          'Architettura di navigazione reattiva con supporto a NavigationTarget fortemente tipizzati, sincronizzazione immediata dei subTab anche a pagina montata e ritorno contestuale.',
+        tag: 'Navigazione',
+      },
+    ],
+    improved: [
+      {
+        title: 'Pulsante Inverti ⇄ (Swap) a 1 Click',
+        description:
+          'Inversione istantanea della baseline di confronto con ricalcolo speculare immediato di tutti i differenziali economici e di assorbimento.',
+        tag: 'UX',
+      },
+      {
+        title: 'Punti di Ingresso Diretti al Confronto',
+        description:
+          'Pulsante "Confronta Rig" nell\'header della configurazione operativa e "Confronta con PC Attuale" direttamente nei banner dei checkpoint.',
+        tag: 'Interfaccia',
+      },
+    ],
+    fixed: [
+      {
+        title: 'Resilienza Calcoli su Configurazioni a Costo Zero',
+        description:
+          'Prevenzione assoluta di divisioni per zero ed emissioni di NaN su configurazioni senza spesa registrata.',
+        tag: 'Affidabilità',
+      },
+    ],
+  },
+  {
     version: '0.2.2',
     date: '2026-09-18',
     title: 'Hardware Intelligence, Power Budget & Hub Vendite',
