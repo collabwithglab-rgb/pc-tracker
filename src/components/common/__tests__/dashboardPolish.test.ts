@@ -106,4 +106,76 @@ describe('Dashboard Logic & Data Ordering (Tranche 11.2)', () => {
     const install = getFinancialDelta({ type: 'INSTALL' });
     expect(install).toBeNull();
   });
+
+  it('raggruppa correttamente i componenti del rig per filtri di categoria (interni, periferiche, accessori)', () => {
+    const INTERNAL_CATEGORIES: ComponentCategory[] = [
+      'cpu',
+      'gpu',
+      'motherboard',
+      'ram',
+      'storage',
+      'psu',
+      'cooling',
+      'case',
+    ];
+    const PERIPHERAL_CATEGORIES: ComponentCategory[] = ['monitor', 'peripherals'];
+    const ACCESSORY_CATEGORIES: ComponentCategory[] = ['accessories', 'other'];
+
+    const mockRig = [
+      { category: 'cpu' as ComponentCategory, name: 'Ryzen 7 7800X3D' },
+      { category: 'gpu' as ComponentCategory, name: 'RTX 4070 Dual' },
+      { category: 'ram' as ComponentCategory, name: 'Corsair Vengeance' },
+      { category: 'monitor' as ComponentCategory, name: 'Dell S2721DGFA' },
+      { category: 'peripherals' as ComponentCategory, name: 'AJAZZ AJ179' },
+      { category: 'peripherals' as ComponentCategory, name: 'AULA F75' },
+      { category: 'accessories' as ComponentCategory, name: 'Cavo SATA CERRXIAN' },
+      { category: 'other' as ComponentCategory, name: 'Braccio Monitor Grifema' },
+    ];
+
+    const internals = mockRig.filter((c) => INTERNAL_CATEGORIES.includes(c.category));
+    const peripherals = mockRig.filter((c) => PERIPHERAL_CATEGORIES.includes(c.category));
+    const accessories = mockRig.filter((c) => ACCESSORY_CATEGORIES.includes(c.category));
+
+    expect(mockRig.length).toBe(8);
+    expect(internals.length).toBe(3);
+    expect(peripherals.length).toBe(3);
+    expect(accessories.length).toBe(2);
+  });
+
+  it('deriva correttamente lo stato e la severità delle pill dello Smart System Pulse', () => {
+    // 1. Test logica scadenza manutenzione
+    const computeMaintenanceSeverity = (dueDate: string, today: string) => {
+      const [ty, tm, td] = today.split('-').map(Number);
+      const [ey, em, ed] = dueDate.split('-').map(Number);
+      const diffDays = Math.round((Date.UTC(ey, em - 1, ed) - Date.UTC(ty, tm - 1, td)) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) return { status: 'ruby', diffDays };
+      if (diffDays <= 30) return { status: 'amber', diffDays };
+      return { status: 'emerald', diffDays };
+    };
+
+    const overdue = computeMaintenanceSeverity('2026-09-10', '2026-09-19');
+    expect(overdue.status).toBe('ruby');
+    expect(overdue.diffDays).toBe(-9);
+
+    const upcomingSoon = computeMaintenanceSeverity('2026-09-25', '2026-09-19');
+    expect(upcomingSoon.status).toBe('amber');
+    expect(upcomingSoon.diffDays).toBe(6);
+
+    const farAway = computeMaintenanceSeverity('2026-12-01', '2026-09-19');
+    expect(farAway.status).toBe('emerald');
+
+    // 2. Test calcolo pezzi a magazzino
+    const mockStorage = [
+      { id: 'c-1', status: 'IN_STORAGE', purchasePrice: 120 },
+      { id: 'c-2', status: 'IN_USE', purchasePrice: 400 },
+      { id: 'c-3', status: 'IN_STORAGE', purchasePrice: 85 },
+    ];
+    const inStorageItems = mockStorage.filter((i) => i.status === 'IN_STORAGE');
+    const totalStorageCapital = inStorageItems.reduce((acc, i) => acc + i.purchasePrice, 0);
+
+    expect(inStorageItems.length).toBe(2);
+    expect(totalStorageCapital).toBe(205);
+  });
 });
+

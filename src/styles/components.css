@@ -799,6 +799,222 @@
   background-color: var(--accent-primary-subtle);
 }
 
+/* ==========================================================================
+   DASHBOARD SMART SYSTEM PULSE (Centrale Operativa Hardware)
+   ========================================================================== */
+.dashboard-system-pulse {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: -6px;
+  margin-bottom: 2px;
+}
+
+.system-pulse-pill {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  text-align: left;
+  transition: transform var(--transition-apple-fast),
+              border-color var(--transition-apple-fast),
+              background-color var(--transition-apple-fast),
+              box-shadow var(--transition-apple-fast);
+}
+
+.system-pulse-pill:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-highlight);
+  background-color: var(--bg-surface-elevated);
+  box-shadow: 0 6px 18px -3px rgba(0, 0, 0, 0.45);
+}
+
+.system-pulse-pill:active {
+  transform: scale(0.985);
+}
+
+.system-pulse-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.system-pulse-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-elevated);
+  transition: transform var(--transition-apple-fast), box-shadow var(--transition-apple-fast);
+}
+
+.system-pulse-pill:hover .system-pulse-icon {
+  transform: scale(1.05);
+}
+
+.system-pulse-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.system-pulse-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.system-pulse-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.system-pulse-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.system-pulse-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Varianti Cromatiche Semantiche System Pulse */
+.system-pulse-amber {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.01) 100%), var(--bg-surface);
+}
+.system-pulse-amber .system-pulse-icon {
+  background-color: var(--accent-amber-subtle);
+  border-color: var(--accent-amber-border);
+  color: var(--accent-amber);
+}
+.system-pulse-amber:hover {
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 14px -2px rgba(245, 158, 11, 0.25);
+}
+
+.system-pulse-emerald {
+  border-color: rgba(16, 185, 129, 0.28);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%), var(--bg-surface);
+}
+.system-pulse-emerald .system-pulse-icon {
+  background-color: var(--accent-emerald-subtle);
+  border-color: var(--accent-emerald-border);
+  color: var(--accent-emerald);
+}
+.system-pulse-emerald:hover {
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 14px -2px rgba(16, 185, 129, 0.25);
+}
+
+.system-pulse-primary {
+  border-color: rgba(56, 189, 248, 0.28);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(56, 189, 248, 0.01) 100%), var(--bg-surface);
+}
+.system-pulse-primary .system-pulse-icon {
+  background-color: var(--accent-primary-subtle);
+  border-color: var(--accent-primary-border);
+  color: var(--accent-primary);
+}
+.system-pulse-primary:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 14px -2px rgba(56, 189, 248, 0.25);
+}
+
+.system-pulse-ruby {
+  border-color: rgba(244, 63, 94, 0.35);
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.06) 0%, rgba(244, 63, 94, 0.01) 100%), var(--bg-surface);
+}
+.system-pulse-ruby .system-pulse-icon {
+  background-color: var(--accent-ruby-subtle);
+  border-color: var(--accent-ruby-border);
+  color: var(--accent-ruby);
+}
+.system-pulse-ruby:hover {
+  border-color: rgba(244, 63, 94, 0.55);
+  box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 14px -2px rgba(244, 63, 94, 0.3);
+}
+
+/* ==========================================================================
+   RIG CATEGORY FILTER PILLS (Segmented Control per Rig in Sintesi)
+   ========================================================================== */
+.rig-filter-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background-color: var(--bg-surface-elevated);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.rig-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-apple-fast);
+  user-select: none;
+}
+
+.rig-filter-btn:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.rig-filter-btn.active {
+  background-color: var(--bg-surface);
+  color: var(--accent-primary);
+  font-weight: 600;
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.rig-filter-count {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: inherit;
+}
+
+.rig-filter-btn.active .rig-filter-count {
+  background-color: var(--accent-primary-subtle);
+  color: var(--accent-primary);
+}
+
 /* Griglia Rig in Sintesi */
 .rig-synthesis-grid {
   display: grid;

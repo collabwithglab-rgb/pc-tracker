@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Cpu,
   Database,
@@ -16,18 +16,29 @@ import {
   Sparkles,
   Share2,
   BookOpen,
+  Tag,
+  ShieldAlert,
+  ShieldCheck,
+  History,
+  AlertCircle,
 } from 'lucide-react';
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
 import { NavSection } from '../components/layout/Sidebar';
 import { ComponentIcon } from '../components/common/ComponentIcon';
-import { computeRigPowerBudgetFromInstalled } from '../domain';
+import {
+  computeRigPowerBudgetFromInstalled,
+  computeUpcomingMaintenance,
+  sortMaintenanceEntriesChronologically,
+  getLocalDateISO,
+} from '../domain';
 import {
   COMPONENT_CATEGORY_LABELS,
   EVENT_TYPE_LABELS,
   UNINSTALL_REASON_LABELS,
   ComponentCategory,
   ComponentEvent,
+  PurchaseEvent,
 } from '../types';
 
 interface DashboardPageProps {
@@ -55,6 +66,29 @@ const CATEGORY_PRIORITY: Record<ComponentCategory, number> = {
   other: 12,
 };
 
+type RigCategoryFilter = 'all' | 'internals' | 'peripherals' | 'accessories';
+
+const INTERNAL_CATEGORIES: ComponentCategory[] = [
+  'cpu',
+  'gpu',
+  'motherboard',
+  'ram',
+  'storage',
+  'psu',
+  'cooling',
+  'case',
+];
+
+const PERIPHERAL_CATEGORIES: ComponentCategory[] = [
+  'monitor',
+  'peripherals',
+];
+
+const ACCESSORY_CATEGORIES: ComponentCategory[] = [
+  'accessories',
+  'other',
+];
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   onNavigate,
   onOpenCreateModal,
@@ -74,13 +108,39 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     settings,
     isLoading,
     getInstalledComponents,
+    getComponentComputed,
+    getComponentWarranty,
+    maintenanceEntries,
+    upgrades,
+    checkpoints,
   } = usePCStore();
+
+  const [selectedRigFilter, setSelectedRigFilter] = useState<RigCategoryFilter>('all');
 
   const installed = getInstalledComponents();
   const installedCount = installed.length;
 
   const installedComponents = useMemo(() => installed.map((item) => item.component), [installed]);
   const powerBudget = useMemo(() => computeRigPowerBudgetFromInstalled(installedComponents), [installedComponents]);
+
+  // Conteggio componenti per ciascun raggruppamento
+  const rigCounts = useMemo(() => {
+    let internals = 0;
+    let peripherals = 0;
+    let accessories = 0;
+    for (const item of installed) {
+      const cat = item.component.category;
+      if (INTERNAL_CATEGORIES.includes(cat)) internals++;
+      else if (PERIPHERAL_CATEGORIES.includes(cat)) peripherals++;
+      else accessories++;
+    }
+    return {
+      all: installed.length,
+      internals,
+      peripherals,
+      accessories,
+    };
+  }, [installed]);
 
   // Ordina i componenti attualmente montati per importanza hardware
   const sortedInstalled = useMemo(() => {
@@ -91,6 +151,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       return a.component.name.localeCompare(b.component.name);
     });
   }, [installed]);
+
+  // Componenti filtrati per categoria rapida nel Rig
+  const filteredInstalled = useMemo(() => {
+    if (selectedRigFilter === 'all') return sortedInstalled;
+    if (selectedRigFilter === 'internals') {
+      return sortedInstalled.filter((item) => INTERNAL_CATEGORIES.includes(item.component.category));
+    }
+    if (selectedRigFilter === 'peripherals') {
+      return sortedInstalled.filter((item) => PERIPHERAL_CATEGORIES.includes(item.component.category));
+    }
+    return sortedInstalled.filter((item) => ACCESSORY_CATEGORIES.includes(item.component.category));
+  }, [sortedInstalled, selectedRigFilter]);
 
   // Ultimi eventi avvenuti (più recenti per primi), con ordinamento deterministico
   const recentEvents = useMemo(() => {
@@ -104,6 +176,177 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     });
     return sorted.slice(0, settings.dashboardRecentCount || 7);
   }, [events, settings.dashboardRecentCount]);
+
+  // Smart System Pulse (Centrale Operativa Hardware Reattiva e Pura)
+  const systemPulse = useMemo(() => {
+    const today = getLocalDateISO();
+
+    // 1. Manutenzione PC
+    const upcoming = computeUpcomingMaintenance(maintenanceEntries, today);
+    let maintenancePulse: {
+      status: 'amber' | 'ruby' | 'emerald' | 'primary';
+      title: string;
+      subtitle: string;
+      targetSection: NavSection;
+    };
+
+    if (upcoming.length > 0) {
+      const nextItem = upcoming[0];
+      const dueDate = nextItem.nextDueDate!;
+      const [ty, tm, td] = today.split('-').map(Number);
+      const [ey, em, ed] = dueDate.split('-').map(Number);
+      const diffDays = Math.round((Date.UTC(ey, em - 1, ed) - Date.UTC(ty, tm - 1, td)) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        maintenancePulse = {
+          status: 'ruby',
+          title: 'Manutenzione Scaduta',
+          subtitle: `${nextItem.title} (scaduta da ${Math.abs(diffDays)} gg)`,
+          targetSection: 'maintenance',
+        };
+      } else if (diffDays <= 30) {
+        const daysText = diffDays === 0 ? 'Oggi' : diffDays === 1 ? 'Domani' : `tra ${diffDays} gg`;
+        maintenancePulse = {
+          status: 'amber',
+          title: 'Manutenzione in Arrivo',
+          subtitle: `${nextItem.title} (${daysText})`,
+          targetSection: 'maintenance',
+        };
+      } else {
+        maintenancePulse = {
+          status: 'emerald',
+          title: 'Manutenzione Programmata',
+          subtitle: `${nextItem.title} (tra ${diffDays} gg)`,
+          targetSection: 'maintenance',
+        };
+      }
+    } else if (maintenanceEntries.length > 0) {
+      const sorted = sortMaintenanceEntriesChronologically(maintenanceEntries, 'desc');
+      const last = sorted[0];
+      maintenancePulse = {
+        status: 'emerald',
+        title: 'Manutenzione in Regola',
+        subtitle: `Ultima: ${last.title} (${formatDate(last.date, settings.dateFormat)})`,
+        targetSection: 'maintenance',
+      };
+    } else {
+      maintenancePulse = {
+        status: 'primary',
+        title: 'Registro Manutenzione',
+        subtitle: 'Nessun intervento registrato • Pianifica',
+        targetSection: 'maintenance',
+      };
+    }
+
+    // 2. Magazzino & Monetizzazione (Marketplace)
+    const inStorage = components.filter((c) => getComponentComputed(c.id)?.status === 'IN_STORAGE');
+    let inStorageTotalPurchase = 0;
+    for (const c of inStorage) {
+      const compEvents = events.filter((e) => e.componentId === c.id);
+      const purchase = compEvents.find((e) => e.type === 'PURCHASE') as PurchaseEvent | undefined;
+      inStorageTotalPurchase += purchase?.price || 0;
+    }
+
+    const storagePulse = inStorage.length > 0
+      ? {
+          status: 'emerald' as const,
+          title: `${inStorage.length} ${inStorage.length === 1 ? 'Pezzo a Magazzino' : 'Pezzi a Magazzino'}`,
+          subtitle: `€${inStorageTotalPurchase.toFixed(0)} capitale fermo • Vendi o riutilizza`,
+          targetSection: 'marketplace' as NavSection,
+        }
+      : {
+          status: 'primary' as const,
+          title: 'Magazzino Vuoto',
+          subtitle: 'Tutto l’hardware è montato o dismesso',
+          targetSection: 'marketplace' as NavSection,
+        };
+
+    // 3. Garanzie Hardware
+    const expiringWarranties: { name: string; humanLabel: string }[] = [];
+    let activeWarrantiesCount = 0;
+
+    for (const c of components) {
+      const status = getComponentComputed(c.id)?.status;
+      if (status === 'SOLD' || status === 'GIFTED' || status === 'DISPOSED') continue;
+      const warranty = getComponentWarranty(c.id);
+      if (warranty.hasWarranty) {
+        if (warranty.isExpiringSoon) {
+          expiringWarranties.push({ name: c.name, humanLabel: warranty.humanLabel });
+        } else if (warranty.isActive) {
+          activeWarrantiesCount++;
+        }
+      }
+    }
+
+    const warrantyPulse = expiringWarranties.length > 0
+      ? {
+          status: 'amber' as const,
+          title: `${expiringWarranties.length} ${expiringWarranties.length === 1 ? 'Garanzia in Scadenza' : 'Garanzie in Scadenza'}`,
+          subtitle: `${expiringWarranties[0].name} (${expiringWarranties[0].humanLabel})`,
+          targetSection: 'archive' as NavSection,
+        }
+      : activeWarrantiesCount > 0
+      ? {
+          status: 'primary' as const,
+          title: 'Copertura Garanzie',
+          subtitle: `${activeWarrantiesCount} ${activeWarrantiesCount === 1 ? 'componente protetto' : 'componenti protetti'}`,
+          targetSection: 'archive' as NavSection,
+        }
+      : {
+          status: 'primary' as const,
+          title: 'Garanzie Hardware',
+          subtitle: 'Registra ricevute e scadenze',
+          targetSection: 'archive' as NavSection,
+        };
+
+    // 4. Checkpoint / Time Travel / Upgrades
+    let lifecyclePulse: {
+      status: 'primary' | 'emerald';
+      title: string;
+      subtitle: string;
+      targetSection: NavSection;
+    };
+
+    if (checkpoints.length > 0) {
+      const lastCp = checkpoints[checkpoints.length - 1];
+      lifecyclePulse = {
+        status: 'primary',
+        title: `${checkpoints.length} ${checkpoints.length === 1 ? 'Snapshot Salvato' : 'Snapshot Salvati'}`,
+        subtitle: `Ultimo: ${lastCp.name} • Time Travel`,
+        targetSection: 'time-travel',
+      };
+    } else if (upgrades.length > 0) {
+      lifecyclePulse = {
+        status: 'emerald',
+        title: `${upgrades.length} ${upgrades.length === 1 ? 'Upgrade Storico' : 'Upgrade Storici'}`,
+        subtitle: 'Traccia la cronologia generazionale',
+        targetSection: 'upgrades',
+      };
+    } else {
+      lifecyclePulse = {
+        status: 'primary',
+        title: 'Time Travel & Snapshot',
+        subtitle: 'Salva uno snapshot del PC attuale',
+        targetSection: 'time-travel',
+      };
+    }
+
+    return {
+      maintenance: maintenancePulse,
+      storage: storagePulse,
+      warranty: warrantyPulse,
+      lifecycle: lifecyclePulse,
+    };
+  }, [
+    components,
+    events,
+    maintenanceEntries,
+    upgrades,
+    checkpoints,
+    settings.dateFormat,
+    getComponentComputed,
+    getComponentWarranty,
+  ]);
 
   if (isLoading) {
     return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>Inizializzazione IndexedDB...</div>;
@@ -279,6 +522,111 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
+      {/* LIVELLO 1.5: Smart System Pulse (Centrale Operativa Hardware) */}
+      {!isDatabaseEmpty && (
+        <div className="dashboard-system-pulse animate-slide-up stagger-4" role="region" aria-label="Centrale Operativa Hardware">
+          {/* Pill Manutenzione */}
+          <div
+            className={`system-pulse-pill system-pulse-${systemPulse.maintenance.status}`}
+            onClick={() => onNavigate && onNavigate(systemPulse.maintenance.targetSection)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.maintenance.targetSection)}
+            title="Apri Registro Manutenzione PC"
+          >
+            <div className="system-pulse-left">
+              <div className="system-pulse-icon">
+                {systemPulse.maintenance.status === 'ruby' || systemPulse.maintenance.status === 'amber' ? (
+                  <AlertCircle size={18} />
+                ) : (
+                  <Wrench size={18} />
+                )}
+              </div>
+              <div className="system-pulse-content">
+                <span className="system-pulse-title">{systemPulse.maintenance.title}</span>
+                <span className="system-pulse-subtitle">{systemPulse.maintenance.subtitle}</span>
+              </div>
+            </div>
+            <div className="system-pulse-right">
+              <ArrowRight size={14} style={{ opacity: 0.6 }} />
+            </div>
+          </div>
+
+          {/* Pill Magazzino & Vendite */}
+          <div
+            className={`system-pulse-pill system-pulse-${systemPulse.storage.status}`}
+            onClick={() => onNavigate && onNavigate(systemPulse.storage.targetSection)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.storage.targetSection)}
+            title="Apri Vendite & Annunci (Marketplace)"
+          >
+            <div className="system-pulse-left">
+              <div className="system-pulse-icon">
+                <Tag size={18} />
+              </div>
+              <div className="system-pulse-content">
+                <span className="system-pulse-title">{systemPulse.storage.title}</span>
+                <span className="system-pulse-subtitle">{systemPulse.storage.subtitle}</span>
+              </div>
+            </div>
+            <div className="system-pulse-right">
+              <ArrowRight size={14} style={{ opacity: 0.6 }} />
+            </div>
+          </div>
+
+          {/* Pill Garanzie Hardware */}
+          <div
+            className={`system-pulse-pill system-pulse-${systemPulse.warranty.status}`}
+            onClick={() => onNavigate && onNavigate(systemPulse.warranty.targetSection)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.warranty.targetSection)}
+            title="Gestisci garanzie e ricevute nell'Archivio"
+          >
+            <div className="system-pulse-left">
+              <div className="system-pulse-icon">
+                {systemPulse.warranty.status === 'amber' ? (
+                  <ShieldAlert size={18} />
+                ) : (
+                  <ShieldCheck size={18} />
+                )}
+              </div>
+              <div className="system-pulse-content">
+                <span className="system-pulse-title">{systemPulse.warranty.title}</span>
+                <span className="system-pulse-subtitle">{systemPulse.warranty.subtitle}</span>
+              </div>
+            </div>
+            <div className="system-pulse-right">
+              <ArrowRight size={14} style={{ opacity: 0.6 }} />
+            </div>
+          </div>
+
+          {/* Pill Time Travel & Snapshot */}
+          <div
+            className={`system-pulse-pill system-pulse-${systemPulse.lifecycle.status}`}
+            onClick={() => onNavigate && onNavigate(systemPulse.lifecycle.targetSection)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.lifecycle.targetSection)}
+            title="Esplora la macchina nel tempo (Time Travel)"
+          >
+            <div className="system-pulse-left">
+              <div className="system-pulse-icon">
+                <History size={18} />
+              </div>
+              <div className="system-pulse-content">
+                <span className="system-pulse-title">{systemPulse.lifecycle.title}</span>
+                <span className="system-pulse-subtitle">{systemPulse.lifecycle.subtitle}</span>
+              </div>
+            </div>
+            <div className="system-pulse-right">
+              <ArrowRight size={14} style={{ opacity: 0.6 }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LIVELLO 2: Rig Attuale in Sintesi (visibile se showRigSynthesis !== false) */}
       {settings.showRigSynthesis !== false && (
         <section className="dashboard-widget-card animate-slide-up stagger-4" aria-label="Rig Attuale in Sintesi">
@@ -331,7 +679,56 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {/* Filtro Rapido per Categoria del Rig Attuale */}
+              {installedCount > 0 && (
+                <div className="rig-filter-pills" role="tablist" aria-label="Filtro rapido categorie componenti">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedRigFilter === 'all'}
+                    className={`rig-filter-btn ${selectedRigFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setSelectedRigFilter('all')}
+                  >
+                    <span>Tutti</span>
+                    <span className="rig-filter-count">{rigCounts.all}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedRigFilter === 'internals'}
+                    className={`rig-filter-btn ${selectedRigFilter === 'internals' ? 'active' : ''}`}
+                    onClick={() => setSelectedRigFilter('internals')}
+                    title="Componenti interni: CPU, GPU, Motherboard, RAM, Storage, PSU, Cooling, Case"
+                  >
+                    <span>Interni</span>
+                    <span className="rig-filter-count">{rigCounts.internals}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedRigFilter === 'peripherals'}
+                    className={`rig-filter-btn ${selectedRigFilter === 'peripherals' ? 'active' : ''}`}
+                    onClick={() => setSelectedRigFilter('peripherals')}
+                    title="Monitor, Cuffie, Mouse, Tastiera, Gamepad, Scheda Audio"
+                  >
+                    <span>Periferiche</span>
+                    <span className="rig-filter-count">{rigCounts.peripherals}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedRigFilter === 'accessories'}
+                    className={`rig-filter-btn ${selectedRigFilter === 'accessories' ? 'active' : ''}`}
+                    onClick={() => setSelectedRigFilter('accessories')}
+                    title="Accessori, Cavi, Hub ventole, Controller RGB, Adattatori"
+                  >
+                    <span>Accessori</span>
+                    <span className="rig-filter-count">{rigCounts.accessories}</span>
+                  </button>
+                </div>
+              )}
+
               {installedCount > 0 && onOpenExportModal && (
                 <button
                   type="button"
@@ -377,9 +774,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <span>Configura il tuo PC (Quick Setup)</span>
               </button>
             </div>
+          ) : filteredInstalled.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--text-muted)' }}>
+              <p style={{ fontSize: '13px', marginBottom: '10px' }}>
+                Nessun componente montato in questa categoria.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary micro-press"
+                style={{ fontSize: '12px', padding: '4px 12px' }}
+                onClick={() => setSelectedRigFilter('all')}
+              >
+                Mostra Tutti i Componenti ({installedCount})
+              </button>
+            </div>
           ) : (
             <div className="rig-synthesis-grid">
-              {sortedInstalled.map(({ component, computed }) => {
+              {filteredInstalled.map(({ component, computed }) => {
                 const categoryLabel = COMPONENT_CATEGORY_LABELS[component.category] || component.category;
                 return (
                   <div
