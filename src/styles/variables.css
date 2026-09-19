@@ -73,6 +73,32 @@
   --accent-indigo-border: rgba(129, 140, 248, 0.28);
   --accent-indigo-rgb: 129, 140, 248;
 
+  /* Colori Categorie Hardware (Dark Hardware Enthusiast) */
+  --cat-cpu: #38bdf8;
+  --cat-cpu-rgb: 56, 189, 248;
+  --cat-gpu: #10b981;
+  --cat-gpu-rgb: 16, 185, 129;
+  --cat-motherboard: #818cf8;
+  --cat-motherboard-rgb: 129, 140, 248;
+  --cat-ram: #c084fc;
+  --cat-ram-rgb: 192, 132, 252;
+  --cat-storage: #06b6d4;
+  --cat-storage-rgb: 6, 182, 212;
+  --cat-psu: #f59e0b;
+  --cat-psu-rgb: 245, 158, 11;
+  --cat-cooling: #22d3ee;
+  --cat-cooling-rgb: 34, 211, 238;
+  --cat-case: #94a3b8;
+  --cat-case-rgb: 148, 163, 184;
+  --cat-monitor: #60a5fa;
+  --cat-monitor-rgb: 96, 165, 250;
+  --cat-peripherals: #fb7185;
+  --cat-peripherals-rgb: 251, 113, 133;
+  --cat-accessories: #fb923c;
+  --cat-accessories-rgb: 251, 146, 60;
+  --cat-other: #94a3b8;
+  --cat-other-rgb: 148, 163, 184;
+
   /* Spaziature Sistematiche */
   --space-2xs: 4px;
   --space-xs: 8px;

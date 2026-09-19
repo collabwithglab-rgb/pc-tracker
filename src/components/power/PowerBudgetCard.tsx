@@ -1,18 +1,12 @@
 import React from 'react';
 import {
   Zap,
-  Cpu,
-  Layers,
-  HardDrive,
-  Fan,
-  Box,
-  Sliders,
   ShieldAlert,
   ShieldCheck,
   Info,
-  HelpCircle,
 } from 'lucide-react';
 import { RigPowerBudget, ComponentCategory } from '../../types';
+import { ComponentIcon } from '../common/ComponentIcon';
 
 interface PowerBudgetCardProps {
   budget: RigPowerBudget;
@@ -20,22 +14,7 @@ interface PowerBudgetCardProps {
 
 export const PowerBudgetCard: React.FC<PowerBudgetCardProps> = ({ budget }) => {
   const getCategoryIcon = (category: ComponentCategory, size = 14) => {
-    switch (category) {
-      case 'cpu':
-        return <Cpu size={size} color="var(--accent-primary)" />;
-      case 'gpu':
-        return <Sliders size={size} color="var(--accent-primary)" />;
-      case 'motherboard':
-        return <Layers size={size} color="var(--accent-indigo)" />;
-      case 'ram':
-        return <Box size={size} color="var(--accent-indigo)" />;
-      case 'storage':
-        return <HardDrive size={size} color="var(--accent-primary)" />;
-      case 'cooling':
-        return <Fan size={size} color="var(--accent-primary)" />;
-      default:
-        return <HelpCircle size={size} color="var(--text-muted)" />;
-    }
+    return <ComponentIcon category={category} size={size} />;
   };
 
   const renderBadge = () => {

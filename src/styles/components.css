@@ -376,6 +376,29 @@
   flex-shrink: 0;
 }
 
+.category-chip[data-category="cpu"] { color: var(--cat-cpu); border-color: rgba(var(--cat-cpu-rgb), 0.25); background: rgba(var(--cat-cpu-rgb), 0.08); }
+.category-chip[data-category="cpu"] svg { color: var(--cat-cpu); }
+.category-chip[data-category="gpu"] { color: var(--cat-gpu); border-color: rgba(var(--cat-gpu-rgb), 0.25); background: rgba(var(--cat-gpu-rgb), 0.08); }
+.category-chip[data-category="gpu"] svg { color: var(--cat-gpu); }
+.category-chip[data-category="motherboard"] { color: var(--cat-motherboard); border-color: rgba(var(--cat-motherboard-rgb), 0.25); background: rgba(var(--cat-motherboard-rgb), 0.08); }
+.category-chip[data-category="motherboard"] svg { color: var(--cat-motherboard); }
+.category-chip[data-category="ram"] { color: var(--cat-ram); border-color: rgba(var(--cat-ram-rgb), 0.25); background: rgba(var(--cat-ram-rgb), 0.08); }
+.category-chip[data-category="ram"] svg { color: var(--cat-ram); }
+.category-chip[data-category="storage"] { color: var(--cat-storage); border-color: rgba(var(--cat-storage-rgb), 0.25); background: rgba(var(--cat-storage-rgb), 0.08); }
+.category-chip[data-category="storage"] svg { color: var(--cat-storage); }
+.category-chip[data-category="psu"] { color: var(--cat-psu); border-color: rgba(var(--cat-psu-rgb), 0.25); background: rgba(var(--cat-psu-rgb), 0.08); }
+.category-chip[data-category="psu"] svg { color: var(--cat-psu); }
+.category-chip[data-category="cooling"] { color: var(--cat-cooling); border-color: rgba(var(--cat-cooling-rgb), 0.25); background: rgba(var(--cat-cooling-rgb), 0.08); }
+.category-chip[data-category="cooling"] svg { color: var(--cat-cooling); }
+.category-chip[data-category="case"] { color: var(--cat-case); border-color: rgba(var(--cat-case-rgb), 0.25); background: rgba(var(--cat-case-rgb), 0.08); }
+.category-chip[data-category="case"] svg { color: var(--cat-case); }
+.category-chip[data-category="monitor"] { color: var(--cat-monitor); border-color: rgba(var(--cat-monitor-rgb), 0.25); background: rgba(var(--cat-monitor-rgb), 0.08); }
+.category-chip[data-category="monitor"] svg { color: var(--cat-monitor); }
+.category-chip[data-category="peripherals"] { color: var(--cat-peripherals); border-color: rgba(var(--cat-peripherals-rgb), 0.25); background: rgba(var(--cat-peripherals-rgb), 0.08); }
+.category-chip[data-category="peripherals"] svg { color: var(--cat-peripherals); }
+.category-chip[data-category="accessories"] { color: var(--cat-accessories); border-color: rgba(var(--cat-accessories-rgb), 0.25); background: rgba(var(--cat-accessories-rgb), 0.08); }
+.category-chip[data-category="accessories"] svg { color: var(--cat-accessories); }
+
 /* ==========================================================================
    SISTEMA FORM CENTRALIZZATO (SOURCE-OWNED UI)
    ========================================================================== */
@@ -783,6 +806,7 @@
   gap: 12px;
 }
 
+
 .rig-synthesis-item {
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
@@ -793,6 +817,7 @@
   gap: 12px;
   cursor: pointer;
   text-decoration: none;
+  position: relative;
   transition: transform var(--transition-apple-fast),
               border-color var(--transition-apple-fast),
               background-color var(--transition-apple-fast),
@@ -803,19 +828,172 @@
   transform: translateY(-2px);
   border-color: var(--border-highlight);
   background-color: var(--bg-surface-hover);
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45);
 }
 
-.rig-synthesis-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-surface);
+.rig-synthesis-item:active {
+  transform: scale(0.985);
+}
+
+/* Accenti sul bordo card al passaggio del mouse in base alla categoria */
+.rig-synthesis-item[data-category="cpu"]:hover { border-color: rgba(var(--cat-cpu-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-cpu-rgb), 0.2); }
+.rig-synthesis-item[data-category="gpu"]:hover { border-color: rgba(var(--cat-gpu-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-gpu-rgb), 0.2); }
+.rig-synthesis-item[data-category="motherboard"]:hover { border-color: rgba(var(--cat-motherboard-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-motherboard-rgb), 0.2); }
+.rig-synthesis-item[data-category="ram"]:hover { border-color: rgba(var(--cat-ram-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-ram-rgb), 0.2); }
+.rig-synthesis-item[data-category="storage"]:hover { border-color: rgba(var(--cat-storage-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-storage-rgb), 0.2); }
+.rig-synthesis-item[data-category="psu"]:hover { border-color: rgba(var(--cat-psu-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-psu-rgb), 0.2); }
+.rig-synthesis-item[data-category="cooling"]:hover { border-color: rgba(var(--cat-cooling-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-cooling-rgb), 0.2); }
+.rig-synthesis-item[data-category="case"]:hover { border-color: rgba(var(--cat-case-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-case-rgb), 0.2); }
+.rig-synthesis-item[data-category="monitor"]:hover { border-color: rgba(var(--cat-monitor-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-monitor-rgb), 0.2); }
+.rig-synthesis-item[data-category="peripherals"]:hover { border-color: rgba(var(--cat-peripherals-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-peripherals-rgb), 0.2); }
+.rig-synthesis-item[data-category="accessories"]:hover { border-color: rgba(var(--cat-accessories-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-accessories-rgb), 0.2); }
+.rig-synthesis-item[data-category="other"]:hover { border-color: rgba(var(--cat-other-rgb), 0.4); box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.45), 0 0 12px -3px rgba(var(--cat-other-rgb), 0.2); }
+
+/* Box Icona Hardware con Micro-Gradiente e Bordo Coordinato */
+.rig-synthesis-icon,
+.hardware-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
   border: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: var(--accent-primary);
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform var(--transition-apple-fast),
+              box-shadow var(--transition-apple-fast),
+              border-color var(--transition-apple-fast),
+              background var(--transition-apple-fast);
+}
+
+/* Stili Cromatici per Categoria */
+.rig-synthesis-icon[data-category="cpu"],
+.hardware-icon-box[data-category="cpu"] {
+  background: linear-gradient(135deg, rgba(var(--cat-cpu-rgb), 0.16) 0%, rgba(var(--cat-cpu-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-cpu-rgb), 0.28);
+  color: var(--cat-cpu);
+}
+.rig-synthesis-icon[data-category="gpu"],
+.hardware-icon-box[data-category="gpu"] {
+  background: linear-gradient(135deg, rgba(var(--cat-gpu-rgb), 0.16) 0%, rgba(var(--cat-gpu-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-gpu-rgb), 0.28);
+  color: var(--cat-gpu);
+}
+.rig-synthesis-icon[data-category="motherboard"],
+.hardware-icon-box[data-category="motherboard"] {
+  background: linear-gradient(135deg, rgba(var(--cat-motherboard-rgb), 0.16) 0%, rgba(var(--cat-motherboard-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-motherboard-rgb), 0.28);
+  color: var(--cat-motherboard);
+}
+.rig-synthesis-icon[data-category="ram"],
+.hardware-icon-box[data-category="ram"] {
+  background: linear-gradient(135deg, rgba(var(--cat-ram-rgb), 0.16) 0%, rgba(var(--cat-ram-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-ram-rgb), 0.28);
+  color: var(--cat-ram);
+}
+.rig-synthesis-icon[data-category="storage"],
+.hardware-icon-box[data-category="storage"] {
+  background: linear-gradient(135deg, rgba(var(--cat-storage-rgb), 0.16) 0%, rgba(var(--cat-storage-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-storage-rgb), 0.28);
+  color: var(--cat-storage);
+}
+.rig-synthesis-icon[data-category="psu"],
+.hardware-icon-box[data-category="psu"] {
+  background: linear-gradient(135deg, rgba(var(--cat-psu-rgb), 0.16) 0%, rgba(var(--cat-psu-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-psu-rgb), 0.28);
+  color: var(--cat-psu);
+}
+.rig-synthesis-icon[data-category="cooling"],
+.hardware-icon-box[data-category="cooling"] {
+  background: linear-gradient(135deg, rgba(var(--cat-cooling-rgb), 0.16) 0%, rgba(var(--cat-cooling-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-cooling-rgb), 0.28);
+  color: var(--cat-cooling);
+}
+.rig-synthesis-icon[data-category="case"],
+.hardware-icon-box[data-category="case"] {
+  background: linear-gradient(135deg, rgba(var(--cat-case-rgb), 0.16) 0%, rgba(var(--cat-case-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-case-rgb), 0.28);
+  color: var(--cat-case);
+}
+.rig-synthesis-icon[data-category="monitor"],
+.hardware-icon-box[data-category="monitor"] {
+  background: linear-gradient(135deg, rgba(var(--cat-monitor-rgb), 0.16) 0%, rgba(var(--cat-monitor-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-monitor-rgb), 0.28);
+  color: var(--cat-monitor);
+}
+.rig-synthesis-icon[data-category="peripherals"],
+.hardware-icon-box[data-category="peripherals"] {
+  background: linear-gradient(135deg, rgba(var(--cat-peripherals-rgb), 0.16) 0%, rgba(var(--cat-peripherals-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-peripherals-rgb), 0.28);
+  color: var(--cat-peripherals);
+}
+.rig-synthesis-icon[data-category="accessories"],
+.hardware-icon-box[data-category="accessories"] {
+  background: linear-gradient(135deg, rgba(var(--cat-accessories-rgb), 0.16) 0%, rgba(var(--cat-accessories-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-accessories-rgb), 0.28);
+  color: var(--cat-accessories);
+}
+.rig-synthesis-icon[data-category="other"],
+.hardware-icon-box[data-category="other"] {
+  background: linear-gradient(135deg, rgba(var(--cat-other-rgb), 0.16) 0%, rgba(var(--cat-other-rgb), 0.04) 100%);
+  border-color: rgba(var(--cat-other-rgb), 0.28);
+  color: var(--cat-other);
+}
+
+/* Micro-Effetti Hover sull'Icona (Lift & Soft Ambient Glow) */
+.rig-synthesis-item:hover .rig-synthesis-icon {
+  transform: scale(1.08) translateY(-1px);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="cpu"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-cpu-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-cpu-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="gpu"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-gpu-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-gpu-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="motherboard"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-motherboard-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-motherboard-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="ram"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-ram-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-ram-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="storage"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-storage-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-storage-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="psu"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-psu-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-psu-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="cooling"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-cooling-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-cooling-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="case"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-case-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-case-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="monitor"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-monitor-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-monitor-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="peripherals"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-peripherals-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-peripherals-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="accessories"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-accessories-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-accessories-rgb), 0.55);
+}
+.rig-synthesis-item:hover .rig-synthesis-icon[data-category="other"] {
+  box-shadow: 0 0 16px -1px rgba(var(--cat-other-rgb), 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(var(--cat-other-rgb), 0.55);
 }
 
 .rig-synthesis-info {
@@ -833,6 +1011,19 @@
   letter-spacing: 0.04em;
   color: var(--text-muted);
 }
+
+.rig-synthesis-item[data-category="cpu"] .rig-synthesis-category { color: var(--cat-cpu); opacity: 0.85; }
+.rig-synthesis-item[data-category="gpu"] .rig-synthesis-category { color: var(--cat-gpu); opacity: 0.85; }
+.rig-synthesis-item[data-category="motherboard"] .rig-synthesis-category { color: var(--cat-motherboard); opacity: 0.85; }
+.rig-synthesis-item[data-category="ram"] .rig-synthesis-category { color: var(--cat-ram); opacity: 0.85; }
+.rig-synthesis-item[data-category="storage"] .rig-synthesis-category { color: var(--cat-storage); opacity: 0.85; }
+.rig-synthesis-item[data-category="psu"] .rig-synthesis-category { color: var(--cat-psu); opacity: 0.85; }
+.rig-synthesis-item[data-category="cooling"] .rig-synthesis-category { color: var(--cat-cooling); opacity: 0.85; }
+.rig-synthesis-item[data-category="case"] .rig-synthesis-category { color: var(--cat-case); opacity: 0.85; }
+.rig-synthesis-item[data-category="monitor"] .rig-synthesis-category { color: var(--cat-monitor); opacity: 0.85; }
+.rig-synthesis-item[data-category="peripherals"] .rig-synthesis-category { color: var(--cat-peripherals); opacity: 0.85; }
+.rig-synthesis-item[data-category="accessories"] .rig-synthesis-category { color: var(--cat-accessories); opacity: 0.85; }
+.rig-synthesis-item[data-category="other"] .rig-synthesis-category { color: var(--cat-other); opacity: 0.85; }
 
 .rig-synthesis-name {
   font-size: 13px;

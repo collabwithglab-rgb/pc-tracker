@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import {
   Cpu,
-  Layers,
   Database,
   ArrowRight,
   Activity,
@@ -11,11 +10,7 @@ import {
   DollarSign,
   Gift,
   Recycle,
-  HardDrive,
   Zap,
-  Fan,
-  Monitor,
-  Sliders,
   Plus,
   TrendingUp,
   Sparkles,
@@ -25,6 +20,7 @@ import {
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
 import { NavSection } from '../components/layout/Sidebar';
+import { ComponentIcon } from '../components/common/ComponentIcon';
 import { computeRigPowerBudgetFromInstalled } from '../domain';
 import {
   COMPONENT_CATEGORY_LABELS,
@@ -112,31 +108,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   if (isLoading) {
     return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>Inizializzazione IndexedDB...</div>;
   }
-
-  const getCategoryIcon = (category: ComponentCategory) => {
-    switch (category) {
-      case 'cpu':
-        return <Cpu size={16} color="var(--accent-primary)" />;
-      case 'gpu':
-        return <Sliders size={16} color="var(--accent-primary)" />;
-      case 'motherboard':
-        return <Layers size={16} color="var(--accent-indigo)" />;
-      case 'ram':
-        return <Sliders size={16} color="var(--accent-indigo)" />;
-      case 'storage':
-        return <HardDrive size={16} color="var(--accent-primary)" />;
-      case 'psu':
-        return <Zap size={16} color="var(--accent-amber)" />;
-      case 'cooling':
-        return <Fan size={16} color="var(--accent-primary)" />;
-      case 'case':
-        return <Package size={16} color="var(--text-secondary)" />;
-      case 'monitor':
-        return <Monitor size={16} color="var(--accent-primary)" />;
-      default:
-        return <Cpu size={16} color="var(--accent-primary)" />;
-    }
-  };
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -414,6 +385,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <div
                     key={component.id}
                     className="rig-synthesis-item"
+                    data-category={component.category}
                     onClick={() => onSelectComponent && onSelectComponent(component.id)}
                     role="button"
                     tabIndex={0}
@@ -421,8 +393,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     title={`Visualizza dettaglio di ${component.name}`}
                     aria-label={`Componente ${component.name}, categoria ${categoryLabel}, ${computed.daysInUse} giorni d'uso`}
                   >
-                    <div className="rig-synthesis-icon">
-                      {getCategoryIcon(component.category)}
+                    <div className="rig-synthesis-icon" data-category={component.category}>
+                      <ComponentIcon category={component.category} name={component.name} size={17} />
                     </div>
                     <div className="rig-synthesis-info">
                       <span className="rig-synthesis-category">{categoryLabel}</span>

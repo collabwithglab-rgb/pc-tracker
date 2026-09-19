@@ -19,6 +19,7 @@ import {
 } from '../domain';
 import { formatDate } from '../utils';
 import { CheckpointModal, CheckpointEditModal } from '../components/checkpoint';
+import { ComponentIcon } from '../components/common/ComponentIcon';
 import {
   History,
   Bookmark,
@@ -29,12 +30,6 @@ import {
   Calendar,
   AlertTriangle,
   Sparkles,
-  Layers,
-  Cpu,
-  Zap,
-  Box,
-  HardDrive,
-  Fan,
   Trash2,
   Edit3,
   Package,
@@ -234,23 +229,8 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
   };
 
   // Categoria -> Icona
-  const getCategoryIcon = (category: ComponentCategory) => {
-    switch (category) {
-      case 'cpu':
-        return <Cpu size={15} color="var(--accent-primary)" />;
-      case 'gpu':
-        return <Zap size={15} color="var(--accent-primary)" />;
-      case 'motherboard':
-        return <Layers size={15} color="var(--accent-primary)" />;
-      case 'ram':
-        return <Box size={15} color="var(--accent-primary)" />;
-      case 'storage':
-        return <HardDrive size={15} color="var(--accent-primary)" />;
-      case 'cooling':
-        return <Fan size={15} color="var(--accent-primary)" />;
-      default:
-        return <Package size={15} color="var(--text-secondary)" />;
-    }
+  const getCategoryIcon = (category: ComponentCategory, name?: string) => {
+    return <ComponentIcon category={category} name={name} size={15} />;
   };
 
   // Helper etichetta tipo evento
@@ -698,8 +678,8 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
             {displayedComponents.map((comp) => (
               <div key={comp.id} className="card" style={styles.compCard}>
                 <div style={styles.compCardTop}>
-                  <div style={styles.compCategoryBadge}>
-                    {getCategoryIcon(comp.category)}
+                  <div style={styles.compCategoryBadge} data-category={comp.category}>
+                    {getCategoryIcon(comp.category, comp.name)}
                     <span>{COMPONENT_CATEGORY_LABELS[comp.category] || comp.category}</span>
                   </div>
                   <span style={styles.statusInstalledBadge}>MONTATO</span>

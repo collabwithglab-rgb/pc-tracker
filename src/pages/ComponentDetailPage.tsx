@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { canDeleteEvent, findPurchaseEvent } from '../domain';
 import { EventEditModal, ReceiptVaultModal, ListingGeneratorModal } from '../components/components';
+import { HardwareIconBadge } from '../components/common/ComponentIcon';
 import {
   ArrowLeft,
   Edit2,
@@ -380,27 +381,27 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
 
       {/* Header Scheda Componente */}
       <div className="card animate-slide-up stagger-1" style={styles.headerCard}>
-        <div style={styles.badges}>
-          <span className={`badge ${getStatusBadgeClass(computed.status)}`}>
-            {COMPONENT_STATUS_LABELS[computed.status]}
-          </span>
-          <span
-            style={{
-              fontSize: '11.5px',
-              color: 'var(--text-muted)',
-              backgroundColor: 'var(--bg-surface-elevated)',
-              padding: '2px 8px',
-              borderRadius: 'var(--radius-xs)',
-              fontWeight: 500,
-            }}
-          >
-            {COMPONENT_CATEGORY_LABELS[component.category]}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+          <HardwareIconBadge category={component.category} name={component.name} size={22} boxSize={46} />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={styles.badges}>
+              <span className={`badge ${getStatusBadgeClass(computed.status)}`}>
+                {COMPONENT_STATUS_LABELS[computed.status]}
+              </span>
+              <span
+                className="category-chip"
+                data-category={component.category}
+                style={{ fontSize: '11.5px', padding: '2px 8px' }}
+              >
+                {COMPONENT_CATEGORY_LABELS[component.category]}
+              </span>
+            </div>
+            <h1 style={styles.title}>{component.name}</h1>
+            <p style={styles.brandModel}>
+              {component.brand} {component.model && `• ${component.model}`}
+            </p>
+          </div>
         </div>
-        <h1 style={styles.title}>{component.name}</h1>
-        <p style={styles.brandModel}>
-          {component.brand} {component.model && `• ${component.model}`}
-        </p>
       </div>
 
       {/* Metriche Finanziarie e di Utilizzo (Apple-Style Staggered) */}

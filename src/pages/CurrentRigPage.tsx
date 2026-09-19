@@ -8,30 +8,20 @@ import {
   InstallEvent,
 } from '../types';
 import {
-  Cpu,
-  Layers,
-  HardDrive,
-  Fan,
-  Box,
-  Monitor,
-  Keyboard,
-  Cable,
-  HelpCircle,
   Plus,
   ArrowRightLeft,
   Package,
   Wrench,
   Clock,
   MapPin,
-  Zap,
   Bookmark,
-  Sliders,
   Sparkles,
   Share2,
   BookOpen,
 } from 'lucide-react';
 import { CheckpointModal } from '../components/checkpoint';
 import { PowerBudgetCard } from '../components/power';
+import { ComponentIcon } from '../components/common/ComponentIcon';
 import { computeRigPowerBudgetFromInstalled } from '../domain';
 
 interface CurrentRigPageProps {
@@ -121,33 +111,8 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
     installedByCategory.set(item.component.category, list);
   }
 
-  const getCategoryIcon = (category: ComponentCategory, size = 16) => {
-    switch (category) {
-      case 'cpu':
-        return <Cpu size={size} color="var(--accent-primary)" />;
-      case 'gpu':
-        return <Sliders size={size} color="var(--accent-primary)" />;
-      case 'motherboard':
-        return <Layers size={size} color="var(--accent-indigo)" />;
-      case 'ram':
-        return <Box size={size} color="var(--accent-indigo)" />;
-      case 'storage':
-        return <HardDrive size={size} color="var(--accent-primary)" />;
-      case 'cooling':
-        return <Fan size={size} color="var(--accent-primary)" />;
-      case 'psu':
-        return <Zap size={size} color="var(--accent-amber)" />;
-      case 'case':
-        return <Box size={size} color="var(--text-secondary)" />;
-      case 'monitor':
-        return <Monitor size={size} color="var(--accent-primary)" />;
-      case 'peripherals':
-        return <Keyboard size={size} color="var(--accent-primary)" />;
-      case 'accessories':
-        return <Cable size={size} color="var(--accent-primary)" />;
-      default:
-        return <HelpCircle size={size} color="var(--text-muted)" />;
-    }
+  const getCategoryIcon = (category: ComponentCategory, size = 16, name?: string) => {
+    return <ComponentIcon category={category} name={name} size={size} />;
   };
 
   if (isLoading) {
@@ -315,7 +280,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                     >
                       <div style={styles.cardTop}>
                         <div style={styles.categoryBadge}>
-                          {getCategoryIcon(item.component.category, 15)}
+                          {getCategoryIcon(item.component.category, 15, item.component.name)}
                           <span>{categoryLabel}</span>
                         </div>
 

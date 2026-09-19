@@ -15,10 +15,12 @@ import {
   filterComponentsForArchive,
   sortComponentsForArchive,
 } from '../domain/archiveEngine';
+import { ComponentIcon } from '../components/common/ComponentIcon';
 import {
   Plus,
   Search,
   Cpu,
+  Sliders,
   Edit2,
   Trash2,
   Calendar,
@@ -26,17 +28,7 @@ import {
   RotateCcw,
   LayoutGrid,
   List,
-  HardDrive,
-  Sliders,
-  Layers,
-  Zap,
-  Fan,
-  Package,
-  Monitor,
   X,
-  Keyboard,
-  Cable,
-  HelpCircle,
   ShieldCheck,
   ShieldAlert,
   ShieldX,
@@ -159,33 +151,8 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
     }
   };
 
-  const getCategoryIcon = (category: ComponentCategory, size = 14) => {
-    switch (category) {
-      case 'cpu':
-        return <Cpu size={size} color="var(--accent-primary)" />;
-      case 'gpu':
-        return <Sliders size={size} color="var(--accent-primary)" />;
-      case 'motherboard':
-        return <Layers size={size} color="var(--accent-indigo)" />;
-      case 'ram':
-        return <Sliders size={size} color="var(--accent-indigo)" />;
-      case 'storage':
-        return <HardDrive size={size} color="var(--accent-primary)" />;
-      case 'psu':
-        return <Zap size={size} color="var(--accent-amber)" />;
-      case 'cooling':
-        return <Fan size={size} color="var(--accent-primary)" />;
-      case 'case':
-        return <Package size={size} color="var(--text-secondary)" />;
-      case 'monitor':
-        return <Monitor size={size} color="var(--accent-primary)" />;
-      case 'peripherals':
-        return <Keyboard size={size} color="var(--accent-primary)" />;
-      case 'accessories':
-        return <Cable size={size} color="var(--accent-primary)" />;
-      default:
-        return <HelpCircle size={size} color="var(--text-muted)" />;
-    }
+  const getCategoryIcon = (category: ComponentCategory, size = 14, name?: string) => {
+    return <ComponentIcon category={category} name={name} size={size} />;
   };
 
   const resetFilters = () => {
@@ -503,8 +470,8 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                       </div>
                     </td>
                     <td>
-                      <span className="category-chip">
-                        {getCategoryIcon(comp.category)}
+                      <span className="category-chip" data-category={comp.category}>
+                        {getCategoryIcon(comp.category, 14, comp.name)}
                         <span>{COMPONENT_CATEGORY_LABELS[comp.category] || comp.category}</span>
                       </span>
                     </td>
@@ -618,8 +585,8 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               >
                 {/* Header Card: Categoria + Garanzia + Stato */}
                 <div style={styles.cardHeader}>
-                  <div style={styles.categoryBadge}>
-                    {getCategoryIcon(comp.category, 15)}
+                  <div style={styles.categoryBadge} data-category={comp.category}>
+                    {getCategoryIcon(comp.category, 15, comp.name)}
                     <span>{COMPONENT_CATEGORY_LABELS[comp.category]}</span>
                   </div>
 
