@@ -424,8 +424,8 @@ export const AppShell: React.FC = () => {
     setActiveSubTab(dest.subTab || null);
 
     if (dest.section === 'wiki') {
-      if (dest.referrer) setWikiReferrerSection(dest.referrer);
-      if (dest.articleId) setWikiTargetArticleId(dest.articleId);
+      setWikiReferrerSection(dest.referrer || null);
+      setWikiTargetArticleId(dest.articleId || null);
     }
   };
 

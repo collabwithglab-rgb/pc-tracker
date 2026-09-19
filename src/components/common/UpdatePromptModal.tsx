@@ -50,10 +50,10 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
 
   const handleOpenChangelogOrWiki = () => {
     onClose();
-    if (onOpenWikiArticle && matchingChangelog.wikiArticleId) {
-      onOpenWikiArticle(matchingChangelog.wikiArticleId);
-    } else if (onOpenChangelog) {
+    if (onOpenChangelog) {
       onOpenChangelog();
+    } else if (onOpenWikiArticle && matchingChangelog.wikiArticleId) {
+      onOpenWikiArticle(matchingChangelog.wikiArticleId);
     }
   };
 
