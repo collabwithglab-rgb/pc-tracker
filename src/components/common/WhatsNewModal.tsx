@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Sparkles,
-  ExternalLink,
   BookOpen,
   PlusCircle,
   Zap,
@@ -16,14 +15,23 @@ interface WhatsNewModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialVersion?: string;
+  onOpenWikiArticle?: (articleId: string) => void;
 }
 
 export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
   isOpen,
   onClose,
   initialVersion = APP_VERSION,
+  onOpenWikiArticle,
 }) => {
   const [selectedVersion, setSelectedVersion] = useState<string>(initialVersion);
+
+  // Sincronizza la versione selezionata all'apertura
+  React.useEffect(() => {
+    if (isOpen) {
+      setSelectedVersion(initialVersion);
+    }
+  }, [isOpen, initialVersion]);
 
   const currentChangelog: ReleaseChangelog = getChangelogForVersion(selectedVersion);
 
@@ -36,12 +44,20 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
     onClose();
   };
 
+  const handleOpenWiki = () => {
+    const targetArticleId = currentChangelog.wikiArticleId || `release-v${currentChangelog.version}`;
+    handleConfirm();
+    if (onOpenWikiArticle) {
+      onOpenWikiArticle(targetArticleId);
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleConfirm}
       title="Novità dell'Aggiornamento"
-      subtitle={`Scopri tutte le novità, i miglioramenti e i fix introdotti in PC Tracker`}
+      subtitle="Scopri tutte le novità, i miglioramenti e i fix introdotti in PC Tracker"
       maxWidth="720px"
     >
       <div className="whatsnew-modal-content">
@@ -172,20 +188,21 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             </div>
             <div className="whatsnew-wiki-text">
               <strong>Mini-Wiki & Guide Operative</strong>
-              <span>Consulta la documentazione online per approfondire l'uso delle nuove funzionalità.</span>
+              <span>Consulta la guida interattiva e le FAQ per approfondire l'uso delle nuove funzionalità.</span>
             </div>
           </div>
 
-          <a
-            href={currentChangelog.wikiUrl || 'https://github.com/collabwithglab-rgb/pc-tracker/wiki'}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={handleOpenWiki}
             className="btn btn-secondary micro-press"
-            style={{ fontSize: '12px', padding: '6px 12px', flexShrink: 0 }}
+            id="btn-whatsnew-open-wiki"
+            style={{ fontSize: '12px', padding: '6px 12px', flexShrink: 0, gap: '6px' }}
+            title="Apri l'articolo guida di questo rilascio nella Mini-Wiki interattiva"
           >
-            <span>Apri Mini-Wiki</span>
-            <ExternalLink size={13} />
-          </a>
+            <BookOpen size={13} color="var(--accent-primary)" />
+            <span>Apri Guida Mini-Wiki</span>
+          </button>
         </div>
       </div>
 
@@ -215,17 +232,22 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    paddingBottom: '8px',
+    paddingTop: '2px',
+    paddingBottom: '10px',
+    marginBottom: '4px',
     borderBottom: '1px solid var(--border-subtle)',
     overflowX: 'auto',
+    flexShrink: 0,
+    lineHeight: 1.2,
   },
   versionTabsLabel: {
     fontSize: '11px',
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
     color: 'var(--text-muted)',
-    fontWeight: 600,
+    fontWeight: 700,
     flexShrink: 0,
+    lineHeight: 1,
   },
   versionTabsContainer: {
     display: 'flex',

@@ -1,5 +1,6 @@
 export type WikiCategory =
   | 'all'
+  | 'releases'
   | 'getting-started'
   | 'event-lifecycle'
   | 'finances'
@@ -17,7 +18,8 @@ export type WikiBadge =
   | 'TIP PRO'
   | 'FAQ'
   | 'FINANZE'
-  | 'WINDOWS';
+  | 'WINDOWS'
+  | 'RELEASE';
 
 export type WikiActionType = 'new-movement' | 'quick-setup';
 

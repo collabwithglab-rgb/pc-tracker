@@ -7,6 +7,11 @@ export const WIKI_CATEGORIES: WikiCategoryMeta[] = [
     description: 'Visualizza l\'intera knowledge base di PC Tracker',
   },
   {
+    id: 'releases',
+    label: '🚀 Versioni & Release',
+    description: 'Note di rilascio, novità hardware e guide operative di ogni aggiornamento',
+  },
+  {
     id: 'getting-started',
     label: 'Primi Passi & Setup',
     description: 'Guida all\'avvio rapido e inserimento del primo PC',

@@ -33,6 +33,7 @@ import { ImportBackupModal } from '../backup';
 import { RigExportModal } from '../export';
 import { Toast } from '../common/Toast';
 import { WhatsNewModal } from '../common/WhatsNewModal';
+import { UpdatePromptModal } from '../common/UpdatePromptModal';
 import { CommandPaletteModal } from '../commandPalette';
 import { RigComparisonModal } from '../comparison';
 import {
@@ -49,7 +50,7 @@ import {
   MarketplaceTab,
   CommandItem,
 } from '../../types';
-import { isDesktopApp, checkForAppUpdates, pickAndReadBackupFileWithDialog, saveBackupFileWithDialog, AppUpdateInfo } from '../../services';
+import { isDesktopApp, checkForAppUpdates, downloadAndInstallUpdate, pickAndReadBackupFileWithDialog, saveBackupFileWithDialog, AppUpdateInfo } from '../../services';
 import { APP_VERSION } from '../../constants/version';
 import { validateImportJSON, executeImport, exportDatabaseToJSON } from '../../storage';
 
@@ -101,22 +102,38 @@ export const AppShell: React.FC = () => {
     available: false,
     currentVersion: APP_VERSION,
   });
+  const [isUpdatePromptOpen, setIsUpdatePromptOpen] = useState(false);
+  const [updateInstallState, setUpdateInstallState] = useState<{
+    downloading: boolean;
+    percent: number;
+    error?: string;
+  }>({ downloading: false, percent: 0 });
 
   // Stato Modale WhatsNew (Novità dell'aggiornamento)
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
   const [hasCheckedWhatsNew, setHasCheckedWhatsNew] = useState(false);
 
-  // Controllo aggiornamenti silenzioso all'avvio
+  // Controllo aggiornamenti all'avvio con modale proattiva
   useEffect(() => {
     if (!isLoading) {
       checkForAppUpdates()
         .then((res) => {
           if (res.available && res.newVersion) {
             setUpdateInfo(res);
-            showNotification(
-              'success',
-              `Nuova versione disponibile: v${res.newVersion}! Vai in Impostazioni per aggiornare.`
-            );
+            try {
+              const skippedVersion = localStorage.getItem('pctracker_skipped_update_version');
+              if (skippedVersion !== res.newVersion) {
+                // Nuova versione pronta: proponi l'aggiornamento proattivamente
+                setIsUpdatePromptOpen(true);
+              } else {
+                showNotification(
+                  'success',
+                  `Aggiornamento v${res.newVersion} disponibile in Impostazioni.`
+                );
+              }
+            } catch {
+              setIsUpdatePromptOpen(true);
+            }
           }
         })
         .catch((err) => {
@@ -468,6 +485,36 @@ export const AppShell: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  const handleSkipUpdateVersion = (version: string) => {
+    try {
+      localStorage.setItem('pctracker_skipped_update_version', version);
+    } catch {
+      // fallback
+    }
+    setIsUpdatePromptOpen(false);
+    showNotification(
+      'success',
+      `Versione v${version} saltata per l'avvio automatico. Potrai comunque aggiornare in ogni momento da Impostazioni.`
+    );
+  };
+
+  const handleInstallUpdateFromPrompt = async () => {
+    setUpdateInstallState({ downloading: true, percent: 0, error: undefined });
+    try {
+      const res = await downloadAndInstallUpdate((_down, _tot, percent) => {
+        setUpdateInstallState((prev) => ({ ...prev, percent }));
+      });
+      if (!res.success) {
+        setUpdateInstallState((prev) => ({ ...prev, downloading: false, error: res.error }));
+        showNotification('error', `Errore aggiornamento: ${res.error}`);
+      }
+    } catch (err) {
+      const msg = (err as Error).message || 'Errore durante il download dell\'aggiornamento.';
+      setUpdateInstallState((prev) => ({ ...prev, downloading: false, error: msg }));
+      showNotification('error', msg);
+    }
+  };
 
   const handleQuickBackup = async () => {
     try {
@@ -956,7 +1003,24 @@ export const AppShell: React.FC = () => {
         isOpen={isWhatsNewOpen}
         onClose={() => setIsWhatsNewOpen(false)}
         initialVersion={APP_VERSION}
+        onOpenWikiArticle={(articleId) => handleOpenWikiArticle(articleId)}
       />
+
+      {/* Modale Avviso Aggiornamento Disponibile all'Avvio */}
+      {updateInfo.available && (
+        <UpdatePromptModal
+          isOpen={isUpdatePromptOpen}
+          onClose={() => setIsUpdatePromptOpen(false)}
+          updateInfo={updateInfo}
+          onInstallUpdate={handleInstallUpdateFromPrompt}
+          downloading={updateInstallState.downloading}
+          percent={updateInstallState.percent}
+          error={updateInstallState.error}
+          onSkipVersion={handleSkipUpdateVersion}
+          onOpenChangelog={() => setIsWhatsNewOpen(true)}
+          onOpenWikiArticle={(articleId) => handleOpenWikiArticle(articleId)}
+        />
+      )}
 
       {/* Command Palette Globale (Ctrl+K) */}
       <CommandPaletteModal

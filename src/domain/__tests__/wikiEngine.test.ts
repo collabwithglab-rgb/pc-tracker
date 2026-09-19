@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { WIKI_ARTICLES, WIKI_CATEGORIES } from '../../constants/wikiData';
-import { searchWikiArticles, getWikiStats, normalizeSearchTerm, formatArticleForClipboard } from '../wikiEngine';
+import { searchWikiArticles, getWikiStats, normalizeSearchTerm, formatArticleForClipboard, getAllWikiArticles } from '../wikiEngine';
 
 describe('Wiki Engine & Knowledge Base Suite', () => {
   it('should have properly configured categories metadata', () => {
@@ -144,5 +144,33 @@ describe('Wiki Engine & Knowledge Base Suite', () => {
       expect(formatted).toContain('Consigli Pro');
       expect(formatted).toContain('PC Tracker');
     }
+  });
+
+  it('should generate complete wiki articles with QA and steps from changelogs', () => {
+    const allArticles = getAllWikiArticles();
+    expect(allArticles.length).toBeGreaterThan(WIKI_ARTICLES.length);
+
+    // Deve includere l'articolo di release v0.3.0
+    const v030Article = allArticles.find((a) => a.id === 'release-v0.3.0');
+    expect(v030Article).toBeDefined();
+    expect(v030Article?.category).toBe('releases');
+    expect(v030Article?.badge).toBe('RELEASE');
+    expect(v030Article?.content.some((c) => c.includes('Command Palette'))).toBe(true);
+    expect(v030Article?.steps?.length).toBeGreaterThan(0);
+    expect(v030Article?.actionLinks?.length).toBeGreaterThan(0);
+
+    // Ricerca per numero versione
+    const search030 = searchWikiArticles(allArticles, '0.3.0', 'all', 'ALL');
+    expect(search030.some((a) => a.id === 'release-v0.3.0')).toBe(true);
+
+    // Ricerca per feature nella release
+    const searchPalette = searchWikiArticles(allArticles, 'command palette', 'releases', 'ALL');
+    expect(searchPalette.length).toBeGreaterThan(0);
+    expect(searchPalette.every((a) => a.category === 'releases')).toBe(true);
+
+    // Statistiche corrette
+    const stats = getWikiStats(allArticles);
+    expect(stats.categoryCounts.releases).toBeGreaterThanOrEqual(4);
+    expect(stats.badgeCounts.RELEASE).toBeGreaterThanOrEqual(4);
   });
 });

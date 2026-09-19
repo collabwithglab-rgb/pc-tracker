@@ -27,9 +27,9 @@ import {
   Check,
   ArrowLeft,
 } from 'lucide-react';
-import { WIKI_ARTICLES, WIKI_CATEGORIES } from '../constants/wikiData';
+import { WIKI_CATEGORIES } from '../constants/wikiData';
 import { WikiActionLink, WikiArticle, WikiBadge, WikiCategory } from '../types/wiki';
-import { searchWikiArticles, getWikiStats, formatArticleForClipboard } from '../domain/wikiEngine';
+import { searchWikiArticles, getWikiStats, formatArticleForClipboard, getAllWikiArticles } from '../domain/wikiEngine';
 import { NavSection } from '../components/layout/Sidebar';
 
 interface WikiPageProps {
@@ -173,15 +173,18 @@ export const WikiPage: React.FC<WikiPageProps> = ({
     }
   };
 
+  // Articoli totali unificati (knowledge base + guide di release auto-generate)
+  const allWikiArticles = useMemo(() => getAllWikiArticles(), []);
+
   // Statistiche e conteggi
-  const stats = useMemo(() => getWikiStats(WIKI_ARTICLES), []);
+  const stats = useMemo(() => getWikiStats(allWikiArticles), [allWikiArticles]);
 
   // Filtraggio live ottimizzato tramite useMemo
   const filteredArticles = useMemo(() => {
-    const base = searchWikiArticles(WIKI_ARTICLES, searchQuery, activeCategory, activeBadge);
+    const base = searchWikiArticles(allWikiArticles, searchQuery, activeCategory, activeBadge);
     if (!onlyBookmarks) return base;
     return base.filter((a) => bookmarkedIds.has(a.id));
-  }, [searchQuery, activeCategory, activeBadge, onlyBookmarks, bookmarkedIds]);
+  }, [allWikiArticles, searchQuery, activeCategory, activeBadge, onlyBookmarks, bookmarkedIds]);
 
   // Toggle apertura/chiusura singolo articolo
   const toggleArticle = (id: string) => {
@@ -272,6 +275,8 @@ export const WikiPage: React.FC<WikiPageProps> = ({
         return 'wiki-badge-finanze';
       case 'WINDOWS':
         return 'wiki-badge-windows';
+      case 'RELEASE':
+        return 'wiki-badge-release';
       default:
         return 'wiki-badge-tutorial';
     }
@@ -305,6 +310,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
 
   const BADGE_OPTIONS: Array<{ id: WikiBadge | 'ALL'; label: string }> = [
     { id: 'ALL', label: 'Tutti i formati' },
+    { id: 'RELEASE', label: 'Release' },
     { id: 'TUTORIAL', label: 'Tutorial' },
     { id: 'CONCETTO CHIAVE', label: 'Concetti Chiave' },
     { id: 'TIP PRO', label: 'Tip Pro' },

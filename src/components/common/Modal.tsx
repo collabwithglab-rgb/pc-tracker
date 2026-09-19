@@ -50,9 +50,9 @@ export const Modal: React.FC<ModalProps> = ({
               !el.classList.contains('modal-close-btn') &&
               !el.classList.contains('modal-back-btn')
           ) || focusableElements[0];
-        preferredElement.focus();
+        preferredElement.focus({ preventScroll: true });
       } else {
-        modalRef.current.focus();
+        modalRef.current.focus({ preventScroll: true });
       }
     }, 20);
 
@@ -124,7 +124,7 @@ export const Modal: React.FC<ModalProps> = ({
               !el.classList.contains('modal-close-btn') &&
               !el.classList.contains('modal-back-btn')
           ) || focusableElements[0];
-        preferredElement.focus();
+        preferredElement.focus({ preventScroll: true });
       }
     }, 30);
     return () => clearTimeout(focusTimer);

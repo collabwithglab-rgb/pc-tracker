@@ -23,6 +23,7 @@ export interface ReleaseChangelog {
   improved: ChangelogItem[];
   fixed: ChangelogItem[];
   wikiUrl?: string; // Predisposizione per la Mini-Wiki ufficiale
+  wikiArticleId?: string; // ID dell'articolo di guida nella Mini-Wiki
 }
 
 export const APP_CHANGELOG: ReleaseChangelog[] = [
@@ -32,6 +33,7 @@ export const APP_CHANGELOG: ReleaseChangelog[] = [
     title: 'Command Palette Globale (Ctrl+K), Rig Comparison & Deep Navigation',
     summary:
       'Una release fondamentale per produttività ed analisi hardware: la nuova Command Palette universale per navigare e cercare in un istante, il motore di confronto Rig Comparison con diff costi e consumi, e una Navigation Foundation a 3 livelli sincronizzata.',
+    wikiArticleId: 'release-v0.3.0',
     wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
     added: [
       {
@@ -82,6 +84,7 @@ export const APP_CHANGELOG: ReleaseChangelog[] = [
     title: 'Hardware Intelligence, Power Budget & Hub Vendite',
     summary:
       'Un aggiornamento monumentale per PC Tracker: arrivano il monitoraggio completo dei consumi TDP, il generatore professionale di annunci di vendita e la cassaforte locale delle ricevute.',
+    wikiArticleId: 'release-v0.2.2',
     wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
     added: [
       {
@@ -145,6 +148,7 @@ export const APP_CHANGELOG: ReleaseChangelog[] = [
     title: 'Time Travel, Checkpoint Engine & Time Machine Storica',
     summary:
       'Introduzione della Time Machine hardware per viaggiare nel passato e ricostruire la composizione esatta del PC in qualsiasi data storica.',
+    wikiArticleId: 'release-v0.2.0',
     wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
     added: [
       {
@@ -181,6 +185,7 @@ export const APP_CHANGELOG: ReleaseChangelog[] = [
     title: 'PC Tracker First Release: Fondamenta Local-First',
     summary:
       'Prima versione ufficiale dell\'applicazione per tracciare la vita completa del proprio computer, componenti, spese e upgrade.',
+    wikiArticleId: 'release-v0.1.0',
     wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
     added: [
       {
