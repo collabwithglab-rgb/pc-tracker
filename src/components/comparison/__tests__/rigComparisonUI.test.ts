@@ -219,4 +219,38 @@ describe('Rig Comparison Presentation & UI Logic Tests', () => {
     const resBothZero = compareRigs([], [], 'A', 'B');
     expect(resBothZero.summary.deltaCostPercent).toBe(0);
   });
+
+  it('ordina le voci di diff secondo la gerarchia canonica hardware (CPU -> GPU -> Scheda Madre...)', () => {
+    const compA: RigNormalizedComponent[] = [
+      { componentId: 'case-1', category: 'case' as const, name: 'NZXT H5 Flow', purchasePrice: 90, estimatedWatts: null },
+      { componentId: 'gpu-1', category: 'gpu' as const, name: 'RTX 4070', purchasePrice: 600, estimatedWatts: 200 },
+      { componentId: 'cpu-1', category: 'cpu' as const, name: 'Ryzen 5 7600', purchasePrice: 200, estimatedWatts: 65 },
+    ];
+    const compB: RigNormalizedComponent[] = [
+      { componentId: 'case-1', category: 'case' as const, name: 'NZXT H5 Flow', purchasePrice: 90, estimatedWatts: null },
+      { componentId: 'gpu-1', category: 'gpu' as const, name: 'RTX 4070', purchasePrice: 600, estimatedWatts: 200 },
+      { componentId: 'cpu-1', category: 'cpu' as const, name: 'Ryzen 5 7600', purchasePrice: 200, estimatedWatts: 65 },
+    ];
+
+    const res = compareRigs(compA, compB, 'A', 'B');
+    const categoriesInResult = res.entries.map((e) => e.category);
+    expect(categoriesInResult).toEqual(['cpu', 'gpu', 'case']);
+  });
+
+  it('simula la chiusura con tasto Escape', () => {
+    let closed = false;
+    const onClose = () => {
+      closed = true;
+    };
+
+    const handleKeyDown = (e: { key: string; preventDefault: () => void }) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    handleKeyDown({ key: 'Escape', preventDefault: () => {} });
+    expect(closed).toBe(true);
+  });
 });

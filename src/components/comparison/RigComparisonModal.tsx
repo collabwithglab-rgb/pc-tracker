@@ -152,6 +152,21 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
     );
   }, [normalizedA, normalizedB]);
 
+  // Chiusura accessibile con tasto Escape
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // Inversione delle sorgenti A e B
