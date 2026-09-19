@@ -18,6 +18,7 @@ import {
   Sparkles,
   Share2,
   BookOpen,
+  GitCompare,
 } from 'lucide-react';
 import { CheckpointModal } from '../components/checkpoint';
 import { PowerBudgetCard } from '../components/power';
@@ -32,6 +33,7 @@ interface CurrentRigPageProps {
   onOpenQuickSetup?: () => void;
   onOpenExportModal?: () => void;
   onOpenWikiArticle?: (articleId: string) => void;
+  onOpenComparison?: (sourceA?: string, sourceB?: string) => void;
 }
 
 interface CategoryGroup {
@@ -87,6 +89,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
   onOpenQuickSetup,
   onOpenExportModal,
   onOpenWikiArticle,
+  onOpenComparison,
 }) => {
   const { getInstalledComponents, isLoading, settings } = usePCStore();
   const [isSaveCheckpointOpen, setIsSaveCheckpointOpen] = React.useState<boolean>(false);
@@ -174,6 +177,19 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
             <Bookmark size={15} color="var(--accent-amber)" />
             <span>Salva Checkpoint</span>
           </button>
+
+          {onOpenComparison && (
+            <button
+              onClick={() => onOpenComparison('current')}
+              className="btn btn-secondary micro-press"
+              style={{ fontSize: '13px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title="Confronta il PC attuale con un checkpoint salvato"
+              id="btn-current-rig-compare"
+            >
+              <GitCompare size={15} color="var(--accent-primary)" />
+              <span>Confronta Rig</span>
+            </button>
+          )}
 
           {installedItems.length > 0 && onOpenExportModal && (
             <button

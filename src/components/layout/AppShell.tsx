@@ -34,6 +34,7 @@ import { RigExportModal } from '../export';
 import { Toast } from '../common/Toast';
 import { WhatsNewModal } from '../common/WhatsNewModal';
 import { CommandPaletteModal } from '../commandPalette';
+import { RigComparisonModal } from '../comparison';
 import {
   Component,
   ComponentCategory,
@@ -444,6 +445,17 @@ export const AppShell: React.FC = () => {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isManualCheckpointOpen, setIsManualCheckpointOpen] = useState(false);
 
+  // Stato Modale Confronto Configurazioni Hardware (Rig Comparison)
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+  const [comparisonSourceA, setComparisonSourceA] = useState<string | undefined>(undefined);
+  const [comparisonSourceB, setComparisonSourceB] = useState<string | undefined>(undefined);
+
+  const handleOpenComparison = (sourceA?: string, sourceB?: string) => {
+    setComparisonSourceA(sourceA);
+    setComparisonSourceB(sourceB);
+    setIsComparisonModalOpen(true);
+  };
+
   // Scorciatoia globale da tastiera Ctrl+K / Cmd+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -496,6 +508,9 @@ export const AppShell: React.FC = () => {
           break;
         case 'create-checkpoint':
           setIsManualCheckpointOpen(true);
+          break;
+        case 'compare-rigs':
+          handleOpenComparison();
           break;
         case 'open-wiki':
           handleOpenWikiArticle();
@@ -603,10 +618,16 @@ export const AppShell: React.FC = () => {
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
             onOpenExportModal={() => setIsRigExportOpen(true)}
             onOpenWikiArticle={handleOpenWikiArticle}
+            onOpenComparison={handleOpenComparison}
           />
         );
       case 'time-travel':
-        return <TimeTravelPage onOpenWikiArticle={handleOpenWikiArticle} />;
+        return (
+          <TimeTravelPage
+            onOpenWikiArticle={handleOpenWikiArticle}
+            onOpenComparison={handleOpenComparison}
+          />
+        );
       case 'archive':
         return (
           <ArchivePage
@@ -952,6 +973,15 @@ export const AppShell: React.FC = () => {
         onClose={() => setIsManualCheckpointOpen(false)}
         initialName="Checkpoint Manuale"
         trigger="manual"
+      />
+
+      {/* Modale Confronto Configurazioni Hardware (Rig Comparison) */}
+      <RigComparisonModal
+        isOpen={isComparisonModalOpen}
+        onClose={() => setIsComparisonModalOpen(false)}
+        initialSourceA={comparisonSourceA}
+        initialSourceB={comparisonSourceB}
+        onOpenComponentDetail={handleSelectComponent}
       />
 
       {/* Notifiche Toast */}

@@ -14,3 +14,4 @@ export * from './maintenanceEngine';
 export * from './tuningEngine';
 export * from './windowsToolsEngine';
 export * from './commandRegistry';
+export * from './rigComparisonEngine';

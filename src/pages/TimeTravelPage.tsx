@@ -34,13 +34,15 @@ import {
   Edit3,
   Package,
   BookOpen,
+  GitCompare,
 } from 'lucide-react';
 
 interface TimeTravelPageProps {
   onOpenWikiArticle?: (articleId: string) => void;
+  onOpenComparison?: (sourceA?: string, sourceB?: string) => void;
 }
 
-export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticle }) => {
+export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticle, onOpenComparison }) => {
   const { components, events, checkpoints, deleteCheckpoint } = usePCStore();
 
   // Calcola estremi ed eventi della timeline
@@ -625,6 +627,18 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
               >
                 Ricostruzione Dinamica Timeline
               </button>
+
+              {onOpenComparison && (
+                <button
+                  onClick={() => onOpenComparison(`checkpoint-${activeCheckpoint.id}`, 'current')}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12px', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  title="Confronta questo Checkpoint con il PC Attuale"
+                >
+                  <GitCompare size={13} color="var(--accent-primary)" />
+                  <span>Confronta con PC Attuale</span>
+                </button>
+              )}
             </div>
           </div>
 

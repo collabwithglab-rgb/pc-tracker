@@ -216,6 +216,14 @@ export const STATIC_ACTION_COMMANDS: CommandItem[] = [
     actionId: 'create-checkpoint',
   },
   {
+    id: 'action-compare-rigs',
+    label: 'Confronta Configurazioni',
+    subtitle: 'Confronto hardware e finanziario punto a punto tra PC attuale e checkpoint storici',
+    category: 'actions',
+    keywords: ['confronta', 'compare', 'differenze', 'confronto rig', 'checkpoint vs attuale', 'upgrade diff'],
+    actionId: 'compare-rigs',
+  },
+  {
     id: 'action-open-wiki',
     label: 'Apri Guida & Wiki',
     subtitle: 'Consulta manuali, tutorial e documentazione integrata',

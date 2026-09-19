@@ -20,6 +20,7 @@ export type CommandActionId =
   | 'quick-backup'
   | 'import-backup'
   | 'create-checkpoint'
+  | 'compare-rigs'
   | 'open-wiki'
   | 'open-settings';
 

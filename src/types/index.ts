@@ -13,3 +13,4 @@ export * from './tuning';
 export * from './windowsTools';
 export * from './navigation';
 export * from './command';
+export * from './rigComparison';
