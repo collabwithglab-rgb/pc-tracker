@@ -14,7 +14,7 @@
 | **Sessione 1** | 🛡️ **Task 1**: Gestione Garanzie & Cassaforte Ricevute (Receipt Vault) | ✅ *Completata* | `358/358 pass` | Pronto per Release |
 | **Sessione 2** | 🏷️ **Task 2**: Generatore Automatico Annunci Vendita (Subito/eBay/Vinted) & Hub Vendite | ✅ *Completata* | `384/384 pass` | Pronto per Release |
 | **Sessione 3** | ⚡ **Task 3**: Power Budget & Stima Consumi / TDP del Rig Attuale | ✅ *Completata* | `407/407 pass` | Pronto per Release |
-| **Sessione 4** | 🧰 **Task 4**: Registro Manutenzione (Pasta Termica) & Profili Tuning/UV | ⏳ *In attesa* | `0/0` | - |
+| **Sessione 4** | 🧰 **Task 4**: Registro Manutenzione (Pasta Termica), Tuning Journal & Windows Tools | ✅ *Completata* | `463/463 pass` | Pronto per Release |
 | **Sessione 5** | ⚡ **Task 5**: Command Palette (`Ctrl+K`) & Confronto Rig Affiancato | ⏳ *In attesa* | `0/0` | - |
 
 ---
@@ -110,7 +110,7 @@
 
 ---
 
-### 🧰 SESSIONE 4 — Task 4: Registro Manutenzione & Profili Tuning/UV
+### 🧰 SESSIONE 4 — Task 4: Registro Manutenzione, Tuning Journal & Windows Tools — [COMPLETATA ✅]
 **Obiettivo**: Tracciare la cura fisica del PC e i parametri prestazionali/termici senza disperdere appunti su foglietti volanti.
 
 #### Specifiche Tecniche:
