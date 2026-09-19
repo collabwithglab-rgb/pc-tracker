@@ -12,3 +12,4 @@ export * from './maintenance';
 export * from './tuning';
 export * from './windowsTools';
 export * from './navigation';
+export * from './command';

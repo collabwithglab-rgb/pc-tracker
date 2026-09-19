@@ -33,6 +33,7 @@ import { ImportBackupModal } from '../backup';
 import { RigExportModal } from '../export';
 import { Toast } from '../common/Toast';
 import { WhatsNewModal } from '../common/WhatsNewModal';
+import { CommandPaletteModal } from '../commandPalette';
 import {
   Component,
   ComponentCategory,
@@ -45,10 +46,11 @@ import {
   MaintenanceTab,
   SettingsTab,
   MarketplaceTab,
+  CommandItem,
 } from '../../types';
-import { isDesktopApp, checkForAppUpdates, pickAndReadBackupFileWithDialog, AppUpdateInfo } from '../../services';
+import { isDesktopApp, checkForAppUpdates, pickAndReadBackupFileWithDialog, saveBackupFileWithDialog, AppUpdateInfo } from '../../services';
 import { APP_VERSION } from '../../constants/version';
-import { validateImportJSON, executeImport } from '../../storage';
+import { validateImportJSON, executeImport, exportDatabaseToJSON } from '../../storage';
 
 export const AppShell: React.FC = () => {
   const {
@@ -436,6 +438,73 @@ export const AppShell: React.FC = () => {
     setComponentReferrerSection(null);
     setCurrentSection(targetSection);
     setActiveSubTab(null);
+  };
+
+  // Stato Command Palette Globale (Ctrl+K / Cmd+K)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isManualCheckpointOpen, setIsManualCheckpointOpen] = useState(false);
+
+  // Scorciatoia globale da tastiera Ctrl+K / Cmd+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleQuickBackup = async () => {
+    try {
+      const jsonString = await exportDatabaseToJSON();
+      const today = new Date().toISOString().split('T')[0];
+      const filename = `pc-tracker-backup-${today}.json`;
+      const res = await saveBackupFileWithDialog(filename, jsonString);
+      if (!res.canceled) {
+        showNotification('success', 'Backup JSON salvato con successo!');
+      }
+    } catch (err) {
+      showNotification('error', `Errore durante il backup: ${(err as Error).message}`);
+    }
+  };
+
+  const handleExecuteCommand = (command: CommandItem) => {
+    if (command.target) {
+      handleNavigate({
+        ...command.target,
+        referrer: currentSection !== command.target.section ? currentSection : undefined,
+      });
+      return;
+    }
+
+    if (command.actionId) {
+      switch (command.actionId) {
+        case 'new-movement':
+          handleOpenMovementSelector();
+          break;
+        case 'add-component':
+          setIsCreateModalOpen(true);
+          break;
+        case 'quick-backup':
+          handleQuickBackup();
+          break;
+        case 'import-backup':
+          triggerImportFlow();
+          break;
+        case 'create-checkpoint':
+          setIsManualCheckpointOpen(true);
+          break;
+        case 'open-wiki':
+          handleOpenWikiArticle();
+          break;
+        case 'open-settings':
+          handleNavigate('settings');
+          break;
+      }
+    }
   };
 
   const handleOpenInstallModal = (category?: ComponentCategory, component?: Component) => {
@@ -866,6 +935,23 @@ export const AppShell: React.FC = () => {
         isOpen={isWhatsNewOpen}
         onClose={() => setIsWhatsNewOpen(false)}
         initialVersion={APP_VERSION}
+      />
+
+      {/* Command Palette Globale (Ctrl+K) */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onExecuteCommand={handleExecuteCommand}
+        components={components}
+        getComputed={getComponentComputed}
+      />
+
+      {/* Modale Creazione Checkpoint Manuale da Command Palette */}
+      <CheckpointModal
+        isOpen={isManualCheckpointOpen}
+        onClose={() => setIsManualCheckpointOpen(false)}
+        initialName="Checkpoint Manuale"
+        trigger="manual"
       />
 
       {/* Notifiche Toast */}
