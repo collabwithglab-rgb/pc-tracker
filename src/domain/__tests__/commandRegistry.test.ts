@@ -59,6 +59,8 @@ describe('Command Registry & Deterministic Ranking Suite', () => {
 
       const actionIds = STATIC_ACTION_COMMANDS.map((a) => a.actionId);
       expect(actionIds).toContain('new-movement');
+      expect(actionIds).toContain('new-maintenance');
+      expect(actionIds).toContain('new-tuning');
       expect(actionIds).toContain('add-component');
       expect(actionIds).toContain('quick-backup');
       expect(actionIds).toContain('import-backup');

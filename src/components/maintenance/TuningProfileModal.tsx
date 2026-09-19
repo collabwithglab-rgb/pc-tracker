@@ -17,6 +17,7 @@ interface TuningProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   profileToEdit?: TuningProfile | null;
+  initialValues?: Partial<TuningProfileInput>;
 }
 
 const CATEGORY_OPTIONS: { value: ComponentCategory; label: string }[] = [
@@ -32,6 +33,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
   isOpen,
   onClose,
   profileToEdit,
+  initialValues,
 }) => {
   const { components, addTuningProfile, updateTuningProfile } = usePCStore();
 
@@ -96,24 +98,52 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
 
       setNotes(profileToEdit.notes || '');
     } else {
-      setName('');
-      setComponentId('');
-      setCategory('cpu');
-      setDate(getLocalDateISO());
-      setType('curve_optimizer');
-      setStability('stable');
-      setParamRows([{ key: 'Curve Optimizer Offset', value: '-20' }]);
-      setTempIdle('');
-      setTempLoad('');
-      setTempAmbient('');
-      setObservedPowerWatts('');
+      setName(initialValues?.name || '');
+      const initCompId = initialValues?.componentId || '';
+      setComponentId(initCompId);
+      const initCat = initialValues?.category || (initCompId ? components.find((c) => c.id === initCompId)?.category || 'cpu' : 'cpu');
+      setCategory(initCat);
+      setDate(initialValues?.date || getLocalDateISO());
+
+      let initType: TuningType = initialValues?.type || 'curve_optimizer';
+      let initParams: { key: string; value: string }[] = [{ key: 'Curve Optimizer Offset', value: '-20' }];
+
+      if (initialValues?.parameters && Object.keys(initialValues.parameters).length > 0) {
+        initParams = Object.entries(initialValues.parameters).map(([k, v]) => ({ key: k, value: String(v) }));
+      } else if (initCat === 'gpu') {
+        initType = 'gpu_undervolt';
+        initParams = [
+          { key: 'Target Voltage (mV)', value: '950' },
+          { key: 'Core Clock (MHz)', value: '2650' },
+        ];
+      } else if (initCat === 'ram') {
+        initType = 'memory_xmp_expo';
+        initParams = [
+          { key: 'Frequency', value: '6000 MT/s' },
+          { key: 'Timings', value: 'CL30-38-38-96' },
+        ];
+      } else if (initCat === 'cooling') {
+        initType = 'fan_profile';
+        initParams = [{ key: 'Fan Curve', value: 'Silent (40% < 60°C)' }];
+      } else if (initCat === 'cpu') {
+        initType = 'curve_optimizer';
+        initParams = [{ key: 'Curve Optimizer Offset', value: '-25' }];
+      }
+
+      setType(initType);
+      setParamRows(initParams);
+      setStability(initialValues?.stability || 'stable');
+      setTempIdle(initialValues?.temperatures?.idle !== undefined ? String(initialValues.temperatures.idle) : '');
+      setTempLoad(initialValues?.temperatures?.load !== undefined ? String(initialValues.temperatures.load) : '');
+      setTempAmbient(initialValues?.temperatures?.ambient !== undefined ? String(initialValues.temperatures.ambient) : '');
+      setObservedPowerWatts(initialValues?.observedPowerWatts !== undefined ? String(initialValues.observedPowerWatts) : '');
       setBenchmarkName('');
       setBenchmarkScore('');
       setBenchmarkNotes('');
-      setNotes('');
+      setNotes(initialValues?.notes || '');
     }
     setErrors({});
-  }, [isOpen, profileToEdit]);
+  }, [isOpen, profileToEdit, initialValues, components]);
 
   const handleComponentChange = (compVal: string) => {
     setComponentId(compVal);

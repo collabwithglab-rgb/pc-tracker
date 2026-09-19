@@ -31,6 +31,7 @@ import { CheckpointModal, PostUpgradePromptModal } from '../checkpoint';
 import { QuickSetupModal } from '../quickSetup';
 import { ImportBackupModal } from '../backup';
 import { RigExportModal } from '../export';
+import { MaintenanceEntryModal, TuningProfileModal } from '../maintenance';
 import { Toast } from '../common/Toast';
 import { WhatsNewModal } from '../common/WhatsNewModal';
 import { UpdatePromptModal } from '../common/UpdatePromptModal';
@@ -189,6 +190,10 @@ export const AppShell: React.FC = () => {
   const [giftPreSelectedComponent, setGiftPreSelectedComponent] = useState<Component | null>(null);
   const [isDisposalModalOpen, setIsDisposalModalOpen] = useState(false);
   const [disposalPreSelectedComponent, setDisposalPreSelectedComponent] = useState<Component | null>(null);
+
+  // Modali Inserimento Rapido Cura & Tuning da Command Palette
+  const [isGlobalMaintenanceModalOpen, setIsGlobalMaintenanceModalOpen] = useState(false);
+  const [isGlobalTuningModalOpen, setIsGlobalTuningModalOpen] = useState(false);
 
   // Modale Wizard Upgrade / Cambio Generazionale
   const [isUpgradeWizardOpen, setIsUpgradeWizardOpen] = useState(false);
@@ -549,6 +554,12 @@ export const AppShell: React.FC = () => {
         case 'new-movement':
           handleOpenMovementSelector();
           break;
+        case 'new-maintenance':
+          setIsGlobalMaintenanceModalOpen(true);
+          break;
+        case 'new-tuning':
+          setIsGlobalTuningModalOpen(true);
+          break;
         case 'add-component':
           setIsCreateModalOpen(true);
           break;
@@ -791,6 +802,7 @@ export const AppShell: React.FC = () => {
           handleSelectComponent(created.id, currentSection);
         }}
         onOpenWikiGuide={handleOpenWikiArticle}
+        onNavigateToCare={() => handleNavigate({ section: 'maintenance' })}
       />
 
       {/* Modale Registrazione Vendita */}
@@ -1051,6 +1063,18 @@ export const AppShell: React.FC = () => {
         initialSourceA={comparisonSourceA}
         initialSourceB={comparisonSourceB}
         onOpenComponentDetail={handleSelectComponent}
+      />
+
+      {/* Modale Inserimento Manutenzione da Command Palette Globale */}
+      <MaintenanceEntryModal
+        isOpen={isGlobalMaintenanceModalOpen}
+        onClose={() => setIsGlobalMaintenanceModalOpen(false)}
+      />
+
+      {/* Modale Inserimento Tuning da Command Palette Globale */}
+      <TuningProfileModal
+        isOpen={isGlobalTuningModalOpen}
+        onClose={() => setIsGlobalTuningModalOpen(false)}
       />
 
       {/* Notifiche Toast */}

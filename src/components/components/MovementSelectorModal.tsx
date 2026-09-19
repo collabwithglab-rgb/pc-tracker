@@ -9,6 +9,8 @@ import {
   ChevronRight,
   ArrowUpRight,
   BookOpen,
+  Wrench,
+  ArrowRight,
 } from 'lucide-react';
 import { Component } from '../../types';
 import { ComponentForm } from './ComponentFormModal';
@@ -35,6 +37,7 @@ export interface MovementSelectorModalProps {
   onSuccessPurchase?: (created: Component) => void;
   onSelectUpgrade?: () => void;
   onOpenWikiGuide?: (articleId: string) => void;
+  onNavigateToCare?: () => void;
 }
 
 export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
@@ -44,6 +47,7 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
   onSuccessPurchase,
   onSelectUpgrade,
   onOpenWikiGuide,
+  onNavigateToCare,
 }) => {
   const [activeType, setActiveType] = useState<MovementType | null>(null);
 
@@ -294,6 +298,53 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
               >
                 <BookOpen size={13} />
                 <span>Guida Movimenti & Ciclo di Vita</span>
+              </button>
+            </div>
+          )}
+
+          {onNavigateToCare && (
+            <div
+              style={{
+                marginTop: '10px',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: 'rgba(56, 189, 248, 0.05)',
+                border: '1px solid rgba(56, 189, 248, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Wrench size={14} color="var(--accent-cyan)" />
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  Vuoi registrare una pulizia, cambio pasta o profilo di tuning?
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onNavigateToCare();
+                }}
+                className="micro-press"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-primary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '2px 6px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span>Cura del PC</span>
+                <ArrowRight size={12} />
               </button>
             </div>
           )}

@@ -10,9 +10,25 @@ import {
   ComponentEvent,
   ComponentReceipt,
   NavSection,
+  MaintenanceEntry,
+  TuningProfile,
+  MAINTENANCE_TYPE_LABELS,
+  TUNING_TYPE_LABELS,
+  TUNING_STABILITY_LABELS,
 } from '../types';
-import { canDeleteEvent, findPurchaseEvent } from '../domain';
+import {
+  canDeleteEvent,
+  findPurchaseEvent,
+  getMaintenanceByComponent,
+  getTuningProfilesByComponent,
+  getLatestThermalPasteService,
+  sortMaintenanceEntriesChronologically,
+  sortTuningProfiles,
+  getMaintenanceTypeBadgeClass,
+  getTuningStabilityBadgeClass,
+} from '../domain';
 import { EventEditModal, ReceiptVaultModal, ListingGeneratorModal } from '../components/components';
+import { MaintenanceEntryModal, TuningProfileModal } from '../components/maintenance';
 import { HardwareIconBadge } from '../components/common/ComponentIcon';
 import {
   ArrowLeft,
@@ -23,6 +39,8 @@ import {
   FileText,
   ShoppingBag,
   Wrench,
+  Sliders,
+  Plus,
   Package,
   DollarSign,
   Gift,
@@ -98,9 +116,19 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
     getComponentReceipts,
     uploadReceipt,
     deleteReceipt,
+    maintenanceEntries,
+    tuningProfiles,
+    deleteMaintenanceEntry,
+    deleteTuningProfile,
     settings,
   } = usePCStore();
   const [editingEvent, setEditingEvent] = useState<ComponentEvent | null>(null);
+
+  // Modali Cura & Tuning per questo componente
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [entryToEdit, setEntryToEdit] = useState<MaintenanceEntry | null>(null);
+  const [isTuningModalOpen, setIsTuningModalOpen] = useState(false);
+  const [profileToEdit, setProfileToEdit] = useState<TuningProfile | null>(null);
 
   // Stato e caricamento asincrono per la Cassaforte Ricevute (Zero-Heap RAM)
   const [receipts, setReceipts] = useState<ComponentReceipt[]>([]);
@@ -113,6 +141,63 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   const component = components.find((c) => c.id === componentId);
   const computed = getComponentComputed(componentId);
   const events = getComponentEvents(componentId);
+
+  const componentMaintenance = React.useMemo(() => {
+    return sortMaintenanceEntriesChronologically(
+      getMaintenanceByComponent(maintenanceEntries, componentId),
+      'desc'
+    );
+  }, [maintenanceEntries, componentId]);
+
+  const componentTuning = React.useMemo(() => {
+    return sortTuningProfiles(
+      getTuningProfilesByComponent(tuningProfiles, componentId)
+    );
+  }, [tuningProfiles, componentId]);
+
+  const latestThermalPaste = React.useMemo(() => {
+    return getLatestThermalPasteService(componentMaintenance, componentId);
+  }, [componentMaintenance, componentId]);
+
+  const handleOpenNewMaintenance = () => {
+    setEntryToEdit(null);
+    setIsMaintenanceModalOpen(true);
+  };
+
+  const handleEditMaintenance = (entry: MaintenanceEntry) => {
+    setEntryToEdit(entry);
+    setIsMaintenanceModalOpen(true);
+  };
+
+  const handleDeleteMaintenance = async (entry: MaintenanceEntry) => {
+    if (window.confirm(`Sei sicuro di voler eliminare l'intervento "${entry.title}"?`)) {
+      try {
+        await deleteMaintenanceEntry(entry.id);
+      } catch (err) {
+        alert((err as Error).message);
+      }
+    }
+  };
+
+  const handleOpenNewTuning = () => {
+    setProfileToEdit(null);
+    setIsTuningModalOpen(true);
+  };
+
+  const handleEditTuning = (profile: TuningProfile) => {
+    setProfileToEdit(profile);
+    setIsTuningModalOpen(true);
+  };
+
+  const handleDeleteTuning = async (profile: TuningProfile) => {
+    if (window.confirm(`Sei sicuro di voler eliminare il profilo tuning "${profile.name}"?`)) {
+      try {
+        await deleteTuningProfile(profile.id);
+      } catch (err) {
+        alert((err as Error).message);
+      }
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -384,6 +469,28 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               )}
             </>
           )}
+
+          {/* Azioni Rapide Cura & Tuning per questo pezzo */}
+          <button
+            type="button"
+            onClick={handleOpenNewMaintenance}
+            className="btn btn-secondary micro-press"
+            title="Registra un intervento di cura, pulizia o pasta termica per questo pezzo"
+            style={{ color: 'var(--accent-cyan)', borderColor: 'rgba(56, 189, 248, 0.25)', fontSize: '13px', padding: '6px 12px' }}
+          >
+            <Wrench size={14} />
+            <span>+ Cura</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenNewTuning}
+            className="btn btn-secondary micro-press"
+            title="Aggiungi un profilo di tuning (undervolt, curve optimizer, RAM, ventole) per questo pezzo"
+            style={{ color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.25)', fontSize: '13px', padding: '6px 12px' }}
+          >
+            <Sliders size={14} />
+            <span>+ Tuning</span>
+          </button>
 
           <button onClick={() => onEdit(component)} className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px' }}>
             <Edit2 size={14} />
@@ -842,6 +949,299 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
         </div>
       </div>
 
+      {/* Griglia a 2 colonne: Cura & Manutenzione Hardware e Profili di Tuning */}
+      <div className="animate-slide-up stagger-4" style={styles.detailsGrid}>
+        {/* Card 1: Cura & Manutenzione Hardware */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Wrench size={16} color="var(--accent-cyan)" />
+              <span>Cura & Manutenzione ({componentMaintenance.length})</span>
+            </h2>
+            <button
+              type="button"
+              onClick={handleOpenNewMaintenance}
+              className="btn btn-secondary micro-press"
+              style={{ fontSize: '12px', padding: '4px 10px', color: 'var(--accent-cyan)', borderColor: 'rgba(56, 189, 248, 0.25)' }}
+            >
+              <Plus size={13} />
+              <span>Registra Cura</span>
+            </button>
+          </div>
+
+          {/* Banner Pasta Termica (se registrata per questo pezzo) */}
+          {latestThermalPaste && (() => {
+            const days = Math.max(0, Math.floor((new Date().getTime() - new Date(latestThermalPaste.date).getTime()) / (1000 * 3600 * 24)));
+            let badgeText = `Fresca (${days} gg fa)`;
+            let badgeColor = 'var(--accent-emerald)';
+            let badgeBg = 'rgba(16, 185, 129, 0.1)';
+            if (days > 365) {
+              badgeText = `Da monitorare (${days} gg fa)`;
+              badgeColor = 'var(--accent-amber)';
+              badgeBg = 'rgba(245, 158, 11, 0.1)';
+            } else if (days > 180) {
+              badgeText = `Buona (${days} gg fa)`;
+              badgeColor = 'var(--accent-cyan)';
+              badgeBg = 'rgba(56, 189, 248, 0.1)';
+            }
+
+            return (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-subtle, rgba(255, 255, 255, 0.02))',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Pasta Termica Applicata
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {formatDate(latestThermalPaste.date, settings.dateFormat)}
+                    {latestThermalPaste.productUsed && ` • ${latestThermalPaste.productUsed}`}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: badgeColor,
+                    backgroundColor: badgeBg,
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {badgeText}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Elenco Interventi di Manutenzione */}
+          {componentMaintenance.length === 0 ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <p style={{ fontSize: '13px', marginBottom: '12px' }}>
+                Nessun intervento di cura (pulizia filtri, pasta termica, serraggio) registrato per questo componente.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenNewMaintenance}
+                className="btn btn-secondary btn-sm"
+              >
+                <Plus size={13} />
+                <span>Registra Primo Intervento</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '340px', overflowY: 'auto' }}>
+              {componentMaintenance.map((m) => {
+                const typeBadgeClass = getMaintenanceTypeBadgeClass(m.type);
+                const typeLabel = MAINTENANCE_TYPE_LABELS[m.type] || m.type;
+
+                return (
+                  <div
+                    key={m.id}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-subtle, rgba(255, 255, 255, 0.02))',
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <span className={`badge ${typeBadgeClass}`} style={{ fontSize: '11px', padding: '1px 6px' }}>
+                          {typeLabel}
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.title}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleEditMaintenance(m)}
+                          className="btn btn-ghost"
+                          style={{ padding: '2px 5px', height: '22px', color: 'var(--text-secondary)' }}
+                          title="Modifica intervento"
+                        >
+                          <Edit2 size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMaintenance(m)}
+                          className="btn btn-ghost"
+                          style={{ padding: '2px 5px', height: '22px', color: 'var(--accent-ruby)' }}
+                          title="Elimina intervento"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      <span className="font-mono">{formatDate(m.date, settings.dateFormat)}</span>
+                      {m.cost !== undefined && m.cost > 0 && (
+                        <span className="font-mono" style={{ color: 'var(--accent-ruby)', fontWeight: 500 }}>
+                          €{m.cost.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+
+                    {(m.productUsed || m.notes) && (
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: '2px' }}>
+                        {m.productUsed && <span style={{ color: 'var(--accent-cyan)' }}>Prodotto: {m.productUsed} </span>}
+                        {m.notes && <span>{m.notes}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Card 2: Profili di Tuning Associati */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sliders size={16} color="var(--accent-amber)" />
+              <span>Profili di Tuning ({componentTuning.length})</span>
+            </h2>
+            <button
+              type="button"
+              onClick={handleOpenNewTuning}
+              className="btn btn-secondary micro-press"
+              style={{ fontSize: '12px', padding: '4px 10px', color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.25)' }}
+            >
+              <Plus size={13} />
+              <span>Aggiungi Profilo</span>
+            </button>
+          </div>
+
+          {componentTuning.length === 0 ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <p style={{ fontSize: '13px', marginBottom: '12px' }}>
+                Nessun profilo di undervolt, Curve Optimizer, RAM o curva ventole salvato per questo componente.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenNewTuning}
+                className="btn btn-secondary btn-sm"
+              >
+                <Plus size={13} />
+                <span>Crea Primo Profilo Tuning</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '340px', overflowY: 'auto' }}>
+              {componentTuning.map((p) => {
+                const stabBadge = getTuningStabilityBadgeClass(p.stability);
+                const typeLabel = TUNING_TYPE_LABELS[p.type] || p.type;
+                const stabLabel = TUNING_STABILITY_LABELS[p.stability] || p.stability;
+                const paramEntries = Object.entries(p.parameters || {});
+
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-subtle, rgba(255, 255, 255, 0.02))',
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'wrap' }}>
+                        <span className={`badge ${stabBadge}`} style={{ fontSize: '10.5px', padding: '1px 6px' }}>
+                          {stabLabel}
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {p.name}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleEditTuning(p)}
+                          className="btn btn-ghost"
+                          style={{ padding: '2px 5px', height: '22px', color: 'var(--text-secondary)' }}
+                          title="Modifica profilo tuning"
+                        >
+                          <Edit2 size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTuning(p)}
+                          className="btn btn-ghost"
+                          style={{ padding: '2px 5px', height: '22px', color: 'var(--accent-ruby)' }}
+                          title="Elimina profilo tuning"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      <span>{typeLabel}</span>
+                      <span className="font-mono">{formatDate(p.date, settings.dateFormat)}</span>
+                    </div>
+
+                    {/* Parametri principali */}
+                    {paramEntries.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+                        {paramEntries.slice(0, 3).map(([k, v]) => (
+                          <span
+                            key={k}
+                            style={{
+                              fontSize: '11px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--bg-app)',
+                              border: '1px solid var(--border-subtle)',
+                              color: 'var(--text-secondary)',
+                            }}
+                          >
+                            <strong>{k}:</strong> {v}
+                          </span>
+                        ))}
+                        {paramEntries.length > 3 && (
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                            +{paramEntries.length - 3} altri
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Temperature e Potenza se presenti */}
+                    {(p.temperatures?.idle !== undefined || p.temperatures?.load !== undefined || p.observedPowerWatts !== undefined) && (
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                        {p.temperatures?.idle !== undefined && <span>Idle: {p.temperatures.idle}°C</span>}
+                        {p.temperatures?.load !== undefined && <span>Load: {p.temperatures.load}°C</span>}
+                        {p.observedPowerWatts !== undefined && <span>{p.observedPowerWatts}W</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Modale Modifica Singolo Evento */}
       <EventEditModal
         isOpen={Boolean(editingEvent)}
@@ -868,6 +1268,34 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
         events={events}
         warranty={getComponentWarranty(componentId)}
         receiptCount={receipts.length}
+      />
+
+      {/* Modale Inserimento / Modifica Manutenzione per questo pezzo */}
+      <MaintenanceEntryModal
+        isOpen={isMaintenanceModalOpen}
+        onClose={() => {
+          setIsMaintenanceModalOpen(false);
+          setEntryToEdit(null);
+        }}
+        entryToEdit={entryToEdit}
+        initialValues={{
+          componentIds: [component.id],
+          title: `Cura ${component.name}`,
+        }}
+      />
+
+      {/* Modale Inserimento / Modifica Tuning per questo pezzo */}
+      <TuningProfileModal
+        isOpen={isTuningModalOpen}
+        onClose={() => {
+          setIsTuningModalOpen(false);
+          setProfileToEdit(null);
+        }}
+        profileToEdit={profileToEdit}
+        initialValues={{
+          componentId: component.id,
+          category: component.category,
+        }}
       />
     </div>
   );

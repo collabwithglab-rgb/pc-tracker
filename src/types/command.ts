@@ -16,6 +16,8 @@ export const COMMAND_CATEGORY_LABELS: Record<CommandCategory, string> = {
 
 export type CommandActionId =
   | 'new-movement'
+  | 'new-maintenance'
+  | 'new-tuning'
   | 'add-component'
   | 'quick-backup'
   | 'import-backup'

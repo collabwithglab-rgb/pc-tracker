@@ -176,6 +176,22 @@ export const STATIC_ACTION_COMMANDS: CommandItem[] = [
     shortcutHint: 'Azione Rapida',
   },
   {
+    id: 'action-new-maintenance',
+    label: 'Registra Intervento di Cura',
+    subtitle: 'Aggiungi una pulizia, cambio pasta termica o controllo periodico',
+    category: 'actions',
+    keywords: ['cura', 'manutenzione', 'pasta termica', 'pulizia', 'filtri', 'interventi', 'registro', 'nuova cura'],
+    actionId: 'new-maintenance',
+  },
+  {
+    id: 'action-new-tuning',
+    label: 'Nuovo Profilo di Tuning',
+    subtitle: 'Salva parametri di undervolt, Curve Optimizer, RAM o ventole',
+    category: 'actions',
+    keywords: ['tuning', 'undervolt', 'overclock', 'curve optimizer', 'ram', 'expo', 'xmp', 'ventole', 'nuovo tuning'],
+    actionId: 'new-tuning',
+  },
+  {
     id: 'action-add-component',
     label: 'Aggiungi Componente',
     subtitle: 'Crea una nuova anagrafica componente nel database',

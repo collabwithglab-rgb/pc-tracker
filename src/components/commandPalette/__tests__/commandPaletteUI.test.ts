@@ -236,6 +236,18 @@ describe('Command Palette UI & Execution Integration Suite', () => {
       executeCommand(env2, checkpointAction);
       expect(env2.executedActionId).toBe('create-checkpoint');
       expect(env2.isPaletteOpen).toBe(false);
+
+      const envMaint = createEnv('current-rig');
+      const maintAction = STATIC_ACTION_COMMANDS.find((c) => c.actionId === 'new-maintenance')!;
+      executeCommand(envMaint, maintAction);
+      expect(envMaint.executedActionId).toBe('new-maintenance');
+      expect(envMaint.isPaletteOpen).toBe(false);
+
+      const envTuning = createEnv('current-rig');
+      const tuningAction = STATIC_ACTION_COMMANDS.find((c) => c.actionId === 'new-tuning')!;
+      executeCommand(envTuning, tuningAction);
+      expect(envTuning.executedActionId).toBe('new-tuning');
+      expect(envTuning.isPaletteOpen).toBe(false);
     });
 
     it('non esegue nulla e non chiude la palette se non ci sono risultati (0 risultati)', () => {

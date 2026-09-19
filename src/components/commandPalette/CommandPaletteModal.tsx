@@ -174,7 +174,10 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       case 'deep-maintenance-registro':
       case 'deep-maintenance-windows':
       case 'deep-maintenance-tuning':
+      case 'action-new-maintenance':
         return <Wrench size={16} color="var(--accent-cyan)" />;
+      case 'action-new-tuning':
+        return <Sliders size={16} color="var(--accent-amber)" />;
       case 'nav-wiki':
       case 'action-open-wiki':
         return <BookOpen size={16} color="var(--accent-primary)" />;
