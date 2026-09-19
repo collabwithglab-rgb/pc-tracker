@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePCStore } from '../store';
 import { formatDate } from '../utils';
 import {
   Component,
   COMPONENT_CATEGORY_LABELS,
   SaleEvent,
+  MarketplaceTab,
+  VALID_MARKETPLACE_TABS,
 } from '../types';
 import { formatUsageDuration } from '../domain';
 import {
@@ -23,11 +25,15 @@ import {
   BookOpen,
 } from 'lucide-react';
 
+export type { MarketplaceTab };
+
 interface MarketplacePageProps {
   onSelectComponent: (id: string) => void;
   onOpenSaleModal: (component?: Component) => void;
   onOpenListingModal: (component: Component) => void;
   onOpenWikiArticle?: (articleId: string) => void;
+  requestedTab?: MarketplaceTab;
+  onTabChange?: (tab: MarketplaceTab) => void;
 }
 
 export const MarketplacePage: React.FC<MarketplacePageProps> = ({
@@ -35,6 +41,8 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   onOpenSaleModal,
   onOpenListingModal,
   onOpenWikiArticle,
+  requestedTab,
+  onTabChange,
 }) => {
   const {
     components,
@@ -44,7 +52,20 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
     settings,
   } = usePCStore();
 
-  const [activeTab, setActiveTab] = useState<'storage' | 'sold'>('storage');
+  const [activeTab, setActiveTab] = useState<MarketplaceTab>(
+    requestedTab && VALID_MARKETPLACE_TABS.includes(requestedTab) ? requestedTab : 'storage'
+  );
+
+  useEffect(() => {
+    if (requestedTab && VALID_MARKETPLACE_TABS.includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
+
+  const handleTabChange = (tab: MarketplaceTab) => {
+    setActiveTab(tab);
+    onTabChange?.(tab);
+  };
 
   // Filtra componenti per stato calcolato
   const storageComponents = components.filter(
@@ -168,7 +189,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
         <button
           type="button"
           className={`listing-tab-btn ${activeTab === 'storage' ? 'active' : ''}`}
-          onClick={() => setActiveTab('storage')}
+          onClick={() => handleTabChange('storage')}
           style={{ fontSize: '13px', padding: '8px 16px' }}
         >
           <Package size={15} />
@@ -191,7 +212,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
         <button
           type="button"
           className={`listing-tab-btn ${activeTab === 'sold' ? 'active' : ''}`}
-          onClick={() => setActiveTab('sold')}
+          onClick={() => handleTabChange('sold')}
           style={{ fontSize: '13px', padding: '8px 16px' }}
         >
           <DollarSign size={15} />

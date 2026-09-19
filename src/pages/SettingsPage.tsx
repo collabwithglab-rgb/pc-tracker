@@ -48,9 +48,11 @@ import {
   EnvironmentThemePreference,
   TypographyPresetPreference,
   ImportPreview,
+  SettingsTab,
+  VALID_SETTINGS_TABS,
 } from '../types';
 
-export type SettingsTab = 'preferences' | 'appearance' | 'backup' | 'data';
+export type { SettingsTab };
 
 interface AccentPaletteConfig {
   id: AccentColorPreference;
@@ -192,6 +194,8 @@ interface SettingsPageProps {
   onOpenWhatsNew?: () => void;
   updateInfo?: AppUpdateInfo | null;
   onOpenWikiArticle?: (articleId: string) => void;
+  requestedTab?: SettingsTab;
+  onTabChange?: (tab: SettingsTab) => void;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -200,6 +204,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onOpenWhatsNew,
   updateInfo,
   onOpenWikiArticle,
+  requestedTab,
+  onTabChange,
 }) => {
   const {
     settings,
@@ -214,7 +220,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     showNotification,
   } = usePCStore();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('preferences');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    requestedTab && VALID_SETTINGS_TABS.includes(requestedTab) ? requestedTab : 'preferences'
+  );
+
+  useEffect(() => {
+    if (requestedTab && VALID_SETTINGS_TABS.includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
+
+  const handleTabChange = (tab: SettingsTab) => {
+    setActiveTab(tab);
+    onTabChange?.(tab);
+  };
 
   // Form State per "Setup & Identità"
   const [formRigName, setFormRigName] = useState(settings.rigName || '');
@@ -537,7 +556,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           id="tab-preferences"
           aria-selected={activeTab === 'preferences'}
           aria-controls="panel-preferences"
-          onClick={() => setActiveTab('preferences')}
+          onClick={() => handleTabChange('preferences')}
           className={`settings-tab-btn ${activeTab === 'preferences' ? 'is-active' : ''}`}
         >
           <Sliders size={15} />
@@ -550,7 +569,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           id="tab-appearance"
           aria-selected={activeTab === 'appearance'}
           aria-controls="panel-appearance"
-          onClick={() => setActiveTab('appearance')}
+          onClick={() => handleTabChange('appearance')}
           className={`settings-tab-btn ${activeTab === 'appearance' ? 'is-active' : ''}`}
         >
           <Palette size={15} />
@@ -563,7 +582,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           id="tab-backup"
           aria-selected={activeTab === 'backup'}
           aria-controls="panel-backup"
-          onClick={() => setActiveTab('backup')}
+          onClick={() => handleTabChange('backup')}
           className={`settings-tab-btn ${activeTab === 'backup' ? 'is-active' : ''}`}
         >
           <Download size={15} />
@@ -576,7 +595,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           id="tab-data"
           aria-selected={activeTab === 'data'}
           aria-controls="panel-data"
-          onClick={() => setActiveTab('data')}
+          onClick={() => handleTabChange('data')}
           className={`settings-tab-btn ${activeTab === 'data' ? 'is-active' : ''}`}
         >
           <Database size={15} />

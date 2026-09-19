@@ -80,13 +80,20 @@ import {
   BookOpen,
 } from 'lucide-react';
 
-export type MaintenanceTab = 'registro' | 'scan' | 'tools' | 'tuning';
+import { MaintenanceTab, VALID_MAINTENANCE_TABS } from '../types';
+export type { MaintenanceTab };
 
 interface MaintenancePageProps {
   onOpenWikiArticle?: (articleId: string) => void;
+  requestedTab?: MaintenanceTab;
+  onTabChange?: (tab: MaintenanceTab) => void;
 }
 
-export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArticle }) => {
+export const MaintenancePage: React.FC<MaintenancePageProps> = ({
+  onOpenWikiArticle,
+  requestedTab,
+  onTabChange,
+}) => {
   const {
     maintenanceEntries,
     tuningProfiles,
@@ -97,7 +104,20 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArti
     showNotification,
   } = usePCStore();
 
-  const [activeTab, setActiveTab] = useState<MaintenanceTab>('registro');
+  const [activeTab, setActiveTab] = useState<MaintenanceTab>(
+    requestedTab && VALID_MAINTENANCE_TABS.includes(requestedTab) ? requestedTab : 'registro'
+  );
+
+  useEffect(() => {
+    if (requestedTab && VALID_MAINTENANCE_TABS.includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
+
+  const handleTabChange = (tab: MaintenanceTab) => {
+    setActiveTab(tab);
+    onTabChange?.(tab);
+  };
 
   // Modali
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
@@ -370,7 +390,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArti
           role="tab"
           id="tab-registro"
           aria-selected={activeTab === 'registro'}
-          onClick={() => setActiveTab('registro')}
+          onClick={() => handleTabChange('registro')}
           className={`settings-tab-btn ${activeTab === 'registro' ? 'is-active' : ''}`}
         >
           <Wrench size={15} />
@@ -396,7 +416,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArti
           role="tab"
           id="tab-scan"
           aria-selected={activeTab === 'scan'}
-          onClick={() => setActiveTab('scan')}
+          onClick={() => handleTabChange('scan')}
           className={`settings-tab-btn ${activeTab === 'scan' ? 'is-active' : ''}`}
         >
           <Activity size={15} />
@@ -408,7 +428,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArti
           role="tab"
           id="tab-tools"
           aria-selected={activeTab === 'tools'}
-          onClick={() => setActiveTab('tools')}
+          onClick={() => handleTabChange('tools')}
           className={`settings-tab-btn ${activeTab === 'tools' ? 'is-active' : ''}`}
         >
           <Terminal size={15} />
@@ -420,7 +440,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArti
           role="tab"
           id="tab-tuning"
           aria-selected={activeTab === 'tuning'}
-          onClick={() => setActiveTab('tuning')}
+          onClick={() => handleTabChange('tuning')}
           className={`settings-tab-btn ${activeTab === 'tuning' ? 'is-active' : ''}`}
         >
           <Sliders size={15} />
@@ -852,7 +872,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onOpenWikiArti
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
-                          onClick={() => setActiveTab('tools')}
+                          onClick={() => handleTabChange('tools')}
                           style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}
                         >
                           Vai a Strumenti

@@ -9,6 +9,7 @@ import {
   Component,
   ComponentEvent,
   ComponentReceipt,
+  NavSection,
 } from '../types';
 import { canDeleteEvent, findPurchaseEvent } from '../domain';
 import { EventEditModal, ReceiptVaultModal, ListingGeneratorModal } from '../components/components';
@@ -39,9 +40,28 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 
+const getBackLabel = (referrer?: NavSection | null): string => {
+  switch (referrer) {
+    case 'dashboard':
+      return 'Torna alla Dashboard';
+    case 'current-rig':
+      return 'Torna al Mio PC';
+    case 'upgrades':
+      return 'Torna agli Upgrade';
+    case 'marketplace':
+      return 'Torna a Vendite & Annunci';
+    case 'stats':
+      return 'Torna alle Statistiche';
+    case 'archive':
+    default:
+      return "Torna all'Archivio";
+  }
+};
+
 interface ComponentDetailPageProps {
   componentId: string;
   onBack: () => void;
+  referrerSection?: NavSection | null;
   onEdit: (component: Component) => void;
   onDelete: (component: Component) => void;
   onInstall?: (component: Component) => void;
@@ -57,6 +77,7 @@ interface ComponentDetailPageProps {
 export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   componentId,
   onBack,
+  referrerSection,
   onEdit,
   onDelete,
   onInstall,
@@ -174,7 +195,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
       <div className="card" style={{ maxWidth: '480px', margin: '40px auto', textAlign: 'center' }}>
         <p style={{ marginBottom: '16px' }}>Componente non trovato o eliminato.</p>
         <button onClick={onBack} className="btn btn-secondary">
-          <ArrowLeft size={16} /> Torna all'archivio
+          <ArrowLeft size={16} /> {getBackLabel(referrerSection)}
         </button>
       </div>
     );
@@ -242,9 +263,9 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
     <div style={styles.container}>
       {/* Barra superiore di navigazione (Apple-Style Slide-Up) */}
       <div className="animate-slide-up" style={styles.topNav}>
-        <button onClick={onBack} className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: '13px' }}>
+        <button onClick={onBack} className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: '13px' }} id="btn-component-back">
           <ArrowLeft size={15} />
-          <span>Torna all'Archivio</span>
+          <span>{getBackLabel(referrerSection)}</span>
         </button>
 
         <div style={styles.topActions}>

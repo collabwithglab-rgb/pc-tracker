@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sidebar, NavSection } from './Sidebar';
+import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { DashboardPage } from '../../pages/DashboardPage';
 import { CurrentRigPage } from '../../pages/CurrentRigPage';
@@ -33,7 +33,19 @@ import { ImportBackupModal } from '../backup';
 import { RigExportModal } from '../export';
 import { Toast } from '../common/Toast';
 import { WhatsNewModal } from '../common/WhatsNewModal';
-import { Component, ComponentCategory, InstallEvent, Upgrade, ImportPreview } from '../../types';
+import {
+  Component,
+  ComponentCategory,
+  InstallEvent,
+  Upgrade,
+  ImportPreview,
+  NavSection,
+  NavigationTarget,
+  NavigationSubTab,
+  MaintenanceTab,
+  SettingsTab,
+  MarketplaceTab,
+} from '../../types';
 import { isDesktopApp, checkForAppUpdates, pickAndReadBackupFileWithDialog, AppUpdateInfo } from '../../services';
 import { APP_VERSION } from '../../constants/version';
 import { validateImportJSON, executeImport } from '../../storage';
@@ -362,42 +374,68 @@ export const AppShell: React.FC = () => {
     document.documentElement.setAttribute('data-typography', settings.typographyPreset || 'default');
   }, [settings.reducedMotion, settings.uiDensity, settings.accentColor, settings.environmentTheme, settings.typographyPreset]);
 
+  // Routing profondo unificato (NavigationTarget)
+  const [activeSubTab, setActiveSubTab] = useState<NavigationSubTab | null>(null);
+  const [componentReferrerSection, setComponentReferrerSection] = useState<NavSection | null>(null);
   const [wikiTargetArticleId, setWikiTargetArticleId] = useState<string | null>(null);
   const [wikiReferrerSection, setWikiReferrerSection] = useState<NavSection | null>(null);
 
-  const handleSelectSection = (section: NavSection) => {
-    if (section !== 'wiki') {
+  const handleNavigate = (target: NavSection | NavigationTarget) => {
+    const dest: NavigationTarget = typeof target === 'string' ? { section: target } : target;
+
+    // Reset contestuale se usciamo da wiki
+    if (dest.section !== 'wiki') {
       setWikiTargetArticleId(null);
       setWikiReferrerSection(null);
     }
-    setCurrentSection(section);
+
+    // Navigazione diretta a ComponentDetail
+    if (dest.componentId) {
+      setSelectedComponentId(dest.componentId);
+      setComponentReferrerSection(dest.referrer || (currentSection !== 'archive' ? currentSection : null));
+      setCurrentSection('archive');
+      setActiveSubTab(null);
+      return;
+    }
+
     setSelectedComponentId(null);
+    setComponentReferrerSection(null);
+    setCurrentSection(dest.section);
+    setActiveSubTab(dest.subTab || null);
+
+    if (dest.section === 'wiki') {
+      if (dest.referrer) setWikiReferrerSection(dest.referrer);
+      if (dest.articleId) setWikiTargetArticleId(dest.articleId);
+    }
   };
 
   const handleOpenWikiArticle = (articleId?: string) => {
-    if (currentSection !== 'wiki') {
-      setWikiReferrerSection(currentSection);
-    }
-    setWikiTargetArticleId(articleId || null);
-    setCurrentSection('wiki');
-    setSelectedComponentId(null);
+    handleNavigate({
+      section: 'wiki',
+      articleId: articleId || undefined,
+      referrer: currentSection !== 'wiki' ? currentSection : undefined,
+    });
   };
 
   const handleBackToReferrer = () => {
     if (wikiReferrerSection) {
-      setCurrentSection(wikiReferrerSection);
-      setWikiReferrerSection(null);
-      setWikiTargetArticleId(null);
+      handleNavigate(wikiReferrerSection);
     }
   };
 
-  const handleSelectComponent = (id: string) => {
+  const handleSelectComponent = (id: string, referrer?: NavSection) => {
     setSelectedComponentId(id);
+    setComponentReferrerSection(referrer || (currentSection !== 'archive' ? currentSection : null));
     setCurrentSection('archive');
+    setActiveSubTab(null);
   };
 
-  const handleBackToArchive = () => {
+  const handleBackFromComponentDetail = () => {
+    const targetSection = componentReferrerSection || 'archive';
     setSelectedComponentId(null);
+    setComponentReferrerSection(null);
+    setCurrentSection(targetSection);
+    setActiveSubTab(null);
   };
 
   const handleOpenInstallModal = (category?: ComponentCategory, component?: Component) => {
@@ -457,7 +495,8 @@ export const AppShell: React.FC = () => {
       return (
         <ComponentDetailPage
           componentId={selectedComponentId}
-          onBack={handleBackToArchive}
+          onBack={handleBackFromComponentDetail}
+          referrerSection={componentReferrerSection}
           onEdit={(comp) => setComponentToEdit(comp)}
           onDelete={(comp) => setComponentToDelete(comp)}
           onInstall={(comp) => handleOpenInstallModal(undefined, comp)}
@@ -476,7 +515,7 @@ export const AppShell: React.FC = () => {
       case 'dashboard':
         return (
           <DashboardPage
-            onNavigate={handleSelectSection}
+            onNavigate={handleNavigate}
             onOpenCreateModal={() => setIsCreateModalOpen(true)}
             onOpenMovementSelector={handleOpenMovementSelector}
             onSelectComponent={handleSelectComponent}
@@ -525,6 +564,8 @@ export const AppShell: React.FC = () => {
             onOpenSaleModal={(comp) => handleOpenSaleModal(comp)}
             onOpenListingModal={(comp) => setListingTargetComponent(comp)}
             onOpenWikiArticle={handleOpenWikiArticle}
+            requestedTab={activeSubTab as MarketplaceTab | undefined}
+            onTabChange={(tab) => setActiveSubTab(tab)}
           />
         );
       case 'stats':
@@ -535,14 +576,20 @@ export const AppShell: React.FC = () => {
           />
         );
       case 'maintenance':
-        return <MaintenancePage onOpenWikiArticle={handleOpenWikiArticle} />;
+        return (
+          <MaintenancePage
+            onOpenWikiArticle={handleOpenWikiArticle}
+            requestedTab={activeSubTab as MaintenanceTab | undefined}
+            onTabChange={(tab) => setActiveSubTab(tab)}
+          />
+        );
       case 'wiki':
         return (
           <WikiPage
             initialArticleId={wikiTargetArticleId}
             referrerSection={wikiReferrerSection}
             onBackToReferrer={handleBackToReferrer}
-            onNavigate={handleSelectSection}
+            onNavigate={handleNavigate}
             onOpenMovementSelector={handleOpenMovementSelector}
             onOpenQuickSetup={() => setIsQuickSetupOpen(true)}
           />
@@ -555,6 +602,8 @@ export const AppShell: React.FC = () => {
             onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
             updateInfo={updateInfo}
             onOpenWikiArticle={handleOpenWikiArticle}
+            requestedTab={activeSubTab as SettingsTab | undefined}
+            onTabChange={(tab) => setActiveSubTab(tab)}
           />
         );
       default:
@@ -576,7 +625,7 @@ export const AppShell: React.FC = () => {
     <div style={styles.layout}>
       <Sidebar
         currentSection={currentSection}
-        onSelectSection={handleSelectSection}
+        onSelectSection={handleNavigate}
         hasUpdateAvailable={updateInfo.available}
         onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
       />
@@ -597,8 +646,7 @@ export const AppShell: React.FC = () => {
         onClose={() => setIsMovementSelectorOpen(false)}
         onSelectUpgrade={handleSelectUpgradeFromSelector}
         onSuccessPurchase={(created) => {
-          setSelectedComponentId(created.id);
-          setCurrentSection('archive');
+          handleSelectComponent(created.id, currentSection);
         }}
         onOpenWikiGuide={handleOpenWikiArticle}
       />
@@ -648,8 +696,7 @@ export const AppShell: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={(created) => {
-          setSelectedComponentId(created.id);
-          setCurrentSection('archive');
+          handleSelectComponent(created.id, currentSection);
         }}
       />
 
