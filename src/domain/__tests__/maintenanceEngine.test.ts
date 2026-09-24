@@ -221,4 +221,18 @@ describe('maintenanceEngine', () => {
     expect(summary.lastCleaning.entry?.id).toBe('maint-2');
     expect(summary.upcomingCount).toBe(3); // All 3 entries have nextDueDate scheduled
   });
+
+  it('gestisce in modo resiliente dataset vuoti senza errori o valori indefiniti', () => {
+    const emptySummary = computeMaintenanceConditionSummary([], []);
+    expect(emptySummary.totalCost).toBe(0);
+    expect(emptySummary.totalEntriesCount).toBe(0);
+    expect(emptySummary.upcomingCount).toBe(0);
+    expect(emptySummary.lastCleaning.entry).toBeUndefined();
+    expect(emptySummary.lastCleaning.daysElapsed).toBeNull();
+    expect(emptySummary.lastCleaning.condition.tier).toBe('none');
+    expect(emptySummary.lastThermalPaste.entry).toBeUndefined();
+    expect(emptySummary.lastThermalPaste.daysElapsed).toBeNull();
+    expect(emptySummary.lastThermalPaste.condition.tier).toBe('none');
+    expect(emptySummary.earliestUpcoming).toBeUndefined();
+  });
 });
