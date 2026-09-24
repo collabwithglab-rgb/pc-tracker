@@ -16,3 +16,4 @@ export * from './windowsToolsEngine';
 export * from './commandRegistry';
 export * from './rigComparisonEngine';
 export * from './healthEngine';
+export * from './optimizationEngine';
