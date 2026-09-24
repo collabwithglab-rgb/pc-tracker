@@ -64,10 +64,12 @@ describe('Navigation Foundation Suite (Session 5 - Phase 1)', () => {
     });
 
     it('valida i tab consentiti rispetto alle whitelist a runtime', () => {
+      expect(VALID_MAINTENANCE_TABS).toContain('panoramica');
+      expect(VALID_MAINTENANCE_TABS).toContain('live');
       expect(VALID_MAINTENANCE_TABS).toContain('registro');
       expect(VALID_MAINTENANCE_TABS).toContain('windows');
       expect(VALID_MAINTENANCE_TABS).toContain('tuning');
-      expect(VALID_MAINTENANCE_TABS).toHaveLength(3);
+      expect(VALID_MAINTENANCE_TABS).toHaveLength(5);
 
       expect(VALID_SETTINGS_TABS).toContain('preferences');
       expect(VALID_SETTINGS_TABS).toContain('appearance');
@@ -79,6 +81,10 @@ describe('Navigation Foundation Suite (Session 5 - Phase 1)', () => {
     });
 
     it('normalizza correttamente alias legacy scan e tools solo al bordo', () => {
+      expect(normalizeMaintenanceTab('panoramica')).toBe('panoramica');
+      expect(normalizeMaintenanceTab('overview')).toBe('panoramica');
+      expect(normalizeMaintenanceTab('live')).toBe('live');
+      expect(normalizeMaintenanceTab('monitoring')).toBe('live');
       expect(normalizeMaintenanceTab('scan')).toBe('windows');
       expect(normalizeMaintenanceTab('tools')).toBe('windows');
       expect(normalizeMaintenanceTab('windows')).toBe('windows');

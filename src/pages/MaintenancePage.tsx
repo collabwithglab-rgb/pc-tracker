@@ -20,6 +20,8 @@ import {
   SecurityAuditData,
   DiskSmartHealth,
   WinGetUpdateItem,
+  SystemFactsInput,
+  MonitoringSnapshot,
 } from '../types';
 import {
   formatDate as formatWithSettings,
@@ -61,12 +63,15 @@ import {
   rebootToUefi,
   checkWinGetUpdates,
 } from '../services/windowsToolsService';
+import { getMonitoringSnapshot } from '../services/monitoringService';
 import {
   MaintenanceEntryModal,
   TuningProfileModal,
   RecycleBinConfirmModal,
   ToolResultModal,
   BiosParameterCardModal,
+  CareOverviewTab,
+  CareLiveTab,
 } from '../components/maintenance';
 import { Modal } from '../components/common/Modal';
 import {
@@ -196,17 +201,19 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [isUefiConfirmModalOpen, setIsUefiConfirmModalOpen] = useState(false);
   const [isRestorePointModalOpen, setIsRestorePointModalOpen] = useState(false);
   const [restorePointDesc, setRestorePointDesc] = useState('PC Tracker Safety Point');
+  const [monitoringSnapshot, setMonitoringSnapshot] = useState<MonitoringSnapshot | null>(null);
 
-  // Caricamento dati iniziali per la tab Strumenti
+  // Caricamento dati iniziali per la tab Strumenti e Panoramica
   const loadWindowsToolsData = async () => {
     try {
-      const [vols, trim, bin, hiber, smart, sec] = await Promise.all([
+      const [vols, trim, bin, hiber, smart, sec, snap] = await Promise.all([
         scanStorageVolumes(),
         queryTrimConfiguration(),
         queryRecycleBin(),
         getHibernateStatus(),
         getStorageSmartHealth(),
         querySecurityAudit(),
+        getMonitoringSnapshot(),
       ]);
 
       if (vols.data && vols.data.length > 0) {
@@ -219,16 +226,39 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       if (hiber.data) setHibernate(hiber.data);
       if (smart.data) setSmartHealthList(smart.data);
       if (sec.data) setSecurityAudit(sec.data);
+      if (snap) setMonitoringSnapshot(snap);
     } catch (err) {
       console.warn('Errore caricamento dati strumenti Windows:', err);
     }
   };
 
   useEffect(() => {
-    if (activeTab === 'windows') {
+    if (activeTab === 'windows' || activeTab === 'panoramica') {
       loadWindowsToolsData();
     }
   }, [activeTab]);
+
+  const careFacts: SystemFactsInput = useMemo(() => {
+    return {
+      monitoring: monitoringSnapshot,
+      drives: volumes,
+      smartDisks: smartHealthList,
+      securityAudit: securityAudit,
+      systemFilesStatus: scanResult?.systemFilesStatus || 'not_tested',
+      maintenanceEntries: maintenanceEntries,
+      tuningProfiles: tuningProfiles,
+      currentRigComponents: components,
+    };
+  }, [
+    monitoringSnapshot,
+    volumes,
+    smartHealthList,
+    securityAudit,
+    scanResult,
+    maintenanceEntries,
+    tuningProfiles,
+    components,
+  ]);
 
   // Esecuzione Scan Now
   const handleRunScanNow = async () => {
@@ -555,6 +585,30 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         <button
           type="button"
           role="tab"
+          id="tab-panoramica"
+          aria-selected={activeTab === 'panoramica'}
+          onClick={() => handleTabChange('panoramica')}
+          className={`settings-tab-btn ${activeTab === 'panoramica' ? 'is-active' : ''}`}
+        >
+          <ShieldCheck size={15} />
+          <span>Panoramica & Salute</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          id="tab-live"
+          aria-selected={activeTab === 'live'}
+          onClick={() => handleTabChange('live')}
+          className={`settings-tab-btn ${activeTab === 'live' ? 'is-active' : ''}`}
+        >
+          <Activity size={15} />
+          <span>Monitoraggio Live</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
           id="tab-registro"
           aria-selected={activeTab === 'registro'}
           onClick={() => handleTabChange('registro')}
@@ -629,6 +683,26 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           </button>
         )}
       </nav>
+
+      {/* ========================================================================= */}
+      {/* TAB 0: PANORAMICA & SALUTE */}
+      {/* ========================================================================= */}
+      {activeTab === 'panoramica' && (
+        <CareOverviewTab
+          facts={careFacts}
+          onRefreshFacts={loadWindowsToolsData}
+          onSwitchTab={(tab) => handleTabChange(tab)}
+          onOpenWikiArticle={onOpenWikiArticle}
+          onShowNotification={showNotification}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 0.5: MONITORAGGIO LIVE */}
+      {/* ========================================================================= */}
+      {activeTab === 'live' && (
+        <CareLiveTab />
+      )}
 
       {/* ========================================================================= */}
       {/* TAB 1: REGISTRO MANUTENZIONE */}

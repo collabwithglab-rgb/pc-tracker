@@ -4840,3 +4840,230 @@
   }
 }
 
+/* ==========================================================================
+   PC CARE CENTER & LIVE MONITORING (TRANCHE 4)
+   ========================================================================== */
+
+/* Hero Health Score Ring */
+.care-score-ring {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 3px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+  position: relative;
+  transition: all var(--transition-normal);
+}
+
+.care-score-ring.score-healthy {
+  border-color: var(--accent-emerald);
+  box-shadow: 0 0 16px -2px rgba(16, 185, 129, 0.25);
+  color: var(--accent-emerald);
+}
+
+.care-score-ring.score-attention {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 16px -2px rgba(56, 189, 248, 0.25);
+  color: var(--accent-cyan);
+}
+
+.care-score-ring.score-warning {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 16px -2px rgba(245, 158, 11, 0.25);
+  color: var(--accent-amber);
+}
+
+.care-score-ring.score-critical {
+  border-color: var(--accent-ruby);
+  box-shadow: 0 0 16px -2px rgba(244, 63, 94, 0.3);
+  color: var(--accent-ruby);
+}
+
+.care-score-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.care-score-max {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1;
+  margin-top: 2px;
+}
+
+/* Care Recommendations Cards */
+.care-rec-card {
+  border-left: 3px solid var(--accent-primary);
+  transition: transform var(--transition-normal), border-color var(--transition-normal), background-color var(--transition-normal);
+}
+
+.care-rec-card:hover {
+  border-left-color: var(--accent-highlight);
+  background-color: var(--bg-surface-hover);
+}
+
+.care-category-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+/* Action Availability Badges */
+.care-avail-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.care-avail-badge.avail-auto {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.care-avail-badge.avail-uac {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.care-avail-badge.avail-manual {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-amber);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.care-avail-badge.avail-ext {
+  background: rgba(129, 140, 248, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(129, 140, 248, 0.25);
+}
+
+/* Live Pulse Indicator */
+.live-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.live-pulse-dot.pulse-active {
+  background-color: var(--accent-emerald);
+  box-shadow: 0 0 8px var(--accent-emerald);
+  animation: live-pulse-glow 1.8s infinite ease-in-out;
+}
+
+.live-pulse-dot.pulse-smart-paused {
+  background-color: var(--accent-amber);
+  box-shadow: 0 0 6px var(--accent-amber);
+}
+
+.live-pulse-dot.pulse-paused {
+  background-color: var(--text-muted);
+}
+
+@keyframes live-pulse-glow {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* Progress Track & Fill */
+.care-progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-surface-elevated);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.care-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-sm);
+  transition: width 0.4s ease-out, background-color 0.4s ease-out;
+}
+
+/* Telemetry Card Details */
+.care-telemetry-card {
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.care-telemetry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.care-telemetry-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.care-meta-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.care-meta-val {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.care-metric-box {
+  background: var(--bg-surface-elevated);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.care-metric-val {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+
+.temp-good {
+  color: var(--accent-emerald);
+}
+
+.temp-warning {
+  color: var(--accent-amber);
+}
+
+.temp-critical {
+  color: var(--accent-ruby);
+}
+

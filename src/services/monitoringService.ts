@@ -5,6 +5,7 @@
  * con fallback esplicito e non simulato in ambiente Web / browser.
  */
 
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { isDesktopApp } from './desktopService';
 import {
   MonitoringSnapshot,
@@ -158,5 +159,213 @@ export function extractSnapshotVitals(snapshot: MonitoringSnapshot): {
     memoryUtilization,
     primaryGpu,
     fixedStorageCount: snapshot.storage.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// CIRCULAR BUFFER (30 CAMPIONI VOLATILI IN MEMORIA)
+// ---------------------------------------------------------------------------
+
+const MAX_BUFFER_SIZE = 30;
+const snapshotBuffer: MonitoringSnapshot[] = [];
+
+/**
+ * Restituisce una copia immutabile dei campioni memorizzati nel buffer volatile.
+ */
+export function getSnapshotBuffer(): readonly MonitoringSnapshot[] {
+  return [...snapshotBuffer];
+}
+
+/**
+ * Azzera il buffer volatile (utile per test o cambio sessione).
+ */
+export function clearSnapshotBuffer(): void {
+  snapshotBuffer.length = 0;
+}
+
+/**
+ * Inserisce un nuovo snapshot nel buffer circolare mantenendo la dimensione massima a 30.
+ */
+export function pushToSnapshotBuffer(snapshot: MonitoringSnapshot): void {
+  if (snapshotBuffer.length >= MAX_BUFFER_SIZE) {
+    snapshotBuffer.shift();
+  }
+  snapshotBuffer.push(snapshot);
+}
+
+// ---------------------------------------------------------------------------
+// LIVE POLLING SERVICE CON SMART PAUSE (ON BLUR / HIDDEN)
+// ---------------------------------------------------------------------------
+
+export type LiveMonitoringCallback = (
+  snapshot: MonitoringSnapshot,
+  meta: { isSmartPaused: boolean; bufferLength: number }
+) => void;
+
+export interface LiveMonitoringOptions {
+  intervalMs?: number;
+  enableSmartPause?: boolean;
+}
+
+/**
+ * Avvia il ciclo di polling live della telemetria hardware.
+ * Integra la logica di Smart Pause: quando la finestra dell'applicazione
+ * è in background o minimizzata, il polling si arresta azzerando l'overhead CPU.
+ */
+export function startLiveMonitoring(
+  callback: LiveMonitoringCallback,
+  options?: LiveMonitoringOptions
+): () => void {
+  const intervalMs = options?.intervalMs ?? 2000;
+  const enableSmartPause = options?.enableSmartPause ?? true;
+
+  let timerId: ReturnType<typeof setInterval> | null = null;
+  let isWindowFocused = typeof document !== 'undefined' ? !document.hidden : true;
+  let isSmartPaused = false;
+  let isActive = true;
+
+  const poll = async () => {
+    if (!isActive) return;
+
+    if (enableSmartPause && !isWindowFocused) {
+      if (!isSmartPaused) {
+        isSmartPaused = true;
+        const lastSnapshot = snapshotBuffer[snapshotBuffer.length - 1] || UNSUPPORTED_WEB_SNAPSHOT;
+        callback(lastSnapshot, { isSmartPaused: true, bufferLength: snapshotBuffer.length });
+      }
+      return;
+    }
+
+    isSmartPaused = false;
+    const snapshot = await getMonitoringSnapshot();
+    if (!isActive) return;
+
+    pushToSnapshotBuffer(snapshot);
+    callback(snapshot, { isSmartPaused: false, bufferLength: snapshotBuffer.length });
+  };
+
+  const handleVisibilityChange = () => {
+    if (typeof document === 'undefined') return;
+    const isVisible = !document.hidden;
+    isWindowFocused = isVisible;
+    if (isVisible && isActive) {
+      poll();
+    }
+  };
+
+  const handleFocus = () => {
+    isWindowFocused = true;
+    if (isActive) poll();
+  };
+
+  const handleBlur = () => {
+    isWindowFocused = false;
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }
+
+  // Esecuzione immediata primo tick
+  poll();
+  timerId = setInterval(poll, intervalMs);
+
+  return () => {
+    isActive = false;
+    if (timerId !== null) clearInterval(timerId);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// REACT HOOK: useLiveMonitoring
+// ---------------------------------------------------------------------------
+
+export interface UseLiveMonitoringResult {
+  currentSnapshot: MonitoringSnapshot | null;
+  snapshots: readonly MonitoringSnapshot[];
+  isSmartPaused: boolean;
+  isSupported: boolean;
+  isPolling: boolean;
+  pause: () => void;
+  resume: () => void;
+  refreshNow: () => Promise<void>;
+}
+
+export function useLiveMonitoring(
+  options?: { enabled?: boolean; intervalMs?: number }
+): UseLiveMonitoringResult {
+  const enabled = options?.enabled ?? true;
+  const intervalMs = options?.intervalMs ?? 2000;
+
+  const [currentSnapshot, setCurrentSnapshot] = useState<MonitoringSnapshot | null>(null);
+  const [snapshots, setSnapshots] = useState<readonly MonitoringSnapshot[]>([]);
+  const [isSmartPaused, setIsSmartPaused] = useState<boolean>(false);
+  const [isPausedManually, setIsPausedManually] = useState<boolean>(false);
+
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  const refreshNow = useCallback(async () => {
+    const snapshot = await getMonitoringSnapshot();
+    pushToSnapshotBuffer(snapshot);
+    setCurrentSnapshot(snapshot);
+    setSnapshots(getSnapshotBuffer());
+  }, []);
+
+  const pause = useCallback(() => {
+    setIsPausedManually(true);
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
+  }, []);
+
+  const resume = useCallback(() => {
+    setIsPausedManually(false);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled || isPausedManually) {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+      return;
+    }
+
+    const stop = startLiveMonitoring(
+      (snapshot, meta) => {
+        setCurrentSnapshot(snapshot);
+        setIsSmartPaused(meta.isSmartPaused);
+        setSnapshots(getSnapshotBuffer());
+      },
+      { intervalMs, enableSmartPause: true }
+    );
+
+    cleanupRef.current = stop;
+
+    return () => {
+      stop();
+      cleanupRef.current = null;
+    };
+  }, [enabled, isPausedManually, intervalMs]);
+
+  const isSupported = currentSnapshot ? currentSnapshot.status !== 'unsupported' : true;
+
+  return {
+    currentSnapshot,
+    snapshots,
+    isSmartPaused,
+    isSupported,
+    isPolling: enabled && !isPausedManually && !isSmartPaused,
+    pause,
+    resume,
+    refreshNow,
   };
 }

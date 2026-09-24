@@ -285,4 +285,65 @@ describe('monitoringService', () => {
       }
     });
   });
+
+  describe('Circular Buffer Volatile (Max 30 Campioni)', () => {
+    it('mantiene un massimo di 30 campioni ed applica eliminazione FIFO', async () => {
+      const {
+        getSnapshotBuffer,
+        clearSnapshotBuffer,
+        pushToSnapshotBuffer,
+      } = await import('../monitoringService');
+
+      clearSnapshotBuffer();
+      expect(getSnapshotBuffer()).toHaveLength(0);
+
+      // Inserisce 35 snapshot numerati
+      for (let i = 1; i <= 35; i++) {
+        pushToSnapshotBuffer({
+          ...UNSUPPORTED_WEB_SNAPSHOT,
+          timestamp: `2026-09-24T12:00:${i < 10 ? '0' + i : i}.000Z`,
+        });
+      }
+
+      const buffer = getSnapshotBuffer();
+      expect(buffer).toHaveLength(30);
+      // Il primo elemento deve essere il 6° inserito (timestamp che termina con :06)
+      expect(buffer[0].timestamp).toContain(':06.000Z');
+      // L'ultimo elemento deve essere il 35° (timestamp :35)
+      expect(buffer[29].timestamp).toContain(':35.000Z');
+
+      clearSnapshotBuffer();
+      expect(getSnapshotBuffer()).toHaveLength(0);
+    });
+  });
+
+  describe('Live Polling & Smart Pause', () => {
+    it('avvia il polling, invoca la callback e gestisce la cancellazione del timer', async () => {
+      const { startLiveMonitoring } = await import('../monitoringService');
+
+      let callCount = 0;
+      let lastPausedState = false;
+
+      const stop = startLiveMonitoring(
+        (_snap, meta) => {
+          callCount++;
+          lastPausedState = meta.isSmartPaused;
+        },
+        { intervalMs: 50, enableSmartPause: false }
+      );
+
+      // Attende il completamento del primo tick asincrono
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(callCount).toBeGreaterThanOrEqual(1);
+      expect(lastPausedState).toBe(false);
+
+      // Ferma il polling
+      stop();
+      const countAfterStop = callCount;
+
+      // Attende per verificare che non ci siano ulteriori chiamate
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      expect(callCount).toBe(countAfterStop);
+    });
+  });
 });
