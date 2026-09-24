@@ -15,3 +15,4 @@ export * from './navigation';
 export * from './command';
 export * from './rigComparison';
 export * from './monitoring';
+export * from './health';

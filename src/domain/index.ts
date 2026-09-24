@@ -15,3 +15,4 @@ export * from './tuningEngine';
 export * from './windowsToolsEngine';
 export * from './commandRegistry';
 export * from './rigComparisonEngine';
+export * from './healthEngine';
