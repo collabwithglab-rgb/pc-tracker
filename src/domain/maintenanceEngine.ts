@@ -1,5 +1,6 @@
-import { MaintenanceEntry, MaintenanceType, MAINTENANCE_TYPE_LABELS } from '../types';
+import { MaintenanceEntry, MaintenanceType, MAINTENANCE_TYPE_LABELS, MaintenanceConditionResult } from '../types';
 import { isValidISODateString } from './validators';
+import { getLocalDateISO } from './lifecycleEngine';
 
 /**
  * Ordina gli interventi di manutenzione cronologicamente:
@@ -205,3 +206,255 @@ export function getMaintenanceTypeBadgeClass(type: MaintenanceType): string {
       return 'badge-gray';
   }
 }
+
+/**
+ * Calcola i giorni trascorsi tra una data passata e una data di riferimento (default: oggi locale).
+ * Restituisce null se la data passata non è fornita o non è valida.
+ * Non restituisce mai valori negativi per date passate.
+ */
+export function computeDaysElapsed(
+  dateStr?: string,
+  referenceDate: string = getLocalDateISO()
+): number | null {
+  if (!dateStr || !isValidISODateString(dateStr)) return null;
+  const [y1, m1, d1] = dateStr.split('-').map(Number);
+  const [y2, m2, d2] = referenceDate.split('-').map(Number);
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  const diffDays = Math.floor((t2 - t1) / (1000 * 60 * 60 * 24));
+  return Math.max(0, diffDays);
+}
+
+/**
+ * Calcola i giorni rimanenti fino a una data futura di scadenza/promemoria.
+ * Valori negativi indicano che la scadenza è stata superata (overdue).
+ */
+export function computeDaysRemaining(
+  targetDateStr?: string,
+  referenceDate: string = getLocalDateISO()
+): number | null {
+  if (!targetDateStr || !isValidISODateString(targetDateStr)) return null;
+  const [y1, m1, d1] = referenceDate.split('-').map(Number);
+  const [y2, m2, d2] = targetDateStr.split('-').map(Number);
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.floor((t2 - t1) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Valuta oggettivamente la condizione della pasta termica in base al tempo trascorso dall'ultimo intervento.
+ *
+ * Soglie oggettive documentate:
+ * - < 180 giorni (< 6 mesi): Fresca (badge-emerald)
+ * - 180-365 giorni (6-12 mesi): Buona (badge-cyan)
+ * - 366-730 giorni (1-2 anni): Da monitorare (badge-amber)
+ * - > 730 giorni (> 2 anni): Sostituzione consigliata (badge-ruby)
+ * - Nessuna registrazione: Non registrata (badge-gray)
+ */
+export function evaluateThermalPasteCondition(
+  lastDate?: string,
+  referenceDate: string = getLocalDateISO()
+): MaintenanceConditionResult {
+  const days = computeDaysElapsed(lastDate, referenceDate);
+  if (days === null) {
+    return {
+      tier: 'none',
+      label: 'Non registrata',
+      badgeClass: 'badge-gray',
+      description: 'Nessun cambio pasta termica registrato',
+      daysElapsed: null,
+    };
+  }
+
+  if (days < 180) {
+    return {
+      tier: 'optimal',
+      label: 'Fresca',
+      badgeClass: 'badge-emerald',
+      description: 'Applicazione recente (< 6 mesi)',
+      daysElapsed: days,
+    };
+  }
+
+  if (days <= 365) {
+    return {
+      tier: 'good',
+      label: 'Buona',
+      badgeClass: 'badge-cyan',
+      description: 'Applicazione valida (entro 1 anno)',
+      daysElapsed: days,
+    };
+  }
+
+  if (days <= 730) {
+    return {
+      tier: 'monitor',
+      label: 'Da monitorare',
+      badgeClass: 'badge-amber',
+      description: 'Oltre 1 anno dall’applicazione',
+      daysElapsed: days,
+    };
+  }
+
+  return {
+    tier: 'due',
+    label: 'Sostituzione consigliata',
+    badgeClass: 'badge-ruby',
+    description: 'Oltre 2 anni dall’applicazione',
+    daysElapsed: days,
+  };
+}
+
+/**
+ * Valuta oggettivamente lo stato di pulizia (filtri, ventole, case) in base al tempo trascorso.
+ *
+ * Soglie oggettive documentate:
+ * - < 60 giorni (< 2 mesi): Fresca (badge-emerald)
+ * - 60-120 giorni (2-4 mesi): Buona (badge-cyan)
+ * - > 120 giorni (> 4 mesi): Da monitorare (badge-amber)
+ * - Nessuna registrazione: Non registrata (badge-gray)
+ */
+export function evaluateCleaningCondition(
+  lastDate?: string,
+  referenceDate: string = getLocalDateISO()
+): MaintenanceConditionResult {
+  const days = computeDaysElapsed(lastDate, referenceDate);
+  if (days === null) {
+    return {
+      tier: 'none',
+      label: 'Non registrata',
+      badgeClass: 'badge-gray',
+      description: 'Nessuna pulizia registrata',
+      daysElapsed: null,
+    };
+  }
+
+  if (days < 60) {
+    return {
+      tier: 'optimal',
+      label: 'Fresca',
+      badgeClass: 'badge-emerald',
+      description: 'Pulizia recente (< 2 mesi)',
+      daysElapsed: days,
+    };
+  }
+
+  if (days <= 120) {
+    return {
+      tier: 'good',
+      label: 'Buona',
+      badgeClass: 'badge-cyan',
+      description: 'Entro 4 mesi dall’ultima pulizia',
+      daysElapsed: days,
+    };
+  }
+
+  return {
+    tier: 'monitor',
+    label: 'Da monitorare',
+    badgeClass: 'badge-amber',
+    description: 'Oltre 4 mesi dall’ultima pulizia',
+    daysElapsed: days,
+  };
+}
+
+/**
+ * Restituisce l'ultimo intervento registrato di pulizia (generale, filtri o ventole).
+ */
+export function getLatestCleaningService(
+  entries: MaintenanceEntry[]
+): MaintenanceEntry | undefined {
+  const cleanings = entries.filter((e) =>
+    e.type === 'cleaning' || e.type === 'filter_cleaning' || e.type === 'fan_cleaning'
+  );
+  const sorted = sortMaintenanceEntriesChronologically(cleanings, 'desc');
+  return sorted[0];
+}
+
+/**
+ * Restituisce il promemoria / intervento programmato più imminente.
+ */
+export function getEarliestUpcomingMaintenance(
+  entries: MaintenanceEntry[],
+  referenceDate: string = getLocalDateISO()
+): { entry: MaintenanceEntry; daysRemaining: number; isOverdue: boolean } | undefined {
+  const upcoming = computeUpcomingMaintenance(entries, referenceDate);
+  if (upcoming.length === 0) return undefined;
+  const earliest = upcoming[0];
+  const days = computeDaysRemaining(earliest.nextDueDate, referenceDate) ?? 0;
+  return {
+    entry: earliest,
+    daysRemaining: days,
+    isOverdue: days < 0,
+  };
+}
+
+export interface MaintenanceConditionSummary {
+  lastCleaning: {
+    entry?: MaintenanceEntry;
+    daysElapsed: number | null;
+    condition: MaintenanceConditionResult;
+  };
+  lastThermalPaste: {
+    entry?: MaintenanceEntry;
+    daysElapsed: number | null;
+    condition: MaintenanceConditionResult;
+    productUsed?: string;
+    componentName?: string;
+  };
+  earliestUpcoming?: {
+    entry: MaintenanceEntry;
+    daysRemaining: number;
+    isOverdue: boolean;
+  };
+  upcomingCount: number;
+  totalCost: number;
+  totalEntriesCount: number;
+}
+
+/**
+ * Calcola il riassunto completo dello stato di condizione attuale del PC,
+ * aggregando pulizia, pasta termica, scadenze imminenti e spesa complessiva.
+ */
+export function computeMaintenanceConditionSummary(
+  entries: MaintenanceEntry[],
+  components?: { id: string; name: string }[],
+  referenceDate: string = getLocalDateISO()
+): MaintenanceConditionSummary {
+  const lastClean = getLatestCleaningService(entries);
+  const cleanDays = computeDaysElapsed(lastClean?.date, referenceDate);
+  const cleanCondition = evaluateCleaningCondition(lastClean?.date, referenceDate);
+
+  const lastPaste = getLatestThermalPasteService(entries);
+  const pasteDays = computeDaysElapsed(lastPaste?.date, referenceDate);
+  const pasteCondition = evaluateThermalPasteCondition(lastPaste?.date, referenceDate);
+
+  const pasteComp =
+    components && lastPaste?.componentIds && lastPaste.componentIds.length > 0
+      ? components.find((c) => c.id === lastPaste.componentIds![0])
+      : undefined;
+
+  const upcomingList = computeUpcomingMaintenance(entries, referenceDate);
+  const earliestUpcoming = getEarliestUpcomingMaintenance(entries, referenceDate);
+  const totalCost = computeTotalMaintenanceCost(entries);
+
+  return {
+    lastCleaning: {
+      entry: lastClean,
+      daysElapsed: cleanDays,
+      condition: cleanCondition,
+    },
+    lastThermalPaste: {
+      entry: lastPaste,
+      daysElapsed: pasteDays,
+      condition: pasteCondition,
+      productUsed: lastPaste?.productUsed,
+      componentName: pasteComp?.name,
+    },
+    earliestUpcoming,
+    upcomingCount: upcomingList.length,
+    totalCost,
+    totalEntriesCount: entries.length,
+  };
+}
+

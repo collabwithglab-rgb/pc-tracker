@@ -28,7 +28,7 @@ import {
   getTuningStabilityBadgeClass,
 } from '../domain';
 import { EventEditModal, ReceiptVaultModal, ListingGeneratorModal } from '../components/components';
-import { MaintenanceEntryModal, TuningProfileModal } from '../components/maintenance';
+import { MaintenanceEntryModal, TuningProfileModal, BiosParameterCardModal } from '../components/maintenance';
 import { HardwareIconBadge } from '../components/common/ComponentIcon';
 import {
   ArrowLeft,
@@ -129,6 +129,9 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   const [entryToEdit, setEntryToEdit] = useState<MaintenanceEntry | null>(null);
   const [isTuningModalOpen, setIsTuningModalOpen] = useState(false);
   const [profileToEdit, setProfileToEdit] = useState<TuningProfile | null>(null);
+
+  const [isBiosCardModalOpen, setIsBiosCardModalOpen] = useState(false);
+  const [biosCardProfile, setBiosCardProfile] = useState<TuningProfile | null>(null);
 
   // Stato e caricamento asincrono per la Cassaforte Ricevute (Zero-Heap RAM)
   const [receipts, setReceipts] = useState<ComponentReceipt[]>([]);
@@ -1154,11 +1157,12 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                 return (
                   <div
                     key={p.id}
+                    className={p.stability === 'daily' ? 'tuning-card-daily' : undefined}
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      background: 'var(--bg-subtle, rgba(255, 255, 255, 0.02))',
-                      border: '1px solid var(--border-subtle)',
+                      background: p.stability === 'daily' ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-subtle, rgba(255, 255, 255, 0.02))',
+                      border: p.stability === 'daily' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--border-subtle)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '6px',
@@ -1169,11 +1173,33 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                         <span className={`badge ${stabBadge}`} style={{ fontSize: '10.5px', padding: '1px 6px' }}>
                           {stabLabel}
                         </span>
+                        {p.stability === 'daily' && (
+                          <span className="badge badge-emerald" style={{ fontSize: '10px', padding: '1px 5px', fontWeight: 700 }}>
+                            ⭐ DAILY
+                          </span>
+                        )}
+                        {p.biosVersion && (
+                          <span className="badge badge-purple" style={{ fontSize: '10px', padding: '1px 5px', fontFamily: 'var(--font-mono)' }} title={`BIOS firmware: ${p.biosVersion}`}>
+                            BIOS {p.biosVersion}
+                          </span>
+                        )}
                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
                           {p.name}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBiosCardProfile(p);
+                            setIsBiosCardModalOpen(true);
+                          }}
+                          className="btn btn-ghost"
+                          style={{ padding: '2px 5px', height: '22px', color: 'var(--accent-cyan)' }}
+                          title="Esporta Scheda Parametri BIOS"
+                        >
+                          <FileText size={11} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleEditTuning(p)}
@@ -1296,6 +1322,17 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
           componentId: component.id,
           category: component.category,
         }}
+      />
+
+      {/* Modale Esportazione Scheda Parametri BIOS */}
+      <BiosParameterCardModal
+        isOpen={isBiosCardModalOpen}
+        onClose={() => {
+          setIsBiosCardModalOpen(false);
+          setBiosCardProfile(null);
+        }}
+        profile={biosCardProfile}
+        componentName={component?.name}
       />
     </div>
   );

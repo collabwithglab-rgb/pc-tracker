@@ -49,3 +49,13 @@ export interface MaintenanceEntryInput {
   nextDueDate?: string;
   source?: 'manual' | 'tool' | 'diagnostic';
 }
+
+export type MaintenanceConditionTier = 'optimal' | 'good' | 'monitor' | 'due' | 'none';
+
+export interface MaintenanceConditionResult {
+  tier: MaintenanceConditionTier;
+  label: string;
+  badgeClass: string;
+  description: string;
+  daysElapsed: number | null;
+}

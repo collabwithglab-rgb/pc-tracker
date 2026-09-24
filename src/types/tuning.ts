@@ -43,6 +43,7 @@ export interface TuningProfile {
   type: TuningType;
   parameters: Record<string, string | number>; // Parametri tecnici (es. { offsetMv: -25, socVoltage: 1.20 })
   stability: TuningStability;
+  biosVersion?: string;    // Versione BIOS / AGESA della scheda madre associata (opzionale)
   benchmarks?: TuningBenchmarkRecord[];
   temperatures?: {
     idle?: number;         // °C
@@ -63,6 +64,7 @@ export interface TuningProfileInput {
   type: TuningType;
   parameters: Record<string, string | number>;
   stability: TuningStability;
+  biosVersion?: string;
   benchmarks?: TuningBenchmarkRecord[];
   temperatures?: {
     idle?: number;
@@ -72,3 +74,4 @@ export interface TuningProfileInput {
   observedPowerWatts?: number;
   notes?: string;
 }
+

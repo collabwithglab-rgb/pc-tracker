@@ -7,6 +7,13 @@ import {
   computeTotalMaintenanceCost,
   validateMaintenanceEntry,
   filterMaintenanceEntries,
+  computeDaysElapsed,
+  computeDaysRemaining,
+  evaluateThermalPasteCondition,
+  evaluateCleaningCondition,
+  getLatestCleaningService,
+  getEarliestUpcomingMaintenance,
+  computeMaintenanceConditionSummary,
 } from '../maintenanceEngine';
 import { MaintenanceEntry } from '../../types';
 
@@ -127,5 +134,91 @@ describe('maintenanceEngine', () => {
     });
     expect(filtered).toHaveLength(1);
     expect(filtered[0].id).toBe('maint-3');
+  });
+
+  it('calcola correttamente i giorni trascorsi e rimanenti evitando offset di fuso orario', () => {
+    expect(computeDaysElapsed('2024-01-01', '2024-01-11')).toBe(10);
+    expect(computeDaysElapsed(undefined, '2024-01-11')).toBeNull();
+    expect(computeDaysRemaining('2024-01-15', '2024-01-10')).toBe(5);
+    expect(computeDaysRemaining('2024-01-05', '2024-01-10')).toBe(-5);
+    expect(computeDaysRemaining(undefined, '2024-01-10')).toBeNull();
+  });
+
+  it('valuta le soglie documentate della pasta termica in modo rigoroso', () => {
+    // < 180 giorni -> optimal (Fresca)
+    const fresh = evaluateThermalPasteCondition('2024-05-01', '2024-07-01');
+    expect(fresh.tier).toBe('optimal');
+    expect(fresh.label).toBe('Fresca');
+    expect(fresh.badgeClass).toBe('badge-emerald');
+
+    // 180 - 365 giorni -> good (Buona)
+    const good = evaluateThermalPasteCondition('2024-01-01', '2024-08-01');
+    expect(good.tier).toBe('good');
+    expect(good.badgeClass).toBe('badge-cyan');
+
+    // 366 - 730 giorni -> monitor (Da monitorare)
+    const monitor = evaluateThermalPasteCondition('2023-01-01', '2024-06-01');
+    expect(monitor.tier).toBe('monitor');
+    expect(monitor.badgeClass).toBe('badge-amber');
+
+    // > 730 giorni -> due (Sostituzione consigliata)
+    const degraded = evaluateThermalPasteCondition('2021-01-01', '2024-06-01');
+    expect(degraded.tier).toBe('due');
+    expect(degraded.label).toBe('Sostituzione consigliata');
+    expect(degraded.badgeClass).toBe('badge-ruby');
+
+    // Mai applicata
+    const none = evaluateThermalPasteCondition(undefined, '2024-06-01');
+    expect(none.tier).toBe('none');
+    expect(none.badgeClass).toBe('badge-gray');
+  });
+
+  it('valuta le soglie documentate della pulizia filtri/ventole', () => {
+    // < 60 giorni -> optimal (Fresca / Recente)
+    const fresh = evaluateCleaningCondition('2024-05-15', '2024-06-01');
+    expect(fresh.tier).toBe('optimal');
+    expect(fresh.label).toBe('Fresca');
+
+    // 60 - 120 giorni -> good (Buona)
+    const good = evaluateCleaningCondition('2024-03-01', '2024-06-01');
+    expect(good.tier).toBe('good');
+
+    // > 120 giorni -> monitor (Da monitorare)
+    const monitor = evaluateCleaningCondition('2023-11-01', '2024-06-01');
+    expect(monitor.tier).toBe('monitor');
+
+    // Nessuna pulizia registrata
+    const none = evaluateCleaningCondition(undefined, '2024-06-01');
+    expect(none.tier).toBe('none');
+  });
+
+  it('trova l’ultima pulizia e la scadenza più imminente', () => {
+    const latestClean = getLatestCleaningService(sampleEntries);
+    expect(latestClean?.id).toBe('maint-2');
+
+    const earliest = getEarliestUpcomingMaintenance(sampleEntries, '2024-07-01');
+    expect(earliest).toBeDefined();
+    expect(earliest?.entry.id).toBe('maint-2');
+    expect(earliest?.isOverdue).toBe(false);
+
+    // Con data successiva al 2024-09-20, diventa scaduta (isOverdue = true)
+    const overdue = getEarliestUpcomingMaintenance(sampleEntries, '2024-10-01');
+    expect(overdue?.isOverdue).toBe(true);
+  });
+
+  it('calcola la scheda di sintesi Condizione Attuale integrata', () => {
+    const summary = computeMaintenanceConditionSummary(
+      sampleEntries,
+      [{ id: 'comp-cpu', name: 'AMD Ryzen 7 7800X3D' }],
+      '2024-12-01'
+    );
+
+    expect(summary.totalCost).toBeCloseTo(23.4, 2);
+    expect(summary.totalEntriesCount).toBe(3);
+    expect(summary.lastThermalPaste.entry?.id).toBe('maint-3');
+    expect(summary.lastThermalPaste.productUsed).toBe('Noctua NT-H2');
+    expect(summary.lastThermalPaste.componentName).toBe('AMD Ryzen 7 7800X3D');
+    expect(summary.lastCleaning.entry?.id).toBe('maint-2');
+    expect(summary.upcomingCount).toBe(3); // All 3 entries have nextDueDate scheduled
   });
 });

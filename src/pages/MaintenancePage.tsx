@@ -27,10 +27,6 @@ import {
 import {
   sortMaintenanceEntriesChronologically,
   filterMaintenanceEntries,
-  getLastMaintenanceOfType,
-  getLastThermalPasteApplication,
-  computeUpcomingMaintenance,
-  computeTotalMaintenanceCost,
   getMaintenanceTypeBadgeClass,
   sortTuningProfiles,
   filterTuningProfiles,
@@ -42,6 +38,7 @@ import {
   formatTemperatureCelsius,
   formatWearPercentage,
   evaluateSecurityAuditStatus,
+  computeMaintenanceConditionSummary,
 } from '../domain';
 import {
   scanStorageVolumes,
@@ -69,6 +66,7 @@ import {
   TuningProfileModal,
   RecycleBinConfirmModal,
   ToolResultModal,
+  BiosParameterCardModal,
 } from '../components/maintenance';
 import { Modal } from '../components/common/Modal';
 import {
@@ -76,7 +74,6 @@ import {
   Activity,
   Sliders,
   Terminal,
-  Calendar,
   Sparkles,
   DollarSign,
   AlertTriangle,
@@ -100,7 +97,9 @@ import {
   Power,
   Download,
   RotateCcw,
+  FileText,
 } from 'lucide-react';
+
 
 import {
   MaintenanceTab,
@@ -153,7 +152,11 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [isTuningModalOpen, setIsTuningModalOpen] = useState(false);
   const [profileToEdit, setProfileToEdit] = useState<TuningProfile | null>(null);
 
+  const [isBiosCardModalOpen, setIsBiosCardModalOpen] = useState(false);
+  const [biosCardProfile, setBiosCardProfile] = useState<TuningProfile | null>(null);
+
   const [isRecycleBinModalOpen, setIsRecycleBinModalOpen] = useState(false);
+
   const [isEmptyingBin, setIsEmptyingBin] = useState(false);
 
   const [toolResult, setToolResult] = useState<WindowsToolResult | null>(null);
@@ -516,21 +519,12 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     });
   }, [sortedEntries, maintTypeFilter, maintSearch]);
 
-  const lastCleaning = useMemo(() => {
-    return getLastMaintenanceOfType(maintenanceEntries, 'cleaning');
-  }, [maintenanceEntries]);
 
-  const lastThermalPaste = useMemo(() => {
-    return getLastThermalPasteApplication(maintenanceEntries, components);
+
+  const conditionSummary = useMemo(() => {
+    return computeMaintenanceConditionSummary(maintenanceEntries, components);
   }, [maintenanceEntries, components]);
 
-  const totalCost = useMemo(() => {
-    return computeTotalMaintenanceCost(maintenanceEntries);
-  }, [maintenanceEntries]);
-
-  const upcomingEntries = useMemo(() => {
-    return computeUpcomingMaintenance(maintenanceEntries);
-  }, [maintenanceEntries]);
 
   // Statistiche Tuning Journal
   const sortedTuningProfiles = useMemo(() => {
@@ -640,76 +634,136 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       {/* TAB 1: REGISTRO MANUTENZIONE */}
       {/* ========================================================================= */}
       {activeTab === 'registro' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Stat Cards KPI Manutenzione */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '14px',
-            }}
-          >
-            {/* Ultima Pulizia */}
-            <div className="stat-card">
-              <div className="stat-card-header">
-                <span className="stat-label">Ultima Pulizia</span>
-                <div className="stat-icon-badge" style={{ background: 'rgba(56, 189, 248, 0.1)', color: 'var(--accent-primary)' }}>
-                  <Sparkles size={18} />
-                </div>
-              </div>
-              <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '4px' }}>
-                {lastCleaning ? formatWithSettings(lastCleaning.date, settings.dateFormat) : 'Nessuna'}
-              </div>
-              <div className="stat-subtext" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                {lastCleaning ? getDaysAgo(lastCleaning.date) : 'Registra la prima pulizia'}
-              </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+          {/* Sezione Sintetica: Condizione Attuale del PC */}
+          <div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <Activity size={16} color="var(--accent-primary)" />
+              <span>Condizione Attuale Hardware & Manutenzione</span>
             </div>
 
-            {/* Pasta Termica */}
-            <div className="stat-card">
-              <div className="stat-card-header">
-                <span className="stat-label">Pasta Termica</span>
-                <div className="stat-icon-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--accent-amber)' }}>
-                  <Cpu size={18} />
-                </div>
-              </div>
-              <div className="stat-value" style={{ fontSize: '1.15rem', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {lastThermalPaste ? lastThermalPaste.productUsed || 'Applicata' : 'Nessuna'}
-              </div>
-              <div className="stat-subtext" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                {lastThermalPaste ? `${formatWithSettings(lastThermalPaste.date, settings.dateFormat)} (${getDaysAgo(lastThermalPaste.date)})` : 'Nessun cambio registrato'}
-              </div>
-            </div>
+            <div className="maintenance-condition-container">
+              {/* 1. Pulizia Generale & Filtri */}
+              <div className="maintenance-condition-tile">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span className="stat-label" style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      Pulizia & Filtri Case
+                    </span>
+                    <span className={`badge ${conditionSummary.lastCleaning.condition.badgeClass}`} style={{ fontSize: '0.7rem' }}>
+                      {conditionSummary.lastCleaning.condition.label}
+                    </span>
+                  </div>
 
-            {/* Spesa Manutenzione Totale */}
-            <div className="stat-card">
-              <div className="stat-card-header">
-                <span className="stat-label">Spesa Sostenuta</span>
-                <div className="stat-icon-badge" style={{ background: 'rgba(244, 63, 94, 0.1)', color: 'var(--accent-ruby)' }}>
-                  <DollarSign size={18} />
-                </div>
-              </div>
-              <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '4px', color: 'var(--accent-ruby)' }}>
-                € {totalCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <div className="stat-subtext" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Pasta, pad, bombolette e detergenti
-              </div>
-            </div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {conditionSummary.lastCleaning.entry
+                      ? formatWithSettings(conditionSummary.lastCleaning.entry.date, settings.dateFormat)
+                      : 'Nessuna registrata'}
+                  </div>
 
-            {/* Scadenze in programma */}
-            <div className="stat-card">
-              <div className="stat-card-header">
-                <span className="stat-label">In Programma</span>
-                <div className="stat-icon-badge" style={{ background: 'rgba(129, 140, 248, 0.1)', color: 'var(--accent-purple)' }}>
-                  <Calendar size={18} />
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    {conditionSummary.lastCleaning.entry
+                      ? `${getDaysAgo(conditionSummary.lastCleaning.entry.date)} (${conditionSummary.lastCleaning.condition.description})`
+                      : 'Registra la prima pulizia dei filtri'}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                  Soglia: &lt;60 gg Fresca • &lt;120 gg Buona • &gt;120 gg Da verificare
                 </div>
               </div>
-              <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '4px' }}>
-                {upcomingEntries.length}
+
+              {/* 2. Pasta Termica */}
+              <div className="maintenance-condition-tile">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span className="stat-label" style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      Pasta Termica
+                    </span>
+                    <span className={`badge ${conditionSummary.lastThermalPaste.condition.badgeClass}`} style={{ fontSize: '0.7rem' }}>
+                      {conditionSummary.lastThermalPaste.condition.label}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {conditionSummary.lastThermalPaste.productUsed || (conditionSummary.lastThermalPaste.entry ? 'Applicata' : 'Nessuna')}
+                  </div>
+
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    {conditionSummary.lastThermalPaste.entry
+                      ? `${formatWithSettings(conditionSummary.lastThermalPaste.entry.date, settings.dateFormat)} (${getDaysAgo(conditionSummary.lastThermalPaste.entry.date)})${conditionSummary.lastThermalPaste.componentName ? ` su ${conditionSummary.lastThermalPaste.componentName}` : ''}`
+                      : 'Nessun cambio pasta termica registrato'}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                  Soglia: &lt;6 mesi Fresca • &lt;1 anno Buona • &gt;2 anni Sostituzione
+                </div>
               </div>
-              <div className="stat-subtext" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                {upcomingEntries.length > 0 ? 'Interventi con data promemoria' : 'Nessuna scadenza fissata'}
+
+              {/* 3. Prossima Manutenzione Programmata */}
+              <div className="maintenance-condition-tile">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span className="stat-label" style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      Prossima Scadenza
+                    </span>
+                    {conditionSummary.earliestUpcoming ? (
+                      <span
+                        className={`badge ${conditionSummary.earliestUpcoming.isOverdue ? 'badge-ruby' : 'badge-purple'}`}
+                        style={{ fontSize: '0.7rem' }}
+                      >
+                        {conditionSummary.earliestUpcoming.isOverdue
+                          ? `Scaduta da ${Math.abs(conditionSummary.earliestUpcoming.daysRemaining)} gg`
+                          : `Tra ${conditionSummary.earliestUpcoming.daysRemaining} gg`}
+                      </span>
+                    ) : (
+                      <span className="badge badge-gray" style={{ fontSize: '0.7rem' }}>Nessuna</span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {conditionSummary.earliestUpcoming
+                      ? conditionSummary.earliestUpcoming.entry.title
+                      : 'Nessun promemoria attivo'}
+                  </div>
+
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    {conditionSummary.earliestUpcoming
+                      ? `Scadenza: ${formatWithSettings(conditionSummary.earliestUpcoming.entry.nextDueDate!, settings.dateFormat)}`
+                      : 'Aggiungi una data promemoria a un intervento'}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                  {conditionSummary.upcomingCount} {conditionSummary.upcomingCount === 1 ? 'intervento pianificato' : 'interventi pianificati'}
+                </div>
+              </div>
+
+              {/* 4. Spesa Totale Cumulativa */}
+              <div className="maintenance-condition-tile">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span className="stat-label" style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      Spesa Cumulativa
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--accent-ruby)', display: 'inline-flex', alignItems: 'center' }}>
+                      <DollarSign size={13} />
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-ruby)', fontFamily: 'var(--font-mono)' }}>
+                    € {conditionSummary.totalCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    Materiali, paste termiche, pad e detergenti
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                  {conditionSummary.totalEntriesCount} {conditionSummary.totalEntriesCount === 1 ? 'intervento registrato' : 'interventi registrati'}
+                </div>
               </div>
             </div>
           </div>
@@ -780,7 +834,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
             </button>
           </div>
 
-          {/* Elenco Interventi di Manutenzione */}
+          {/* Elenco Interventi di Manutenzione (Timeline Stream) */}
           {filteredEntries.length === 0 ? (
             <div
               className="card"
@@ -812,61 +866,66 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="maintenance-timeline-wrap">
               {filteredEntries.map((entry) => {
                 const badgeClass = getMaintenanceTypeBadgeClass(entry.type);
+                const nodeClass = badgeClass.replace('badge-', 'node-');
                 const linkedComps = (entry.componentIds || [])
                   .map((id) => components.find((c) => c.id === id)?.name)
                   .filter(Boolean);
 
                 return (
-                  <div
-                    key={entry.id}
-                    className="card"
-                    style={{
-                      padding: '16px 20px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '10px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span className={`badge ${badgeClass}`} style={{ fontSize: '0.75rem' }}>
+                  <div key={entry.id} className="maintenance-timeline-item">
+                    {/* Indicatore Nodo Timeline */}
+                    <div className={`maintenance-timeline-node ${nodeClass}`} />
+
+                    {/* Riga Intestazione Evento */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {formatWithSettings(entry.date, settings.dateFormat)}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          ({getDaysAgo(entry.date)})
+                        </span>
+                        <span className={`badge ${badgeClass}`} style={{ fontSize: '0.7rem' }}>
                           {MAINTENANCE_TYPE_LABELS[entry.type]}
                         </span>
-                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                          {formatWithSettings(entry.date, settings.dateFormat)} ({getDaysAgo(entry.date)})
-                        </span>
                         {(entry.source === 'tool' || entry.source === 'diagnostic') && (
-                          <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>
+                          <span className="badge badge-purple" style={{ fontSize: '0.68rem' }}>
                             Strumento Windows
                           </span>
                         )}
                         {entry.cost !== undefined && (
-                          <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--accent-ruby)' }}>
-                            € {entry.cost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--accent-ruby)', fontFamily: 'var(--font-mono)' }}>
+                            €{entry.cost.toFixed(2)}
+                          </span>
+                        )}
+                        {entry.nextDueDate && (
+                          <span className="badge badge-purple" style={{ fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <Clock size={10} />
+                            <span>Promemoria: {formatWithSettings(entry.nextDueDate, settings.dateFormat)}</span>
                           </span>
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <button
                           type="button"
                           className="btn btn-ghost"
-                          style={{ padding: '6px', color: 'var(--text-muted)' }}
+                          style={{ padding: '4px 6px', color: 'var(--text-muted)' }}
                           onClick={() => {
                             setEntryToEdit(entry);
                             setIsEntryModalOpen(true);
                           }}
                           title="Modifica intervento"
                         >
-                          <Edit2 size={14} />
+                          <Edit2 size={13} />
                         </button>
                         <button
                           type="button"
                           className="btn btn-ghost"
-                          style={{ padding: '6px', color: 'var(--accent-ruby)' }}
+                          style={{ padding: '4px 6px', color: 'var(--accent-ruby)' }}
                           onClick={async () => {
                             if (window.confirm(`Eliminare l'intervento "${entry.title}"?`)) {
                               await deleteMaintenanceEntry(entry.id);
@@ -874,43 +933,46 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                           }}
                           title="Elimina intervento"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </div>
 
+                    {/* Titolo e Descrizione */}
                     <div>
-                      <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                         {entry.title}
                       </div>
                       {entry.description && (
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.45 }}>
                           {entry.description}
                         </div>
                       )}
                     </div>
 
-                    {/* Metadati aggiuntivi: Componenti, Prodotto Usato, Prossima Scadenza */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.78rem', color: 'var(--text-muted)', paddingTop: '6px', borderTop: '1px solid var(--border-subtle)' }}>
-                      {entry.productUsed && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Sparkles size={12} color="var(--accent-amber)" />
-                          <span>Prodotto: <strong style={{ color: 'var(--text-secondary)' }}>{entry.productUsed}</strong></span>
-                        </div>
-                      )}
-                      {linkedComps.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Cpu size={12} color="var(--accent-primary)" />
-                          <span>Componenti: <strong style={{ color: 'var(--text-secondary)' }}>{linkedComps.join(', ')}</strong></span>
-                        </div>
-                      )}
-                      {entry.nextDueDate && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={12} color="var(--accent-purple)" />
-                          <span>Prossimo controllo: <strong style={{ color: 'var(--accent-purple)' }}>{formatWithSettings(entry.nextDueDate, settings.dateFormat)}</strong></span>
-                        </div>
-                      )}
-                    </div>
+                    {/* Metadati (Componenti, Prodotto Usato, Note) */}
+                    {(entry.productUsed || linkedComps.length > 0 || entry.notes) && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '0.75rem', color: 'var(--text-muted)', paddingTop: '4px', borderTop: '1px solid var(--border-subtle)' }}>
+                        {entry.productUsed && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Sparkles size={11} color="var(--accent-amber)" />
+                            <span>Prodotto: <strong style={{ color: 'var(--text-secondary)' }}>{entry.productUsed}</strong></span>
+                          </div>
+                        )}
+                        {linkedComps.length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Cpu size={11} color="var(--accent-primary)" />
+                            <span>Componenti: <strong style={{ color: 'var(--text-secondary)' }}>{linkedComps.join(', ')}</strong></span>
+                          </div>
+                        )}
+                        {entry.notes && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <FileText size={11} color="var(--text-muted)" />
+                            <span>Note: <span style={{ color: 'var(--text-secondary)' }}>{entry.notes}</span></span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -918,6 +980,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           )}
         </div>
       )}
+
 
       {/* ========================================================================= */}
       {/* TAB 2: SISTEMA WINDOWS (DIAGNOSTICA SCAN NOW & STRUMENTI) */}
@@ -2028,7 +2091,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                 return (
                   <div
                     key={prof.id}
-                    className="card"
+                    className={`card ${prof.stability === 'daily' ? 'tuning-card-daily' : ''}`}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -2051,6 +2114,32 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                             <span className={`badge ${stabBadge}`} style={{ fontSize: '0.7rem' }}>
                               {TUNING_STABILITY_LABELS[prof.stability]}
                             </span>
+                            {prof.stability === 'daily' && (
+                              <span
+                                className="badge badge-emerald"
+                                style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                ⭐ DAILY DRIVER
+                              </span>
+                            )}
+                            {prof.biosVersion && (
+                              <span
+                                className="badge badge-purple"
+                                style={{
+                                  fontSize: '0.68rem',
+                                  fontFamily: 'var(--font-mono)',
+                                }}
+                                title={`Versione BIOS registrata: ${prof.biosVersion}`}
+                              >
+                                BIOS {prof.biosVersion}
+                              </span>
+                            )}
                           </div>
                           <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                             {prof.name}
@@ -2063,6 +2152,18 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: '6px', color: 'var(--accent-cyan)' }}
+                            onClick={() => {
+                              setBiosCardProfile(prof);
+                              setIsBiosCardModalOpen(true);
+                            }}
+                            title="Esporta Scheda Parametri BIOS (Markdown / Stampa)"
+                          >
+                            <FileText size={14} />
+                          </button>
                           <button
                             type="button"
                             className="btn btn-ghost"
@@ -2203,6 +2304,21 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           setProfileToEdit(null);
         }}
         profileToEdit={profileToEdit}
+      />
+
+      {/* Modale Esportazione Scheda Parametri BIOS */}
+      <BiosParameterCardModal
+        isOpen={isBiosCardModalOpen}
+        onClose={() => {
+          setIsBiosCardModalOpen(false);
+          setBiosCardProfile(null);
+        }}
+        profile={biosCardProfile}
+        componentName={
+          biosCardProfile?.componentId
+            ? components.find((c) => c.id === biosCardProfile.componentId)?.name
+            : undefined
+        }
       />
 
       {/* Modale Conferma Svuotamento Cestino */}

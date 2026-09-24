@@ -4699,3 +4699,144 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+
+/* ==========================================================================
+   MAINTENANCE TIMELINE & CONDITION CARD (PC Care Center - Tranche 4)
+   ========================================================================== */
+
+.maintenance-condition-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.maintenance-condition-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  gap: 10px;
+  transition: border-color var(--transition-fast);
+}
+
+.maintenance-condition-tile:hover {
+  border-color: var(--border-default);
+}
+
+.maintenance-timeline-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 28px;
+}
+
+.maintenance-timeline-wrap::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 11px;
+  width: 2px;
+  background: var(--border-subtle);
+  border-radius: 1px;
+}
+
+.maintenance-timeline-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  gap: 8px;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.maintenance-timeline-item:hover {
+  border-color: var(--border-default);
+  background-color: var(--bg-surface-elevated);
+}
+
+.maintenance-timeline-node {
+  position: absolute;
+  left: -28px;
+  top: 16px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--border-default);
+  border: 2px solid var(--bg-app);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.maintenance-timeline-node.node-cyan {
+  background-color: var(--accent-primary);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.4);
+}
+
+.maintenance-timeline-node.node-amber {
+  background-color: var(--accent-amber);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+.maintenance-timeline-node.node-emerald {
+  background-color: var(--accent-emerald);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+}
+
+.maintenance-timeline-node.node-purple {
+  background-color: var(--accent-purple);
+  box-shadow: 0 0 6px rgba(129, 140, 248, 0.4);
+}
+
+.maintenance-timeline-node.node-gray {
+  background-color: var(--text-muted);
+}
+
+/* Tuning Daily Card Accent */
+.tuning-card-daily {
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.03) 0%, rgba(17, 24, 39, 1) 100%);
+}
+
+/* Print styles for BIOS Parameter Card */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .bios-parameter-card-sheet,
+  .bios-parameter-card-sheet * {
+    visibility: visible;
+  }
+  .bios-parameter-card-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    background: #fff !important;
+    color: #000 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .bios-parameter-card-sheet table {
+    color: #000 !important;
+  }
+  .bios-parameter-card-sheet th,
+  .bios-parameter-card-sheet td {
+    color: #000 !important;
+    border-color: #ccc !important;
+  }
+  .bios-card-actions-toolbar,
+  .modal-overlay,
+  .modal-header,
+  .modal-actions {
+    display: none !important;
+  }
+}
+

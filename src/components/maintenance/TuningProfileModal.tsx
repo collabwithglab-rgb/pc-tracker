@@ -7,11 +7,10 @@ import {
   TuningType,
   TUNING_TYPE_LABELS,
   TuningStability,
-  TUNING_STABILITY_LABELS,
   ComponentCategory,
 } from '../../types';
-import { getLocalDateISO } from '../../domain';
-import { Sliders, Cpu, Gauge, Zap, Thermometer, FileText, Plus, Trash2 } from 'lucide-react';
+import { getLocalDateISO, TUNING_TEMPLATES } from '../../domain';
+import { Sliders, Cpu, Gauge, Zap, Thermometer, FileText, Plus, Trash2, Sparkles, Layers } from 'lucide-react';
 
 interface TuningProfileModalProps {
   isOpen: boolean;
@@ -43,6 +42,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
   const [date, setDate] = useState<string>(getLocalDateISO());
   const [type, setType] = useState<TuningType>('curve_optimizer');
   const [stability, setStability] = useState<TuningStability>('stable');
+  const [biosVersion, setBiosVersion] = useState<string>('');
 
   // Parametri dinamici chiave-valore
   const [paramRows, setParamRows] = useState<{ key: string; value: string }[]>([
@@ -64,6 +64,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -74,6 +75,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
       setDate(profileToEdit.date);
       setType(profileToEdit.type);
       setStability(profileToEdit.stability);
+      setBiosVersion(profileToEdit.biosVersion || '');
 
       const params = Object.entries(profileToEdit.parameters || {}).map(([k, v]) => ({
         key: k,
@@ -104,6 +106,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
       const initCat = initialValues?.category || (initCompId ? components.find((c) => c.id === initCompId)?.category || 'cpu' : 'cpu');
       setCategory(initCat);
       setDate(initialValues?.date || getLocalDateISO());
+      setBiosVersion(initialValues?.biosVersion || '');
 
       let initType: TuningType = initialValues?.type || 'curve_optimizer';
       let initParams: { key: string; value: string }[] = [{ key: 'Curve Optimizer Offset', value: '-20' }];
@@ -145,6 +148,21 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
     setErrors({});
   }, [isOpen, profileToEdit, initialValues, components]);
 
+  const handleApplyTemplate = (templateKey: string) => {
+    const tpl = TUNING_TEMPLATES[templateKey];
+    if (!tpl) return;
+    setCategory(tpl.category);
+    setType(tpl.type);
+    const rows = Object.entries(tpl.defaultParameters).map(([k, v]) => ({
+      key: k,
+      value: String(v),
+    }));
+    setParamRows(rows);
+    if (!name.trim()) {
+      setName(tpl.name.replace(/^[A-Z]+\s*—\s*/, ''));
+    }
+  };
+
   const handleComponentChange = (compVal: string) => {
     setComponentId(compVal);
     if (compVal) {
@@ -173,6 +191,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
       }
     }
   };
+
 
   const addParamRow = () => {
     setParamRows((prev) => [...prev, { key: '', value: '' }]);
@@ -276,6 +295,7 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
         type,
         parameters,
         stability,
+        biosVersion: biosVersion.trim() || undefined,
         benchmarks,
         temperatures,
         observedPowerWatts: parsedPower,
@@ -386,8 +406,8 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
           </div>
         </div>
 
-        {/* Riga 3: Tipologia & Stabilità */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        {/* Riga 3: Tipologia, Stabilità & Versione BIOS */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr', gap: '14px' }}>
           <div className="form-group">
             <label className="form-label" htmlFor="tune-type">
               <Gauge size={14} style={{ marginRight: '6px' }} />
@@ -417,14 +437,71 @@ export const TuningProfileModal: React.FC<TuningProfileModalProps> = ({
               value={stability}
               onChange={(e) => setStability(e.target.value as TuningStability)}
             >
-              {(Object.keys(TUNING_STABILITY_LABELS) as TuningStability[]).map((s) => (
-                <option key={s} value={s}>
-                  {TUNING_STABILITY_LABELS[s]}
+              <option value="daily">⭐ Profilo Daily (Giornaliero)</option>
+              <option value="stable">Completamente Stabile</option>
+              <option value="testing">In Fase di Test / Validazione</option>
+              <option value="unstable">Instabile / Crash Rilevati</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="tune-bios">
+              <Layers size={14} style={{ marginRight: '6px' }} />
+              Versione BIOS (Opz.)
+            </label>
+            <input
+              id="tune-bios"
+              type="text"
+              className="input-field"
+              placeholder="es. F31, 1602..."
+              value={biosVersion}
+              onChange={(e) => setBiosVersion(e.target.value)}
+              maxLength={60}
+            />
+          </div>
+        </div>
+
+        {/* Barra Template Rapidi Contestuali */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            background: 'rgba(56, 189, 248, 0.05)',
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            <Sparkles size={13} color="var(--accent-primary)" />
+            <span>Template Parametri Rapidi:</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <select
+              className="input-field select-field"
+              style={{ height: '28px', fontSize: '0.75rem', padding: '0 8px', width: 'auto' }}
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleApplyTemplate(e.target.value);
+                  e.target.value = '';
+                }
+              }}
+            >
+              <option value="" disabled>Carica parametri da template...</option>
+              {Object.entries(TUNING_TEMPLATES).map(([k, tpl]) => (
+                <option key={k} value={k}>
+                  {tpl.name}
                 </option>
               ))}
             </select>
           </div>
         </div>
+
 
         {/* Parametri Tecnici Personalizzati (Key/Value) */}
         <div className="form-group">
