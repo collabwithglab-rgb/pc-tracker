@@ -232,8 +232,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     } else {
       maintenancePulse = {
         status: 'primary',
-        title: 'Registro Manutenzione',
-        subtitle: 'Nessun intervento registrato • Pianifica',
+        title: 'Cura del PC & Salute',
+        subtitle: 'Panoramica, telemetria live e diario interventi',
         targetSection: 'maintenance',
       };
     }

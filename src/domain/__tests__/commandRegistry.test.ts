@@ -34,11 +34,13 @@ describe('Command Registry & Deterministic Ranking Suite', () => {
       });
     });
 
-    it('include esattamente 9 comandi di deep navigation verso subTab specifici', () => {
+    it('include esattamente 11 comandi di deep navigation verso subTab specifici', () => {
       const deepNavCommands = STATIC_NAVIGATION_COMMANDS.filter((c) => c.category === 'deep-navigation');
-      expect(deepNavCommands).toHaveLength(9);
+      expect(deepNavCommands).toHaveLength(11);
 
-      // Maintenance (3 tab: registro, windows, tuning)
+      // Maintenance (5 tab: panoramica, live, registro, windows, tuning)
+      expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'panoramica')).toBeDefined();
+      expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'live')).toBeDefined();
       expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'registro')).toBeDefined();
       expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'windows')).toBeDefined();
       expect(deepNavCommands.find((c) => c.target?.section === 'maintenance' && c.target?.subTab === 'tuning')).toBeDefined();

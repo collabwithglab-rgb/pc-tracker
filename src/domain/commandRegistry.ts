@@ -92,6 +92,22 @@ export const STATIC_NAVIGATION_COMMANDS: CommandItem[] = [
 
   // 2. Deep Navigation (Sub-Tabs)
   {
+    id: 'deep-maintenance-panoramica',
+    label: 'Salute & Stato del PC',
+    subtitle: 'Health Score, analisi anomalie e raccomandazioni motivate di ottimizzazione',
+    category: 'deep-navigation',
+    keywords: ['salute', 'health', 'score', 'cura', 'panoramica', 'ottimizzazione', 'anomalie', 'stato'],
+    target: { section: 'maintenance', subTab: 'panoramica' },
+  },
+  {
+    id: 'deep-maintenance-live',
+    label: 'Monitoraggio Live Hardware',
+    subtitle: 'Telemetria in tempo reale CPU, RAM, NVML GPU e dischi con Smart Pause',
+    category: 'deep-navigation',
+    keywords: ['monitoraggio', 'live', 'telemetria', 'sensori', 'temperature', 'nvml', 'gpu', 'cpu', 'ram', 'smart pause'],
+    target: { section: 'maintenance', subTab: 'live' },
+  },
+  {
     id: 'deep-maintenance-registro',
     label: 'Registro Interventi',
     subtitle: 'Cronologia interventi di pulizia, cambio pasta termica e scadenze',
