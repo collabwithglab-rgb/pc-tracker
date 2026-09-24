@@ -28,6 +28,75 @@ export interface ReleaseChangelog {
 
 export const APP_CHANGELOG: ReleaseChangelog[] = [
   {
+    version: '3.1.0',
+    date: '2026-09-24',
+    title: 'PC Care Center (Beta) — Telemetria Live Win32/NVML, Health & Optimization Engine',
+    summary:
+      'Una svolta fondamentale per PC Tracker: nasce il PC Care Center con monitoraggio hardware nativo in tempo reale (CPU, RAM, GPU NVIDIA via NVML e Dischi), motore di salute predittiva (Health Score 0-100) e centro di ottimizzazione proattiva con azioni motivate a 1-click.',
+    wikiArticleId: 'release-v3.1.0',
+    wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
+    added: [
+      {
+        title: 'Monitoraggio Hardware Nativo & Telemetria Live',
+        description:
+          'Snapshot ad alte prestazioni con campionamento Win32 (carico CPU con GetSystemTimes, memoria fisica e commit con GlobalMemoryStatusEx, dischi) e telemetria dinamica GPU NVIDIA NVML (carico VRAM, temperature, ventole, clock).',
+        tag: 'Telemetria',
+      },
+      {
+        title: 'Health Engine Predittivo & Health Score (0-100)',
+        description:
+          'Valutazione deterministica e continua dell\'integrità del sistema: telemetria S.M.A.R.T. dischi, saturazione RAM, temperature massime rispetto alla Personal Baseline, usura pasta termica e filtri antipolvere, integrità SFC e Secure Boot.',
+        tag: 'Salute PC',
+      },
+      {
+        title: 'Optimization Engine & Personal Baseline',
+        description:
+          'Suggerimenti di ottimizzazione intelligenti e motivati con badge di rischio (TRIM SSD, pulizia avanzata Cleanmgr, punti di ripristino, riparazione SFC, cache shader DirectX e profilo massime prestazioni) integrati con il Profilo Daily di riferimento.',
+        tag: 'Ottimizzazione',
+      },
+      {
+        title: 'Smart Pause & Resource Guard',
+        description:
+          'Architettura zero-bloat con sospensione automatica del polling quando l\'applicazione è minimizzata o in background, per azzerare qualsiasi impatto su CPU e prestazioni in gioco.',
+        tag: 'Prestazioni',
+      },
+      {
+        title: 'Navigazione Unificata PC Care Center a 5 Schede',
+        description:
+          'Nuova schermata modulare suddivisa in Panoramica, Monitoraggio Live, Registro Manutenzione, Strumenti Windows e Registro Tuning con indicatori reattivi e supporto deep-link.',
+        tag: 'Interfaccia',
+      },
+    ],
+    improved: [
+      {
+        title: 'Dashboard Pulse Signal ("Cura del PC & Salute")',
+        description:
+          'Pillola dinamica nella dashboard principale che segnala istantaneamente lo stato di salute generale del computer e guida alla risoluzione con 1 click.',
+        tag: 'Dashboard',
+      },
+      {
+        title: 'Command Palette Deep Navigation (Ctrl+K)',
+        description:
+          'Comandi diretti aggiunti per saltare immediatamente a "Panoramica Cura del PC" e "Monitoraggio Hardware Live".',
+        tag: 'Produttività',
+      },
+    ],
+    fixed: [
+      {
+        title: 'Architettura Zero Mock & Fallback Graceful',
+        description:
+          'Eliminazione rigorosa di qualsiasi valore fittizio: le piattaforme non-desktop o prive di GPU NVIDIA visualizzano chiaramente lo stato "Non disponibile" senza inventare metriche simulate.',
+        tag: 'Affidabilità',
+      },
+      {
+        title: 'Integrità Memoria & Zero Inquinamento Database',
+        description:
+          'La telemetria in tempo reale risiede esclusivamente in un buffer volatile a 30 campioni, mantenendo IndexedDB come Single Source of Truth immacolata e reattiva.',
+        tag: 'Stabilità',
+      },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-09-19',
     title: 'Command Palette Globale (Ctrl+K), Rig Comparison & Deep Navigation',

@@ -181,13 +181,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               title="Note di rilascio & novità di questa versione"
               id="btn-sidebar-whatsnew"
             >
-              <span>v{APP_VERSION}</span>
+              <span>v{APP_VERSION} (Beta)</span>
               {hasUpdateAvailable && (
                 <span className="sidebar-update-dot" style={{ width: '6px', height: '6px', marginLeft: '0' }} />
               )}
             </button>
           ) : (
-            <span style={styles.versionText}>v{APP_VERSION}</span>
+            <span style={styles.versionText}>v{APP_VERSION} (Beta)</span>
           )}
         </div>
 

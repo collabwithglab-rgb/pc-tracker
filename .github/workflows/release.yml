@@ -184,7 +184,7 @@ jobs:
       - name: Create GitHub Release & Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          name: "PC Tracker ${{ steps.version_meta.outputs.versionTag }}"
+          name: "PC Tracker ${{ steps.version_meta.outputs.versionTag }} (Beta)"
           tag_name: ${{ steps.version_meta.outputs.versionTag }}
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
@@ -193,6 +193,6 @@ jobs:
             latest.json
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

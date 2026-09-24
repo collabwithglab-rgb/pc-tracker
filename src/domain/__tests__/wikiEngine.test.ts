@@ -150,6 +150,15 @@ describe('Wiki Engine & Knowledge Base Suite', () => {
     const allArticles = getAllWikiArticles();
     expect(allArticles.length).toBeGreaterThan(WIKI_ARTICLES.length);
 
+    // Deve includere l'articolo di release v3.1.0
+    const v250Article = allArticles.find((a) => a.id === 'release-v3.1.0');
+    expect(v250Article).toBeDefined();
+    expect(v250Article?.category).toBe('releases');
+    expect(v250Article?.badge).toBe('RELEASE');
+    expect(v250Article?.content.some((c) => c.includes('PC Care Center'))).toBe(true);
+    expect(v250Article?.steps?.length).toBeGreaterThan(0);
+    expect(v250Article?.actionLinks?.length).toBeGreaterThan(0);
+
     // Deve includere l'articolo di release v0.3.0
     const v030Article = allArticles.find((a) => a.id === 'release-v0.3.0');
     expect(v030Article).toBeDefined();
@@ -160,6 +169,8 @@ describe('Wiki Engine & Knowledge Base Suite', () => {
     expect(v030Article?.actionLinks?.length).toBeGreaterThan(0);
 
     // Ricerca per numero versione
+    const search310 = searchWikiArticles(allArticles, '3.1.0', 'all', 'ALL');
+    expect(search310.some((a) => a.id === 'release-v3.1.0')).toBe(true);
     const search030 = searchWikiArticles(allArticles, '0.3.0', 'all', 'ALL');
     expect(search030.some((a) => a.id === 'release-v0.3.0')).toBe(true);
 

@@ -62,7 +62,11 @@ export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]
 
     // Passaggi operativi personalizzati per release note
     const steps: string[] = [];
-    if (rel.version === '0.3.0') {
+    if (rel.version === '3.1.0') {
+      steps.push('Accedi alla nuova sezione "Cura del PC" dalla barra laterale per consultare la Panoramica con Health Score (0-100) e le raccomandazioni motivate.');
+      steps.push('Apri la scheda "Monitoraggio Live" per osservare in tempo reale il carico di CPU, RAM, spazio dischi e telemetria termica e frequenze GPU NVIDIA.');
+      steps.push('Esegui con un click le ottimizzazioni trasparenti proposte (TRIM SSD, Pulizia disco, Riparazione SFC) per mantenere il computer sempre efficiente.');
+    } else if (rel.version === '0.3.0') {
       steps.push('Premi Ctrl+K (o Cmd+K) da qualsiasi schermata per aprire la Command Palette e cercare componenti, eseguire azioni rapide o navigare direttamente.');
       steps.push('Accedi a "Il Mio PC Attuale" o a un Checkpoint storico e clicca su "Confronta Rig" per visualizzare le differenze di hardware, costo e assorbimento energetico (TDP).');
       steps.push('Usa il pulsante Inverti ⇄ per scambiare la baseline di confronto e analizzare il differenziale speculare.');
@@ -98,7 +102,13 @@ export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]
     ];
 
     // Action links
-    const actionLinks = rel.version === '0.3.0'
+    const actionLinks = rel.version === '3.1.0'
+      ? [
+          { label: 'Cura del PC & Salute', targetSection: 'maintenance', iconName: 'Wrench' as const },
+          { label: 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
+          { label: 'Dashboard', targetSection: 'dashboard', iconName: 'Cpu' as const },
+        ]
+      : rel.version === '0.3.0'
       ? [
           { label: 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
           { label: 'Time Travel & Checkpoint', targetSection: 'time-travel', iconName: 'History' as const },

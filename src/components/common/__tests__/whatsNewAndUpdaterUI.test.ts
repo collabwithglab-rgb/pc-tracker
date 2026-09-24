@@ -153,9 +153,20 @@ describe('Sistema Notifiche Aggiornamenti & Changelog WhatsNew', () => {
   });
 
   describe('4. Predisposizione Mini-Wiki & Contenuti Release Attuale', () => {
-    it('include nella release attuale (v0.3.0) le funzionalità cardine della Sessione 5', () => {
+    it('include nella release attuale (v3.1.0) le funzionalità cardine di PC Care Center', () => {
       const currentChangelog = getChangelogForVersion(APP_VERSION);
       const addedTitles = currentChangelog.added.map((a) => a.title);
+
+      expect(addedTitles).toContain('Monitoraggio Hardware Nativo & Telemetria Live');
+      expect(addedTitles).toContain('Health Engine Predittivo & Health Score (0-100)');
+      expect(addedTitles).toContain('Optimization Engine & Personal Baseline');
+      expect(addedTitles).toContain('Smart Pause & Resource Guard');
+      expect(addedTitles).toContain('Navigazione Unificata PC Care Center a 5 Schede');
+    });
+
+    it('include nella release 0.3.0 le funzionalità cardine della Sessione 5', () => {
+      const v030 = getChangelogForVersion('0.3.0');
+      const addedTitles = v030.added.map((a) => a.title);
 
       expect(addedTitles).toContain('Command Palette Globale (Ctrl+K / Cmd+K)');
       expect(addedTitles).toContain('Rig Comparison (Confronto Configurazioni Hardware)');
