@@ -14,3 +14,4 @@ export * from './windowsTools';
 export * from './navigation';
 export * from './command';
 export * from './rigComparison';
+export * from './monitoring';
