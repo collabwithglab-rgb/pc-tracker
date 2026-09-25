@@ -8,6 +8,9 @@ import {
   Layers,
   ArrowRight,
   Info,
+  ChevronDown,
+  ChevronUp,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   SystemFactsInput,
@@ -34,6 +37,7 @@ import {
   cleanGpuShaderCache,
   enableUltimatePerformance,
 } from '../../services/windowsToolsService';
+import { Modal } from '../common/Modal';
 
 interface CareOverviewTabProps {
   facts: SystemFactsInput;
@@ -51,6 +55,8 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
   onShowNotification,
 }) => {
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
+  const [showCoverageDetails, setShowCoverageDetails] = useState(false);
+  const [confirmingRec, setConfirmingRec] = useState<OptimizationRecommendation | null>(null);
 
   // Valutazione pura e deterministica della salute
   const healthReport: SystemHealthReport = useMemo(() => {
@@ -64,6 +70,15 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
 
   const notify = (type: 'success' | 'warning' | 'error' | 'info', msg: string) => {
     onShowNotification?.(type === 'success' ? 'success' : 'error', msg);
+  };
+
+  // Click su azione consigliata: se mutante (USER_CONFIRMED), richiede conferma esplicita
+  const handleActionClick = (rec: OptimizationRecommendation) => {
+    if (rec.actionAvailability === 'USER_CONFIRMED') {
+      setConfirmingRec(rec);
+      return;
+    }
+    handleExecuteAction(rec);
   };
 
   // Esecuzione diretta dell'azione consigliata
@@ -130,6 +145,7 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
       notify('error', 'Si è verificato un errore durante l\'operazione.');
     } finally {
       setExecutingActionId(null);
+      setConfirmingRec(null);
     }
   };
 
@@ -164,15 +180,24 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
     }
   };
 
-  // Badge disponibilità azione
+  // Badge disponibilità azione con semantica a 5 livelli
   const getActionAvailabilityBadge = (avail: ActionAvailability) => {
     switch (avail) {
+      case 'READ_ONLY':
+        return <span className="care-avail-badge" style={{ backgroundColor: 'rgba(100, 116, 139, 0.15)', color: 'var(--text-secondary)', border: '1px solid rgba(100, 116, 139, 0.3)' }}>Read-only</span>;
+      case 'ONE_CLICK':
       case 'AUTOMATED_SAFE':
-        return <span className="care-avail-badge avail-auto">1-Click Diretto</span>;
+        return <span className="care-avail-badge avail-auto">1-Click</span>;
+      case 'USER_CONFIRMED':
+        return <span className="care-avail-badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--accent-amber)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>User-confirmed</span>;
+      case 'ASSISTED':
       case 'ASSISTED_UAC':
         return <span className="care-avail-badge avail-uac">Assistito (UAC)</span>;
+      case 'MANUAL':
       case 'MANUAL_GUIDED':
-        return <span className="care-avail-badge avail-manual">Fisico / Guidato</span>;
+        return <span className="care-avail-badge avail-manual">Manuale / Guidato</span>;
+      default:
+        return null;
     }
   };
 
@@ -209,6 +234,48 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '580px', lineHeight: 1.5 }}>
               Valutazione obiettiva basata sulla telemetria nativa di Windows, stato S.M.A.R.T. dei dischi, profilo di raffreddamento e registro di manutenzione fisica.
             </p>
+
+            {/* SEPARATED DIAGNOSTIC COVERAGE INDICATOR */}
+            {healthReport.diagnosticCoverage && (
+              <div style={{ marginTop: 'var(--space-xs)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Copertura Diagnostica:</span>
+                  <span
+                    className={`badge ${
+                      healthReport.diagnosticCoverage.level === 'full'
+                        ? 'badge-emerald'
+                        : healthReport.diagnosticCoverage.level === 'partial'
+                        ? 'badge-cyan'
+                        : 'badge-amber'
+                    }`}
+                    style={{ fontSize: '0.72rem' }}
+                  >
+                    {healthReport.diagnosticCoverage.level === 'full' ? 'Completa' : healthReport.diagnosticCoverage.level === 'partial' ? 'Parziale' : 'Minima'} ({healthReport.diagnosticCoverage.availableChannels}/{healthReport.diagnosticCoverage.totalChannels} attivi)
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => setShowCoverageDetails(!showCoverageDetails)}
+                    style={{ fontSize: '0.72rem', textDecoration: 'underline', padding: '1px 6px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                  >
+                    {showCoverageDetails ? (
+                      <>
+                        <span>Nascondi canali</span>
+                        <ChevronUp size={12} />
+                      </>
+                    ) : (
+                      <>
+                        <span>Dettaglio canali ({healthReport.diagnosticCoverage.availableChannels}/{healthReport.diagnosticCoverage.totalChannels})</span>
+                        <ChevronDown size={12} />
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.4, maxWidth: '640px' }}>
+                  <em>"Nessuna anomalia rilevata" non significa che tutti i sensori siano presenti o disponibili. Le metriche non supportate dall'OS senza driver dedicati non penalizzano lo Health Score.</em>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -223,6 +290,66 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
           </button>
         </div>
       </div>
+
+      {/* DROPDOWN DETTAGLIO COPERTURA CANALI DIAGNOSTICI */}
+      {showCoverageDetails && healthReport.diagnosticCoverage && (
+        <div className="card" style={{ padding: 'var(--space-md)', background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 'var(--space-xs)' }}>
+            Canali Diagnostici di Sistema ({healthReport.diagnosticCoverage.availableChannels}/{healthReport.diagnosticCoverage.totalChannels} disponibili)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-xs)' }}>
+            {healthReport.diagnosticCoverage.channels.map((c) => (
+              <div
+                key={c.id}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  fontSize: '0.78rem',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                  <span style={{ fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {c.label}
+                  </span>
+                  {c.details && (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.details}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={`badge ${
+                    c.status === 'available'
+                      ? 'badge-emerald'
+                      : c.status === 'permission_required'
+                      ? 'badge-amber'
+                      : c.status === 'not_detected'
+                      ? 'badge-subtle'
+                      : 'badge-cyan'
+                  }`}
+                  style={{ fontSize: '0.68rem', padding: '1px 6px', flexShrink: 0 }}
+                >
+                  {c.status === 'available'
+                    ? 'Attivo'
+                    : c.status === 'permission_required'
+                    ? 'Richiede UAC'
+                    : c.status === 'unsupported'
+                    ? 'Non supportato'
+                    : c.status === 'not_detected'
+                    ? 'Non presente'
+                    : 'Non disponibile'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 2. STATS SUMMARY PILLS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-md)' }}>
@@ -331,7 +458,7 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                   {rec.actionId && (
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => handleExecuteAction(rec)}
+                      onClick={() => handleActionClick(rec)}
                       disabled={executingActionId === rec.id}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)' }}
                     >
@@ -344,7 +471,11 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                         <>
                           <ArrowRight size={13} />
                           <span>
-                            {rec.actionAvailability === 'MANUAL_GUIDED' ? 'Apri Sezione' : 'Applica Ottimizzazione'}
+                            {rec.actionAvailability === 'MANUAL' || rec.actionAvailability === 'MANUAL_GUIDED'
+                              ? 'Apri Sezione'
+                              : rec.actionAvailability === 'USER_CONFIRMED'
+                              ? 'Richiedi Conferma'
+                              : 'Applica Ottimizzazione'}
                           </span>
                         </>
                       )}
@@ -396,6 +527,58 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
           ))}
         </div>
       </div>
+
+      {/* 5. MODALE DI CONFERMA SICUREZZA PER AZIONI MUTANTI (USER_CONFIRMED) */}
+      {confirmingRec && (
+        <Modal
+          isOpen={true}
+          onClose={() => setConfirmingRec(null)}
+          title="Conferma Operazione di Ottimizzazione"
+          subtitle="Azione mutante con richiesta di conferma esplicita"
+          maxWidth="500px"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-sm)', padding: 'var(--space-sm)', backgroundColor: 'rgba(245, 158, 11, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+              <ShieldAlert size={20} color="var(--accent-amber)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <strong style={{ color: 'var(--text-primary)' }}>{confirmingRec.title}</strong>
+                <p style={{ margin: '4px 0 0' }}>{confirmingRec.reason}</p>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <div style={{ marginBottom: '4px' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>Evidenza rilevata: </strong>
+                <span>{confirmingRec.evidence}</span>
+              </div>
+              <div>
+                <strong style={{ color: 'var(--accent-emerald)' }}>Beneficio atteso: </strong>
+                <span>{confirmingRec.expectedBenefit}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setConfirmingRec(null)}
+                disabled={executingActionId === confirmingRec.id}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => handleExecuteAction(confirmingRec)}
+                disabled={executingActionId === confirmingRec.id}
+                style={{ backgroundColor: 'var(--accent-amber)', color: '#000', fontWeight: 600 }}
+              >
+                {executingActionId === confirmingRec.id ? 'Esecuzione...' : 'Conferma ed Esegui'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

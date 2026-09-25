@@ -1,5 +1,5 @@
 /**
- * Tipi per l'Health Engine e l'Audit di Sistema (PC Care Center - Tranche 2)
+ * Tipi per l'Health Engine deterministico e diagnostico basato su regole (PC Care Center)
  */
 
 import { MonitoringSnapshot } from './monitoring';
@@ -49,10 +49,48 @@ export interface AreaHealthSummary {
   findingsCount: number;
 }
 
+/**
+ * Stato del singolo canale/sensore diagnostico
+ */
+export type DiagnosticChannelStatus =
+  | 'available'             // Sensore attivo e dato misurato affidabile
+  | 'unavailable'           // Sensore al momento non disponibile o fallito
+  | 'unsupported'           // Non supportato dall'OS/hardware o richiede driver ad hoc
+  | 'permission_required'   // Richiede privilegi elevati (es. UAC Windows)
+  | 'not_detected'          // Hardware non presente (es. GPU assente)
+  | 'error';                // Errore durante l'interrogazione del canale
+
+export interface DiagnosticChannel {
+  id: string;
+  label: string;
+  area: HealthAffectedArea;
+  status: DiagnosticChannelStatus;
+  source?: string;
+  details?: string;
+}
+
+export type DiagnosticCoverageLevel = 'full' | 'partial' | 'minimal';
+
+/**
+ * Copertura Diagnostica del Sistema:
+ * Valuta obiettivamente quanti sensori e canali diagnostici sono attivi.
+ * INDIPENDENTE dallo Health Score: metriche unavailable/unsupported non penalizzano lo score.
+ */
+export interface DiagnosticCoverage {
+  level: DiagnosticCoverageLevel;
+  percentage: number;               // 0 - 100%
+  totalChannels: number;
+  availableChannels: number;
+  channels: DiagnosticChannel[];
+  summary: string;
+  hasHardwareGaps: boolean;         // true se ci sono canali non coperti
+}
+
 export interface SystemHealthReport {
   evaluatedAt: string;
   overallStatus: 'healthy' | 'attention' | 'warning' | 'critical';
   healthScore: number;             // Punteggio sintetico da 0 a 100
+  diagnosticCoverage?: DiagnosticCoverage; // Livello di copertura diagnostica dei sensori
   summary: {
     criticalCount: number;
     warningCount: number;
@@ -63,3 +101,4 @@ export interface SystemHealthReport {
   findings: HealthFinding[];
   areaBreakdown: Record<HealthAffectedArea, AreaHealthSummary>;
 }
+

@@ -158,7 +158,7 @@ describe('Sistema Notifiche Aggiornamenti & Changelog WhatsNew', () => {
       const addedTitles = currentChangelog.added.map((a) => a.title);
 
       expect(addedTitles).toContain('Monitoraggio Hardware Nativo & Telemetria Live');
-      expect(addedTitles).toContain('Health Engine Predittivo & Health Score (0-100)');
+      expect(addedTitles).toContain('Health Engine Deterministico & Health Score (0-100)');
       expect(addedTitles).toContain('Optimization Engine & Personal Baseline');
       expect(addedTitles).toContain('Smart Pause & Resource Guard');
       expect(addedTitles).toContain('Navigazione Unificata PC Care Center a 5 Schede');

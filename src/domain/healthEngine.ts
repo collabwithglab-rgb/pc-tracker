@@ -14,6 +14,10 @@ import {
   SystemFactsInput,
   SystemHealthReport,
   AreaHealthSummary,
+  DiagnosticCoverage,
+  DiagnosticChannel,
+  DiagnosticChannelStatus,
+  DiagnosticCoverageLevel,
 } from '../types/health';
 import { isMetricAvailable } from '../services/monitoringService';
 
@@ -63,7 +67,12 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   evaluateSystemAndSecurityHealth(facts, findings);
 
   // 6. Calcolo del punteggio sintetico e ripartizione per area
-  return buildHealthReport(findings, refDate);
+  const report = buildHealthReport(findings, refDate);
+
+  // 7. Calcolo puro della Copertura Diagnostica (indipendente dallo Health Score)
+  report.diagnosticCoverage = computeDiagnosticCoverage(facts);
+
+  return report;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,13 +83,29 @@ function evaluateStorageHealth(facts: SystemFactsInput, findings: HealthFinding[
   // A. Analisi S.M.A.R.T. e contatori di affidabilità fisici
   if (facts.smartDisks && facts.smartDisks.length > 0) {
     for (const disk of facts.smartDisks) {
+      if (
+        disk.smartStatus === 'permission_required' ||
+        disk.smartStatus === 'unsupported' ||
+        disk.smartStatus === 'unavailable'
+      ) {
+        // Registri SMART non accessibili o non supportati: non penalizzano lo Health Score.
+        // Lo stato del canale è tracciato separatamente in computeDiagnosticCoverage.
+        continue;
+      }
+
       const isHealthyStatus = (disk.healthStatus || '').toLowerCase().includes('healthy');
       const hasErrors = disk.readErrorsTotal > 0 || disk.writeErrorsTotal > 0;
       const isCriticalWear = disk.wearPercentage !== undefined && disk.wearPercentage >= 90;
       const isHighWear = disk.wearPercentage !== undefined && disk.wearPercentage >= 80 && disk.wearPercentage < 90;
       const isOverheating = disk.temperatureCelsius !== undefined && disk.temperatureCelsius >= 70;
 
-      if (!isHealthyStatus || isCriticalWear || (disk.readErrorsTotal > 0 && disk.writeErrorsTotal > 0)) {
+      const isExplicitlyUnhealthy =
+        disk.healthStatus !== undefined &&
+        disk.healthStatus.trim() !== '' &&
+        !isHealthyStatus &&
+        disk.healthStatus.toLowerCase() !== 'unknown';
+
+      if (isExplicitlyUnhealthy || isCriticalWear || (disk.readErrorsTotal > 0 && disk.writeErrorsTotal > 0)) {
         findings.push({
           id: `smart-critical-${disk.deviceId}`,
           severity: 'CRITICAL',
@@ -281,7 +306,7 @@ function evaluateMemoryHealth(facts: SystemFactsInput, findings: HealthFinding[]
       area: 'ram',
       title: 'Margine di Memoria RAM Abbondante',
       evidence: `Utilizzo al ${usagePct.toFixed(1)}% (${availGb} GB memoria libera/in cache)`,
-      explanation: 'La memoria fisica a disposizione garantisce multitasking fluido senza ricorso al disco di swap.',
+      explanation: 'La memoria fisica a disposizione favorisce un multitasking fluido minimizzando il ricorso allo swap su disco.',
       confidence: 'HIGH',
     });
   }
@@ -431,7 +456,7 @@ function evaluateMaintenanceHealth(
         area: 'maintenance',
         title: 'Pasta Termica Recente e Protetta',
         evidence: `Sostituita di recente (${days} giorni fa, ${latest.productUsed || 'pasta applicata'})`,
-        explanation: 'Il composto termoconduttivo tra CPU/GPU e dissipatore è fresco e garantisce massima efficienza di scambio termico.',
+        explanation: 'Il composto termoconduttivo tra CPU/GPU e dissipatore è fresco e favorisce un ottimale scambio termico.',
         confidence: 'HIGH',
       });
     }
@@ -684,5 +709,315 @@ function buildHealthReport(findings: HealthFinding[], evaluatedAt: string): Syst
     },
     findings,
     areaBreakdown,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 7. DIAGNOSTIC COVERAGE CALCULATION (PURE FUNCTION)
+// ---------------------------------------------------------------------------
+
+/**
+ * Calcola obiettivamente la Copertura Diagnostica del sistema esaminando la disponibilità
+ * dei singoli canali telemetrici e diagnostici.
+ * 
+ * REGOLA FONDAMENTALE:
+ * Le metriche 'unavailable' o 'unsupported' NON penalizzano lo Health Score.
+ * "Nessuna anomalia rilevata" NON implica che tutti i sensori siano presenti o disponibili.
+ */
+export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCoverage {
+  const channels: DiagnosticChannel[] = [];
+  const mon = facts.monitoring;
+
+  // 1. Carico Processore (CPU Load)
+  if (mon && isMetricAvailable(mon.cpu.utilizationPercent)) {
+    channels.push({
+      id: 'cpu_load',
+      label: 'Carico Processore (CPU)',
+      area: 'cpu',
+      status: 'available',
+      source: mon.cpu.utilizationPercent.source || 'Win32_Perf',
+    });
+  } else {
+    const avail = mon?.cpu.utilizationPercent.availability;
+    channels.push({
+      id: 'cpu_load',
+      label: 'Carico Processore (CPU)',
+      area: 'cpu',
+      status: (avail as DiagnosticChannelStatus) || 'unavailable',
+      details: mon ? 'Dato di utilizzo CPU non disponibile' : 'Snapshot di telemetria non attivo',
+    });
+  }
+
+  // 2. Temperatura Package CPU
+  if (mon && isMetricAvailable(mon.cpu.packageTemperatureCelsius)) {
+    channels.push({
+      id: 'cpu_temp',
+      label: 'Temperatura Package CPU',
+      area: 'thermal',
+      status: 'available',
+      source: mon.cpu.packageTemperatureCelsius.source || 'ACPI',
+    });
+  } else {
+    const avail = mon?.cpu.packageTemperatureCelsius.availability;
+    channels.push({
+      id: 'cpu_temp',
+      label: 'Temperatura Package CPU',
+      area: 'thermal',
+      status: avail === 'unsupported' ? 'unsupported' : (avail as DiagnosticChannelStatus) || 'unavailable',
+      details: avail === 'unsupported'
+        ? 'Non supportato nativamente dall\'OS senza driver ad anello 0 (kernel ring-0)'
+        : 'Sensore termico CPU non disponibile',
+    });
+  }
+
+  // 3. Consumo Energetico CPU (Power Package)
+  if (mon && isMetricAvailable(mon.cpu.packagePowerWatts)) {
+    channels.push({
+      id: 'cpu_power',
+      label: 'Consumo Energetico CPU',
+      area: 'cpu',
+      status: 'available',
+      source: mon.cpu.packagePowerWatts.source || 'RAPL',
+    });
+  } else {
+    const avail = mon?.cpu.packagePowerWatts.availability;
+    channels.push({
+      id: 'cpu_power',
+      label: 'Consumo Energetico CPU',
+      area: 'cpu',
+      status: avail === 'unsupported' ? 'unsupported' : (avail as DiagnosticChannelStatus) || 'unavailable',
+      details: avail === 'unsupported'
+        ? 'Interfaccia RAPL / contatori energetici non accessibili in user-space standard'
+        : 'Dato energetico CPU non disponibile',
+    });
+  }
+
+  // 4. Memoria di Sistema (RAM)
+  if (mon && mon.memory && mon.memory.totalBytes > 0) {
+    channels.push({
+      id: 'ram_usage',
+      label: 'Memoria di Sistema (RAM)',
+      area: 'ram',
+      status: 'available',
+      source: 'GlobalMemoryStatusEx',
+    });
+  } else {
+    channels.push({
+      id: 'ram_usage',
+      label: 'Memoria di Sistema (RAM)',
+      area: 'ram',
+      status: 'unavailable',
+      details: 'Dati di memoria fisica non disponibili',
+    });
+  }
+
+  // 5. Telemetria e Carico GPU
+  const gpus = mon?.gpus || [];
+  const primaryGpu = gpus.find((g) => g.isDiscrete) || gpus[0];
+  if (primaryGpu) {
+    if (isMetricAvailable(primaryGpu.utilizationPercent)) {
+      channels.push({
+        id: 'gpu_telemetry',
+        label: 'Carico e Memoria GPU',
+        area: 'gpu',
+        status: 'available',
+        source: primaryGpu.utilizationPercent.source || 'NVML',
+      });
+    } else {
+      const avail = primaryGpu.utilizationPercent.availability;
+      channels.push({
+        id: 'gpu_telemetry',
+        label: 'Carico e Memoria GPU',
+        area: 'gpu',
+        status: (avail as DiagnosticChannelStatus) || 'unavailable',
+        details: 'Telemetria GPU non disponibile per il dispositivo rilevato',
+      });
+    }
+  } else {
+    const hasGpuInRig = (facts.currentRigComponents || []).some((c) => c.category === 'gpu');
+    channels.push({
+      id: 'gpu_telemetry',
+      label: 'Carico e Memoria GPU',
+      area: 'gpu',
+      status: hasGpuInRig ? 'unavailable' : 'not_detected',
+      details: hasGpuInRig ? 'GPU configurata nel rig ma telemetria non rilevata' : 'Nessuna scheda grafica rilevata',
+    });
+  }
+
+  // 6. Temperatura Core GPU
+  if (primaryGpu) {
+    if (isMetricAvailable(primaryGpu.coreTemperatureCelsius)) {
+      channels.push({
+        id: 'gpu_temp',
+        label: 'Temperatura Core GPU',
+        area: 'thermal',
+        status: 'available',
+        source: primaryGpu.coreTemperatureCelsius.source || 'NVML',
+      });
+    } else {
+      const avail = primaryGpu.coreTemperatureCelsius.availability;
+      channels.push({
+        id: 'gpu_temp',
+        label: 'Temperatura Core GPU',
+        area: 'thermal',
+        status: (avail as DiagnosticChannelStatus) || 'unavailable',
+        details: 'Sensore termico GPU non accessibile',
+      });
+    }
+  } else {
+    const hasGpuInRig = (facts.currentRigComponents || []).some((c) => c.category === 'gpu');
+    channels.push({
+      id: 'gpu_temp',
+      label: 'Temperatura Core GPU',
+      area: 'thermal',
+      status: hasGpuInRig ? 'unavailable' : 'not_detected',
+      details: hasGpuInRig ? 'GPU presente nel rig ma termiche non lette' : 'Nessuna scheda grafica rilevata',
+    });
+  }
+
+  // 7. Affidabilità S.M.A.R.T. Dischi
+  if (facts.smartDisks && facts.smartDisks.length > 0) {
+    const hasPermissionIssue = facts.smartDisks.some((d) => d.smartStatus === 'permission_required');
+    const isAllUnsupported = facts.smartDisks.every((d) => d.smartStatus === 'unsupported');
+    const hasError = facts.smartDisks.some((d) => d.smartStatus === 'error');
+    if (hasPermissionIssue) {
+      channels.push({
+        id: 'storage_smart',
+        label: 'Affidabilità S.M.A.R.T. Dischi',
+        area: 'storage',
+        status: 'permission_required',
+        details: 'Accesso ai registri di usura e temperatura limitato senza elevazione UAC',
+      });
+    } else if (isAllUnsupported) {
+      channels.push({
+        id: 'storage_smart',
+        label: 'Affidabilità S.M.A.R.T. Dischi',
+        area: 'storage',
+        status: 'unsupported',
+        details: 'Contatori S.M.A.R.T. non supportati dai dispositivi di archiviazione attuali',
+      });
+    } else if (hasError) {
+      channels.push({
+        id: 'storage_smart',
+        label: 'Affidabilità S.M.A.R.T. Dischi',
+        area: 'storage',
+        status: 'error',
+        details: 'Errore durante la lettura dei registri S.M.A.R.T.',
+      });
+    } else {
+      channels.push({
+        id: 'storage_smart',
+        label: 'Affidabilità S.M.A.R.T. Dischi',
+        area: 'storage',
+        status: 'available',
+        source: 'StorageReliabilityCounters',
+      });
+    }
+  } else {
+    channels.push({
+      id: 'storage_smart',
+      label: 'Affidabilità S.M.A.R.T. Dischi',
+      area: 'storage',
+      status: 'unavailable',
+      details: 'Nessun dato S.M.A.R.T. caricato',
+    });
+  }
+
+  // 8. Spazio e File System Volumi
+  const drives = facts.drives || [];
+  const monStorage = mon?.storage || [];
+  if (drives.length > 0 || monStorage.length > 0) {
+    channels.push({
+      id: 'storage_volumes',
+      label: 'Spazio e File System Volumi',
+      area: 'storage',
+      status: 'available',
+      source: 'Win32_Volume',
+    });
+  } else {
+    channels.push({
+      id: 'storage_volumes',
+      label: 'Spazio e File System Volumi',
+      area: 'storage',
+      status: 'unavailable',
+      details: 'Nessun volume di archiviazione rilevato',
+    });
+  }
+
+  // 9. Audit Sicurezza Hardware & Kernel
+  if (facts.securityAudit) {
+    channels.push({
+      id: 'system_security',
+      label: 'Audit Sicurezza Hardware & Kernel',
+      area: 'security',
+      status: 'available',
+      source: 'WMI_Security',
+    });
+  } else {
+    channels.push({
+      id: 'system_security',
+      label: 'Audit Sicurezza Hardware & Kernel',
+      area: 'security',
+      status: 'unavailable',
+      details: 'Audit sicurezza non eseguito',
+    });
+  }
+
+  // 10. Integrità File di Sistema Windows (SFC)
+  if (facts.systemFilesStatus === 'clean' || facts.systemFilesStatus === 'corrupted') {
+    channels.push({
+      id: 'system_files',
+      label: 'Integrità File di Sistema Windows',
+      area: 'system',
+      status: 'available',
+      source: 'SFC_Verify',
+    });
+  } else if (facts.systemFilesStatus === 'requires_elevation') {
+    channels.push({
+      id: 'system_files',
+      label: 'Integrità File di Sistema Windows',
+      area: 'system',
+      status: 'permission_required',
+      details: 'Scansione SFC richiede elevazione dei privilegi UAC',
+    });
+  } else {
+    channels.push({
+      id: 'system_files',
+      label: 'Integrità File di Sistema Windows',
+      area: 'system',
+      status: 'unavailable',
+      details: 'Scansione integrità file di sistema non eseguita',
+    });
+  }
+
+  const totalChannels = channels.length;
+  const availableChannels = channels.filter((c) => c.status === 'available').length;
+  const percentage = Math.round((availableChannels / totalChannels) * 100);
+  const hasHardwareGaps = availableChannels < totalChannels;
+
+  let level: DiagnosticCoverageLevel = 'full';
+  if (percentage < 60) {
+    level = 'minimal';
+  } else if (percentage < 100) {
+    level = 'partial';
+  }
+
+  let summary = '';
+  if (level === 'full') {
+    summary = `Copertura diagnostica completa (${availableChannels}/${totalChannels} sensori attivi). Tutti i canali diagnostici rispondono affidabilmente.`;
+  } else if (level === 'partial') {
+    summary = `Copertura diagnostica parziale (${availableChannels}/${totalChannels} sensori attivi). Nessuna anomalia rilevata sui sensori disponibili; metriche non supportate dall'OS senza driver dedicati non penalizzano lo Health Score.`;
+  } else {
+    summary = `Copertura diagnostica minima (${availableChannels}/${totalChannels} sensori attivi). Esegui una scansione completa o avvia il monitoraggio per estendere la copertura.`;
+  }
+
+  return {
+    level,
+    percentage,
+    totalChannels,
+    availableChannels,
+    channels,
+    summary,
+    hasHardwareGaps,
   };
 }

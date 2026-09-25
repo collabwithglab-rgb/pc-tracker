@@ -86,6 +86,13 @@ export interface SecurityAuditData {
   details: string;
 }
 
+export type SmartAvailabilityStatus =
+  | 'available'
+  | 'unavailable'
+  | 'permission_required'
+  | 'unsupported'
+  | 'error';
+
 export interface DiskSmartHealth {
   deviceId: string;
   friendlyName: string;
@@ -96,6 +103,8 @@ export interface DiskSmartHealth {
   writeErrorsTotal: number;
   powerOnHours?: number;
   healthStatus: string;
+  smartStatus?: SmartAvailabilityStatus;
+  smartStatusReason?: string;
 }
 
 export interface ShaderCacheCleanResult {

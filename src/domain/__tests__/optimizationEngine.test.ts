@@ -116,7 +116,7 @@ describe('optimizationEngine', () => {
       expect(trimRec).toBeDefined();
       expect(trimRec?.category).toBe('storage');
       expect(trimRec?.risk).toBe('NONE');
-      expect(trimRec?.actionAvailability).toBe('AUTOMATED_SAFE');
+      expect(trimRec?.actionAvailability).toBe('ONE_CLICK');
       expect(trimRec?.parameters?.driveLetter).toBe('C');
       expect(report.byCategory.storage).toBeGreaterThanOrEqual(1);
     });
@@ -223,7 +223,7 @@ describe('optimizationEngine', () => {
 
       expect(rpRec).toBeDefined();
       expect(rpRec?.category).toBe('system');
-      expect(rpRec?.actionAvailability).toBe('ASSISTED_UAC');
+      expect(rpRec?.actionAvailability).toBe('ASSISTED');
       expect(rpRec?.risk).toBe('NONE');
     });
 
@@ -262,7 +262,7 @@ describe('optimizationEngine', () => {
 
       expect(secRec).toBeDefined();
       expect(secRec?.category).toBe('security');
-      expect(secRec?.actionAvailability).toBe('MANUAL_GUIDED');
+      expect(secRec?.actionAvailability).toBe('MANUAL');
     });
   });
 
@@ -318,6 +318,7 @@ describe('optimizationEngine', () => {
       expect(cacheRec).toBeDefined();
       expect(cacheRec?.category).toBe('performance');
       expect(cacheRec?.actionId).toBe('clean-shader-cache');
+      expect(cacheRec?.actionAvailability).toBe('USER_CONFIRMED');
     });
 
     it('recommends Ultimate Performance power plan when user has validated daily tuning profile', () => {
@@ -336,7 +337,7 @@ describe('optimizationEngine', () => {
 
       expect(planRec).toBeDefined();
       expect(planRec?.category).toBe('performance');
-      expect(planRec?.actionAvailability).toBe('ASSISTED_UAC');
+      expect(planRec?.actionAvailability).toBe('ASSISTED');
       expect(planRec?.rollbackAvailability).toBe('AUTOMATIC');
     });
   });
@@ -406,7 +407,7 @@ describe('optimizationEngine', () => {
 
       expect(thermalRec).toBeDefined();
       expect(thermalRec?.category).toBe('thermal');
-      expect(thermalRec?.actionAvailability).toBe('MANUAL_GUIDED');
+      expect(thermalRec?.actionAvailability).toBe('MANUAL');
     });
 
     it('recommends thermal paste replacement when overdue in maintenance logs', () => {
@@ -440,7 +441,7 @@ describe('optimizationEngine', () => {
 
       expect(pasteRec).toBeDefined();
       expect(pasteRec?.category).toBe('maintenance');
-      expect(pasteRec?.actionAvailability).toBe('MANUAL_GUIDED');
+      expect(pasteRec?.actionAvailability).toBe('MANUAL');
     });
 
     it('recommends dust filters cleaning when overdue (> 180 days)', () => {
@@ -474,7 +475,7 @@ describe('optimizationEngine', () => {
 
       expect(filterRec).toBeDefined();
       expect(filterRec?.category).toBe('maintenance');
-      expect(filterRec?.actionAvailability).toBe('MANUAL_GUIDED');
+      expect(filterRec?.actionAvailability).toBe('MANUAL');
     });
   });
 

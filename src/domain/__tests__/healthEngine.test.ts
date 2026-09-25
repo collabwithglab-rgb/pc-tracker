@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   evaluateSystemHealth,
   computeDaysBetween,
+  computeDiagnosticCoverage,
 } from '../healthEngine';
 import { SystemFactsInput } from '../../types/health';
 
@@ -490,6 +491,400 @@ describe('healthEngine', () => {
       expect(report.findings).toEqual([]);
       expect(report.summary.criticalCount).toBe(0);
       expect(report.summary.warningCount).toBe(0);
+    });
+  });
+
+  describe('Copertura Diagnostica (Diagnostic Coverage)', () => {
+    it('calcola copertura completa (100%, full) quando tutti i sensori rispondono', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        systemFilesStatus: 'clean',
+        securityAudit: {
+          secureBootEnabled: true,
+          tpmPresent: true,
+          tpmReady: true,
+          vbsRunning: true,
+          hvciRunning: true,
+          hostsFileClean: true,
+          hostsCustomEntriesCount: 0,
+          details: 'Audit completato con successo',
+        },
+        drives: [
+          { driveLetter: 'C:', label: 'OS', fileSystem: 'NTFS', totalBytes: 1_000_000_000_000, freeBytes: 500_000_000_000, isSSD: true, mediaType: 'SSD', trimSupported: true },
+        ],
+        smartDisks: [
+          { deviceId: '0', friendlyName: 'NVMe', mediaType: 'SSD', healthStatus: 'Healthy', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'available' },
+        ],
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 10, availability: 'available', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Win32' },
+            packageTemperatureCelsius: { value: 45, availability: 'available', source: 'ACPI' },
+            packagePowerWatts: { value: 65, availability: 'available', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50 },
+          gpus: [
+            {
+              id: 'gpu-0',
+              name: 'RTX 4070',
+              vendor: 'NVIDIA',
+              isDiscrete: true,
+              utilizationPercent: { value: 20, availability: 'available', source: 'NVML' },
+              vramTotalBytes: { value: 12000000000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 2000000000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 16.6, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 50, availability: 'available', source: 'NVML' },
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 2000, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 10000, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 50, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 0, availability: 'available', source: 'NVML' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 100 },
+        },
+      };
+
+      const coverage = computeDiagnosticCoverage(facts);
+      expect(coverage.level).toBe('full');
+      expect(coverage.percentage).toBe(100);
+      expect(coverage.availableChannels).toBe(10);
+      expect(coverage.totalChannels).toBe(10);
+      expect(coverage.hasHardwareGaps).toBe(false);
+
+      const report = evaluateSystemHealth(facts);
+      expect(report.healthScore).toBe(100);
+      expect(report.diagnosticCoverage?.level).toBe('full');
+    });
+
+    it('gestisce sensori unavailable o snapshot assente senza penalizzare Health Score', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+      };
+
+      const coverage = computeDiagnosticCoverage(facts);
+      expect(coverage.level).toBe('minimal');
+      expect(coverage.percentage).toBe(0);
+      expect(coverage.availableChannels).toBe(0);
+      expect(coverage.hasHardwareGaps).toBe(true);
+
+      const report = evaluateSystemHealth(facts);
+      expect(report.healthScore).toBe(100);
+      expect(report.overallStatus).toBe('healthy');
+    });
+
+    it('identifica sensori unsupported (es. CPU temp/power) mantenendo Health Score 100/100 e coverage parziale', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        systemFilesStatus: 'clean',
+        securityAudit: {
+          secureBootEnabled: true,
+          tpmPresent: true,
+          tpmReady: true,
+          vbsRunning: true,
+          hvciRunning: true,
+          hostsFileClean: true,
+          hostsCustomEntriesCount: 0,
+          details: 'Audit completato con successo',
+        },
+        drives: [
+          { driveLetter: 'C:', label: 'OS', fileSystem: 'NTFS', totalBytes: 1_000_000_000_000, freeBytes: 500_000_000_000, isSSD: true, mediaType: 'SSD', trimSupported: true },
+        ],
+        smartDisks: [
+          { deviceId: '0', friendlyName: 'NVMe', mediaType: 'SSD', healthStatus: 'Healthy', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'available' },
+        ],
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 15, availability: 'available', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Win32' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50 },
+          gpus: [
+            {
+              id: 'gpu-0',
+              name: 'RTX 4070',
+              vendor: 'NVIDIA',
+              isDiscrete: true,
+              utilizationPercent: { value: 20, availability: 'available', source: 'NVML' },
+              vramTotalBytes: { value: 12000000000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 2000000000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 16.6, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 50, availability: 'available', source: 'NVML' },
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 2000, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 10000, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 50, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 0, availability: 'available', source: 'NVML' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 100 },
+        },
+      };
+
+      const coverage = computeDiagnosticCoverage(facts);
+      expect(coverage.level).toBe('partial');
+      expect(coverage.availableChannels).toBe(8);
+      expect(coverage.totalChannels).toBe(10);
+      expect(coverage.percentage).toBe(80);
+
+      const cpuTempChannel = coverage.channels.find((c) => c.id === 'cpu_temp');
+      expect(cpuTempChannel?.status).toBe('unsupported');
+
+      const cpuPowerChannel = coverage.channels.find((c) => c.id === 'cpu_power');
+      expect(cpuPowerChannel?.status).toBe('unsupported');
+
+      const report = evaluateSystemHealth(facts);
+      expect(report.healthScore).toBe(100);
+      expect(report.diagnosticCoverage?.level).toBe('partial');
+    });
+
+    it('gestisce configurazione con GPU assente etichettando i canali grafici come not_detected', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        currentRigComponents: [],
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 10, availability: 'available', source: 'Win32' },
+            logicalProcessorCount: 4,
+            baseFrequencyMhz: { value: 3000, availability: 'available', source: 'Win32' },
+            packageTemperatureCelsius: { value: 40, availability: 'available', source: 'ACPI' },
+            packagePowerWatts: { value: 30, availability: 'available', source: 'RAPL' },
+          },
+          memory: { totalBytes: 8000000000, usedBytes: 4000000000, availableBytes: 4000000000, utilizationPercent: 50 },
+          gpus: [],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 50 },
+        },
+      };
+
+      const coverage = computeDiagnosticCoverage(facts);
+      const gpuTelemetry = coverage.channels.find((c) => c.id === 'gpu_telemetry');
+      const gpuTemp = coverage.channels.find((c) => c.id === 'gpu_temp');
+
+      expect(gpuTelemetry?.status).toBe('not_detected');
+      expect(gpuTemp?.status).toBe('not_detected');
+
+      const report = evaluateSystemHealth(facts);
+      expect(report.healthScore).toBe(100);
+    });
+
+    it('identifica storage SMART non disponibile (unavailable) o con permission_required senza alterare lo Health Score', () => {
+      // Caso 1: SMART unavailable
+      const factsNoSmart: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        smartDisks: [],
+      };
+      const covNoSmart = computeDiagnosticCoverage(factsNoSmart);
+      const smartChannelNo = covNoSmart.channels.find((c) => c.id === 'storage_smart');
+      expect(smartChannelNo?.status).toBe('unavailable');
+
+      const reportNoSmart = evaluateSystemHealth(factsNoSmart);
+      expect(reportNoSmart.healthScore).toBe(100);
+
+      // Caso 2: SMART permission_required
+      const factsPermSmart: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        smartDisks: [
+          {
+            deviceId: '0',
+            friendlyName: 'Samsung NVMe',
+            mediaType: 'SSD',
+            healthStatus: 'Unknown',
+            readErrorsTotal: 0,
+            writeErrorsTotal: 0,
+            smartStatus: 'permission_required',
+            smartStatusReason: 'Access to CIM denied without elevation',
+          },
+        ],
+      };
+      const covPermSmart = computeDiagnosticCoverage(factsPermSmart);
+      const smartChannelPerm = covPermSmart.channels.find((c) => c.id === 'storage_smart');
+      expect(smartChannelPerm?.status).toBe('permission_required');
+
+      const reportPermSmart = evaluateSystemHealth(factsPermSmart);
+      expect(reportPermSmart.healthScore).toBe(100);
+    });
+  });
+
+  describe('Verifica Rigorosa Personal Baseline', () => {
+    it('NON genera falsi positivi quando il carico GPU è sotto il 75% (es. in idle)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        tuningProfiles: [
+          {
+            id: 'tune-daily-gpu',
+            name: 'Daily UV 950mV',
+            category: 'gpu',
+            date: '2025-10-01',
+            type: 'gpu_undervolt',
+            parameters: { offsetMv: -50 },
+            stability: 'daily',
+            temperatures: { idle: 35, load: 68 },
+            createdAt: '2025-10-01',
+            updatedAt: '2025-10-01',
+          },
+        ],
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 10, availability: 'available', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Win32' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50 },
+          gpus: [
+            {
+              id: 'gpu-idle-test',
+              name: 'NVIDIA RTX 4070',
+              vendor: 'NVIDIA',
+              isDiscrete: true,
+              utilizationPercent: { value: 30, availability: 'available', source: 'NVML' },
+              vramTotalBytes: { value: 12000000000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 2000000000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 16, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 78, availability: 'available', unit: '°C', source: 'NVML' },
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 1000, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 5000, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 50, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 30, availability: 'available', source: 'NVML' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Win', osBuild: '1', uptimeSeconds: 100 },
+        },
+      };
+
+      const report = evaluateSystemHealth(facts);
+      const baselineFinding = report.findings.find((f) => f.id.startsWith('gpu-baseline-divergence'));
+      expect(baselineFinding).toBeUndefined();
+    });
+
+    it('NON attiva il confronto se il profilo non è Daily o manca la temperatura di carico registrata', () => {
+      const factsNonDaily: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        tuningProfiles: [
+          {
+            id: 'tune-bench-gpu',
+            name: 'Extreme Benchmark UV',
+            category: 'gpu',
+            date: '2025-10-01',
+            type: 'gpu_undervolt',
+            parameters: { offsetMv: -100 },
+            stability: 'testing',
+            temperatures: { idle: 35, load: 68 },
+            createdAt: '2025-10-01',
+            updatedAt: '2025-10-01',
+          },
+        ],
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 10, availability: 'available', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Win32' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50 },
+          gpus: [
+            {
+              id: 'gpu-bench-test',
+              name: 'NVIDIA RTX 4070',
+              vendor: 'NVIDIA',
+              isDiscrete: true,
+              utilizationPercent: { value: 90, availability: 'available', source: 'NVML' },
+              vramTotalBytes: { value: 12000000000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 2000000000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 16, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 80, availability: 'available', unit: '°C', source: 'NVML' },
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 2500, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 10000, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 190, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 70, availability: 'available', source: 'NVML' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Win', osBuild: '1', uptimeSeconds: 100 },
+        },
+      };
+
+      const report = evaluateSystemHealth(factsNonDaily);
+      const baselineFinding = report.findings.find((f) => f.id.startsWith('gpu-baseline-divergence'));
+      expect(baselineFinding).toBeUndefined();
+    });
+
+    it('NON attiva finding se la deviazione termica sotto carico è inferiore a 8°C (es. +5°C tolleranza normale)', () => {
+      const factsWithinTolerance: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        tuningProfiles: [
+          {
+            id: 'tune-daily-gpu',
+            name: 'Daily UV 950mV',
+            category: 'gpu',
+            date: '2025-10-01',
+            type: 'gpu_undervolt',
+            parameters: { offsetMv: -50 },
+            stability: 'daily',
+            temperatures: { idle: 35, load: 68 },
+            createdAt: '2025-10-01',
+            updatedAt: '2025-10-01',
+          },
+        ],
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 10, availability: 'available', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Win32' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50 },
+          gpus: [
+            {
+              id: 'gpu-tol-test',
+              name: 'NVIDIA RTX 4070',
+              vendor: 'NVIDIA',
+              isDiscrete: true,
+              utilizationPercent: { value: 85, availability: 'available', source: 'NVML' },
+              vramTotalBytes: { value: 12000000000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 2000000000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 16, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 73, availability: 'available', unit: '°C', source: 'NVML' },
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 2400, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 10000, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 180, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 60, availability: 'available', source: 'NVML' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Win', osBuild: '1', uptimeSeconds: 100 },
+        },
+      };
+
+      const report = evaluateSystemHealth(factsWithinTolerance);
+      const baselineFinding = report.findings.find((f) => f.id.startsWith('gpu-baseline-divergence'));
+      expect(baselineFinding).toBeUndefined();
     });
   });
 });

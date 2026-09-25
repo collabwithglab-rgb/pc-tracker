@@ -5,10 +5,16 @@
 export type OptimizationRisk = 'NONE' | 'LOW' | 'MODERATE' | 'HIGH';
 
 export type ActionAvailability =
-  | 'AUTOMATED_SAFE'      // Azione automatizzabile in sicurezza in user-space
-  | 'ASSISTED_UAC'        // Richiede autorizzazione esplicita Windows UAC
-  | 'MANUAL_GUIDED'       // Guida passo-passo per l'utente (es. BIOS, manutenzione fisica)
-  | 'EXTERNAL_LINK';      // Portale produttore o documentazione esterna
+  | 'READ_ONLY'           // Sola lettura o diagnostica (nessuna modifica al sistema)
+  | 'ONE_CLICK'           // Esecuzione immediata in 1-click in user-space non distruttiva
+  | 'USER_CONFIRMED'      // Azione mutante che richiede conferma esplicita prima di procedere
+  | 'ASSISTED'            // Richiede autorizzazione esplicita Windows UAC o assistita da OS
+  | 'MANUAL'              // Guida passo-passo per l'utente (es. BIOS/UEFI, manutenzione fisica)
+  // Alias retrocompatibili
+  | 'AUTOMATED_SAFE'
+  | 'ASSISTED_UAC'
+  | 'MANUAL_GUIDED'
+  | 'EXTERNAL_LINK';
 
 export type RollbackAvailability =
   | 'AUTOMATIC'           // L'applicazione può ripristinare il valore precedente in 1-click

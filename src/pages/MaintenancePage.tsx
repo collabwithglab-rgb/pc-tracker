@@ -88,6 +88,7 @@ import {
   Trash2,
   Moon,
   ShieldCheck,
+  ShieldAlert,
   Search,
   Plus,
   Edit2,
@@ -407,13 +408,20 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     }
   };
 
-  // Ricarica S.M.A.R.T. Dischi
-  const handleRefreshSmartHealth = async () => {
+  // Ricarica S.M.A.R.T. Dischi (con opzione elevazione esplicita su richiesta dell'utente)
+  const handleRefreshSmartHealth = async (elevate = false) => {
     setIsLoadingSmartHealth(true);
     try {
-      const res = await getStorageSmartHealth();
+      const res = await getStorageSmartHealth(elevate);
+      if (res.status === 'cancelled') {
+        return;
+      }
       if (res.data) setSmartHealthList(res.data);
-      showNotification('success', 'Dati S.M.A.R.T. aggiornati.');
+      if (elevate) {
+        showNotification('success', 'Dati S.M.A.R.T. avanzati acquisiti con successo.');
+      } else {
+        showNotification('success', 'Dati S.M.A.R.T. aggiornati.');
+      }
     } catch (err) {
       showNotification('error', `Errore interrogazione S.M.A.R.T.: ${(err as Error).message}`);
     } finally {
@@ -1414,11 +1422,18 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                                   {health.label}
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                <span>Temp: <strong style={{ color: 'var(--text-secondary)' }}>{formatTemperatureCelsius(d.temperatureCelsius)}</strong></span>
-                                <span>Usura: <strong style={{ color: 'var(--text-secondary)' }}>{formatWearPercentage(d.wearPercentage)}</strong></span>
-                                <span>Errori: <strong style={{ color: (d.readErrorsTotal + d.writeErrorsTotal > 0) ? 'var(--accent-ruby)' : 'var(--text-secondary)' }}>{d.readErrorsTotal + d.writeErrorsTotal}</strong></span>
-                              </div>
+                              {d.smartStatus === 'permission_required' ? (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--accent-amber)', backgroundColor: 'rgba(245, 158, 11, 0.08)', padding: '4px 8px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                  <ShieldAlert size={12} />
+                                  <span>Contatori usura/temp non disponibili senza privilegi di amministratore.</span>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                  <span>Temp: <strong style={{ color: 'var(--text-secondary)' }}>{formatTemperatureCelsius(d.temperatureCelsius)}</strong></span>
+                                  <span>Usura: <strong style={{ color: 'var(--text-secondary)' }}>{formatWearPercentage(d.wearPercentage)}</strong></span>
+                                  <span>Errori: <strong style={{ color: (d.readErrorsTotal + d.writeErrorsTotal > 0) ? 'var(--accent-ruby)' : 'var(--text-secondary)' }}>{d.readErrorsTotal + d.writeErrorsTotal}</strong></span>
+                                </div>
+                              )}
                             </div>
                           );
                         })
@@ -1426,16 +1441,41 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    disabled={isLoadingSmartHealth}
-                    onClick={handleRefreshSmartHealth}
-                    style={{ width: '100%', justifyContent: 'center' }}
-                  >
-                    <RefreshCw size={13} className={isLoadingSmartHealth ? 'spin' : ''} style={{ marginRight: '6px' }} />
-                    {isLoadingSmartHealth ? 'Interrogazione in corso...' : 'Ricarica Dati S.M.A.R.T.'}
-                  </button>
+                  {smartHealthList.some((d) => d.smartStatus === 'permission_required') ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={isLoadingSmartHealth}
+                        onClick={() => handleRefreshSmartHealth(true)}
+                        style={{ width: '100%', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <ShieldCheck size={13} />
+                        <span>{isLoadingSmartHealth ? 'Lettura in corso...' : 'Leggi dati SMART (richiede UAC)'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-xs"
+                        disabled={isLoadingSmartHealth}
+                        onClick={() => handleRefreshSmartHealth(false)}
+                        style={{ width: '100%', justifyContent: 'center' }}
+                      >
+                        <RefreshCw size={11} className={isLoadingSmartHealth ? 'spin' : ''} style={{ marginRight: '4px' }} />
+                        Ricarica solo stato base
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      disabled={isLoadingSmartHealth}
+                      onClick={() => handleRefreshSmartHealth(false)}
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      <RefreshCw size={13} className={isLoadingSmartHealth ? 'spin' : ''} style={{ marginRight: '6px' }} />
+                      {isLoadingSmartHealth ? 'Interrogazione in corso...' : 'Ricarica Dati S.M.A.R.T.'}
+                    </button>
+                  )}
                 </div>
 
                 {/* Tool: Audit Sicurezza & Kernel */}

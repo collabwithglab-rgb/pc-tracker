@@ -552,11 +552,11 @@ export async function querySecurityAudit(): Promise<WindowsToolResult<SecurityAu
 /**
  * Interroga lo stato di salute S.M.A.R.T. e i contatori di affidabilità dei dischi fisici.
  */
-export async function getStorageSmartHealth(): Promise<WindowsToolResult<DiskSmartHealth[]>> {
+export async function getStorageSmartHealth(elevate = false): Promise<WindowsToolResult<DiskSmartHealth[]>> {
   if (isDesktopApp()) {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      return await invoke<WindowsToolResult<DiskSmartHealth[]>>('get_storage_smart_health');
+      return await invoke<WindowsToolResult<DiskSmartHealth[]>>('get_storage_smart_health', { elevate });
     } catch (err) {
       return {
         status: 'failed',
@@ -571,7 +571,10 @@ export async function getStorageSmartHealth(): Promise<WindowsToolResult<DiskSma
   return {
     status: 'success',
     message: `Rilevati dati S.M.A.R.T. per ${MOCK_SMART_HEALTH.length} dischi fisici (simulato).`,
-    data: MOCK_SMART_HEALTH,
+    data: MOCK_SMART_HEALTH.map((d) => ({
+      ...d,
+      smartStatus: 'available',
+    })),
     durationMs: 240,
     requiresElevation: false,
   };

@@ -77,6 +77,8 @@ pub struct DiskSmartHealth {
     pub write_errors_total: u64,
     pub power_on_hours: Option<u64>,
     pub health_status: String,
+    pub smart_status: Option<String>,
+    pub smart_status_reason: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -915,11 +917,80 @@ $hostsLines = if (Test-Path $hostsPath) { @(Get-Content $hostsPath | Where-Objec
         }
     }
 
-    /// Interroga lo stato di salute S.M.A.R.T. e i contatori di affidabilità dei dischi fisici
-    pub fn get_storage_smart_health_native() -> WindowsToolResult<Vec<DiskSmartHealth>> {
+    fn parse_smart_json(stdout: &str) -> Vec<DiskSmartHealth> {
+        #[derive(Deserialize)]
+        struct RawSmart {
+            #[serde(rename = "deviceId")]
+            device_id: Option<String>,
+            #[serde(rename = "friendlyName")]
+            friendly_name: Option<String>,
+            #[serde(rename = "mediaType")]
+            media_type: Option<String>,
+            #[serde(rename = "healthStatus")]
+            health_status: Option<String>,
+            #[serde(rename = "temperature")]
+            temperature: Option<i32>,
+            #[serde(rename = "wear")]
+            wear: Option<u32>,
+            #[serde(rename = "readErrors")]
+            read_errors: Option<u64>,
+            #[serde(rename = "writeErrors")]
+            write_errors: Option<u64>,
+            #[serde(rename = "powerOnHours")]
+            power_on_hours: Option<u64>,
+            #[serde(rename = "smartStatus")]
+            smart_status: Option<String>,
+            #[serde(rename = "smartReason")]
+            smart_reason: Option<String>,
+        }
+
+        let items: Vec<RawSmart> = if stdout.starts_with('[') {
+            serde_json::from_str(stdout).unwrap_or_default()
+        } else if stdout.starts_with('{') {
+            serde_json::from_str::<RawSmart>(stdout).map(|i| vec![i]).unwrap_or_default()
+        } else {
+            vec![]
+        };
+
+        items
+            .into_iter()
+            .map(|i| DiskSmartHealth {
+                device_id: i.device_id.unwrap_or_else(|| "0".to_string()),
+                friendly_name: i.friendly_name.unwrap_or_else(|| "Disco Sconosciuto".to_string()),
+                media_type: i.media_type.unwrap_or_else(|| "SSD".to_string()),
+                temperature_celsius: i.temperature,
+                wear_percentage: i.wear,
+                read_errors_total: i.read_errors.unwrap_or(0),
+                write_errors_total: i.write_errors.unwrap_or(0),
+                power_on_hours: i.power_on_hours,
+                health_status: i.health_status.unwrap_or_else(|| "Healthy".to_string()),
+                smart_status: i.smart_status.or_else(|| Some("available".to_string())),
+                smart_status_reason: i.smart_reason,
+            })
+            .collect()
+    }
+
+    /// Interroga lo stato di salute S.M.A.R.T. e i contatori di affidabilità dei dischi fisici.
+    /// Se elevate == false, interroga in user-space e segnala se è richiesta elevazione UAC.
+    /// Se elevate == true, esegue con richiesta esplicita UAC per leggere contatori avanzati.
+    pub fn get_storage_smart_health_native(elevate: bool) -> WindowsToolResult<Vec<DiskSmartHealth>> {
         let start = Instant::now();
-        let cmd = r#"$disks = Get-PhysicalDisk | Select-Object DeviceId, FriendlyName, MediaType, HealthStatus
-$counters = try { Get-PhysicalDisk | Get-StorageReliabilityCounter | Select-Object DeviceId, Temperature, Wear, ReadErrorsTotal, WriteErrorsTotal, PowerOnHours } catch { @() }
+        let cmd = r#"$disks = try { Get-PhysicalDisk -ErrorAction Stop | Select-Object DeviceId, FriendlyName, MediaType, HealthStatus } catch { @() }
+$smartStatus = 'available'
+$smartReason = $null
+$counters = try {
+    Get-PhysicalDisk | Get-StorageReliabilityCounter -ErrorAction Stop | Select-Object DeviceId, Temperature, Wear, ReadErrorsTotal, WriteErrorsTotal, PowerOnHours
+} catch {
+    $msg = $_.Exception.Message
+    if ($msg -match 'CIM' -or $msg -match 'Access' -or $msg -match 'denied' -or $msg -match 'autorizzaz') {
+        $smartStatus = 'permission_required'
+        $smartReason = 'Accesso ai contatori di affidabilità e temperatura limitato: richiede privilegi di amministratore Windows (UAC).'
+    } else {
+        $smartStatus = 'unavailable'
+        $smartReason = $msg
+    }
+    @()
+}
 $res = foreach ($d in $disks) {
     $c = $counters | Where-Object { $_.DeviceId -eq $d.DeviceId } | Select-Object -First 1
     [PSCustomObject]@{
@@ -932,65 +1003,63 @@ $res = foreach ($d in $disks) {
         readErrors = if ($c) { [int64]$c.ReadErrorsTotal } else { 0 }
         writeErrors = if ($c) { [int64]$c.WriteErrorsTotal } else { 0 }
         powerOnHours = if ($c) { [int64]$c.PowerOnHours } else { $null }
+        smartStatus = if ($c) { 'available' } else { $smartStatus }
+        smartReason = if ($c) { $null } else { $smartReason }
     }
 }
 $res | ConvertTo-Json -Compress"#;
 
+        if elevate {
+            let (status, msg, details, exit_code) = run_powershell_elevated_uac(cmd);
+            if exit_code == 1223 {
+                return WindowsToolResult {
+                    status: "cancelled".to_string(),
+                    message: "Richiesta di elevazione UAC annullata dall'utente.".to_string(),
+                    details: Some(details),
+                    data: None,
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    requires_elevation: true,
+                };
+            }
+            if exit_code != 0 {
+                return WindowsToolResult {
+                    status,
+                    message: msg,
+                    details: Some(details),
+                    data: None,
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    requires_elevation: true,
+                };
+            }
+            let stdout = details.trim();
+            let smart_list = parse_smart_json(stdout);
+            return WindowsToolResult {
+                status: "success".to_string(),
+                message: format!("Rilevati dati S.M.A.R.T. avanzati con privilegi per {} dischi fisici.", smart_list.len()),
+                details: None,
+                data: Some(smart_list),
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            };
+        }
+
         match run_powershell_hidden(cmd) {
             Ok(output) => {
                 let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                #[derive(Deserialize)]
-                struct RawSmart {
-                    #[serde(rename = "deviceId")]
-                    device_id: Option<String>,
-                    #[serde(rename = "friendlyName")]
-                    friendly_name: Option<String>,
-                    #[serde(rename = "mediaType")]
-                    media_type: Option<String>,
-                    #[serde(rename = "healthStatus")]
-                    health_status: Option<String>,
-                    #[serde(rename = "temperature")]
-                    temperature: Option<i32>,
-                    #[serde(rename = "wear")]
-                    wear: Option<u32>,
-                    #[serde(rename = "readErrors")]
-                    read_errors: Option<u64>,
-                    #[serde(rename = "writeErrors")]
-                    write_errors: Option<u64>,
-                    #[serde(rename = "powerOnHours")]
-                    power_on_hours: Option<u64>,
-                }
-
-                let items: Vec<RawSmart> = if stdout.starts_with('[') {
-                    serde_json::from_str(&stdout).unwrap_or_default()
-                } else if stdout.starts_with('{') {
-                    serde_json::from_str::<RawSmart>(&stdout).map(|i| vec![i]).unwrap_or_default()
-                } else {
-                    vec![]
-                };
-
-                let smart_list: Vec<DiskSmartHealth> = items
-                    .into_iter()
-                    .map(|i| DiskSmartHealth {
-                        device_id: i.device_id.unwrap_or_else(|| "0".to_string()),
-                        friendly_name: i.friendly_name.unwrap_or_else(|| "Disco Sconosciuto".to_string()),
-                        media_type: i.media_type.unwrap_or_else(|| "SSD".to_string()),
-                        temperature_celsius: i.temperature,
-                        wear_percentage: i.wear,
-                        read_errors_total: i.read_errors.unwrap_or(0),
-                        write_errors_total: i.write_errors.unwrap_or(0),
-                        power_on_hours: i.power_on_hours,
-                        health_status: i.health_status.unwrap_or_else(|| "Healthy".to_string()),
-                    })
-                    .collect();
+                let smart_list = parse_smart_json(&stdout);
+                let any_perm = smart_list.iter().any(|s| s.smart_status.as_deref() == Some("permission_required"));
 
                 WindowsToolResult {
                     status: "success".to_string(),
-                    message: format!("Rilevati dati S.M.A.R.T. per {} dischi fisici.", smart_list.len()),
+                    message: if any_perm {
+                        format!("Rilevati {} dischi fisici. Nota: contatori di usura/temperatura richiedono elevazione UAC.", smart_list.len())
+                    } else {
+                        format!("Rilevati dati S.M.A.R.T. per {} dischi fisici.", smart_list.len())
+                    },
                     details: None,
                     data: Some(smart_list),
                     duration_ms: start.elapsed().as_millis() as u64,
-                    requires_elevation: false,
+                    requires_elevation: any_perm,
                 }
             }
             Err(e) => WindowsToolResult {
@@ -1416,10 +1485,10 @@ pub async fn query_security_audit() -> Result<WindowsToolResult<SecurityAuditDat
 }
 
 #[tauri::command]
-pub async fn get_storage_smart_health() -> Result<WindowsToolResult<Vec<DiskSmartHealth>>, String> {
+pub async fn get_storage_smart_health(elevate: Option<bool>) -> Result<WindowsToolResult<Vec<DiskSmartHealth>>, String> {
     #[cfg(target_os = "windows")]
     {
-        Ok(windows_native::get_storage_smart_health_native())
+        Ok(windows_native::get_storage_smart_health_native(elevate.unwrap_or(false)))
     }
     #[cfg(not(target_os = "windows"))]
     {

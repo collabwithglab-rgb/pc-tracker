@@ -32,7 +32,7 @@ export const APP_CHANGELOG: ReleaseChangelog[] = [
     date: '2026-09-24',
     title: 'PC Care Center (Beta) — Telemetria Live Win32/NVML, Health & Optimization Engine',
     summary:
-      'Una svolta fondamentale per PC Tracker: nasce il PC Care Center con monitoraggio hardware nativo in tempo reale (CPU, RAM, GPU NVIDIA via NVML e Dischi), motore di salute predittiva (Health Score 0-100) e centro di ottimizzazione proattiva con azioni motivate a 1-click.',
+      'Una svolta fondamentale per PC Tracker: nasce il PC Care Center con monitoraggio hardware nativo in tempo reale (CPU, RAM, GPU NVIDIA via NVML e Dischi), motore di salute diagnostico basato su regole (Health Score 0-100) e centro di ottimizzazione proattiva con azioni motivate.',
     wikiArticleId: 'release-v3.1.0',
     wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
     added: [
@@ -43,7 +43,7 @@ export const APP_CHANGELOG: ReleaseChangelog[] = [
         tag: 'Telemetria',
       },
       {
-        title: 'Health Engine Predittivo & Health Score (0-100)',
+        title: 'Health Engine Deterministico & Health Score (0-100)',
         description:
           'Valutazione deterministica e continua dell\'integrità del sistema: telemetria S.M.A.R.T. dischi, saturazione RAM, temperature massime rispetto alla Personal Baseline, usura pasta termica e filtri antipolvere, integrità SFC e Secure Boot.',
         tag: 'Salute PC',
