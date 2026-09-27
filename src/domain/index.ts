@@ -19,4 +19,5 @@ export * from './healthEngine';
 export * from './optimizationEngine';
 export * from './optimizationHistoryEngine';
 export * from './optimizationLifecycleEngine';
+export * from './maintenanceSchedulerEngine';
 
