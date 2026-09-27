@@ -13,21 +13,27 @@ import {
   OptimizationReport,
   OptimizationCategory,
   OptimizationRisk,
+  RecommendationEligibilityStatus,
 } from '../types/optimization';
+import { OptimizationExecutionRecord } from '../types/optimizationHistory';
 import { SystemFactsInput, SystemHealthReport } from '../types/health';
 import { evaluateSystemHealth, computeDaysBetween } from './healthEngine';
 import { isMetricAvailable } from '../services/monitoringService';
+import { evaluateRecommendationsWithHistory } from './optimizationLifecycleEngine';
 
 /**
- * Genera il catalogo delle raccomandazioni ottimizzate per il sistema corrente.
+ * Genera il catalogo delle raccomandazioni ottimizzate per il sistema corrente,
+ * integrando la memoria storica e il ciclo di vita (Tranche 5).
  */
 export function generateOptimizationRecommendations(
   facts: SystemFactsInput,
-  providedHealthReport?: SystemHealthReport
+  providedHealthReport?: SystemHealthReport,
+  optimizationHistory: OptimizationExecutionRecord[] = [],
+  currentTimestamp?: string
 ): OptimizationReport {
   const recommendations: OptimizationRecommendation[] = [];
   const health = providedHealthReport || evaluateSystemHealth(facts);
-  const refDate = facts.referenceDate || new Date().toISOString();
+  const refDate = currentTimestamp || facts.referenceDate || new Date().toISOString();
 
   // 1. Raccomandazioni su Storage e Manutenzione SSD/Cestino/CHKDSK
   evaluateStorageRecommendations(facts, health, recommendations);
@@ -44,9 +50,22 @@ export function generateOptimizationRecommendations(
   // 5. Ordinamento deterministico per rilevanza (rischio/beneficio)
   sortRecommendationsByPriority(recommendations);
 
-  // 6. Costruzione del report aggregato
-  return buildOptimizationReport(recommendations, refDate);
+  // 6. Arricchimento con il ciclo di vita e memoria storica (Tranche 5)
+  const {
+    actionableRecommendations,
+    resolvedOrCooldownRecommendations,
+    byEligibility,
+  } = evaluateRecommendationsWithHistory(recommendations, facts, optimizationHistory, refDate);
+
+  // 7. Costruzione del report aggregato
+  return buildOptimizationReport(
+    actionableRecommendations,
+    resolvedOrCooldownRecommendations,
+    byEligibility,
+    refDate
+  );
 }
+
 
 // ---------------------------------------------------------------------------
 // 1. STORAGE RECOMMENDATIONS
@@ -557,13 +576,18 @@ function sortRecommendationsByPriority(recs: OptimizationRecommendation[]): void
   });
 }
 
-// ---------------------------------------------------------------------------
-// 6. BUILD REPORT
-// ---------------------------------------------------------------------------
-
 function buildOptimizationReport(
-  recommendations: OptimizationRecommendation[],
-  evaluatedAt: string
+  actionableRecommendations: OptimizationRecommendation[],
+  resolvedOrCooldownRecommendations: OptimizationRecommendation[] = [],
+  byEligibility: Record<RecommendationEligibilityStatus, number> = {
+    ELIGIBLE: actionableRecommendations.length,
+    COOLDOWN: 0,
+    ALREADY_RESOLVED: 0,
+    PENDING_VERIFICATION: 0,
+    RECURRING_ACTIVE: 0,
+    NOT_ELIGIBLE: 0,
+  },
+  evaluatedAt: string = new Date().toISOString()
 ): OptimizationReport {
   const byCategory: Record<OptimizationCategory, number> = {
     storage: 0,
@@ -581,17 +605,20 @@ function buildOptimizationReport(
     HIGH: 0,
   };
 
-  for (const r of recommendations) {
+  for (const r of actionableRecommendations) {
     byCategory[r.category] = (byCategory[r.category] || 0) + 1;
     byRisk[r.risk] = (byRisk[r.risk] || 0) + 1;
   }
 
   return {
     evaluatedAt,
-    recommendations,
-    totalCount: recommendations.length,
+    recommendations: actionableRecommendations,
+    resolvedOrCooldownRecommendations,
+    totalCount: actionableRecommendations.length,
     byCategory,
     byRisk,
+    byEligibility,
   };
 }
+
 

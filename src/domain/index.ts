@@ -18,3 +18,5 @@ export * from './rigComparisonEngine';
 export * from './healthEngine';
 export * from './optimizationEngine';
 export * from './optimizationHistoryEngine';
+export * from './optimizationLifecycleEngine';
+

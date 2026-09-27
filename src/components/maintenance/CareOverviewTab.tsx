@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   History,
   Trash2,
+  Clock,
 } from 'lucide-react';
 import {
   SystemFactsInput,
@@ -74,16 +75,18 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
   const [confirmingRec, setConfirmingRec] = useState<OptimizationRecommendation | null>(null);
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<OptimizationExecutionRecord | null>(null);
   const [historyFilter, setHistoryFilter] = useState<OptimizationOutcome | 'ALL'>('ALL');
+  const [recViewFilter, setRecViewFilter] = useState<'actionable' | 'resolved'>('actionable');
 
   // Valutazione pura e deterministica della salute
   const healthReport: SystemHealthReport = useMemo(() => {
     return evaluateSystemHealth(facts);
   }, [facts]);
 
-  // Generazione raccomandazioni motivate di ottimizzazione
+  // Generazione raccomandazioni motivate di ottimizzazione con memoria storica e ciclo di vita
   const optReport: OptimizationReport = useMemo(() => {
-    return generateOptimizationRecommendations(facts, healthReport);
-  }, [facts, healthReport]);
+    return generateOptimizationRecommendations(facts, healthReport, optimizationHistory);
+  }, [facts, healthReport, optimizationHistory]);
+
 
   const notify = (type: 'success' | 'warning' | 'error' | 'info', msg: string) => {
     onShowNotification?.(type === 'success' ? 'success' : 'error', msg);
@@ -181,6 +184,53 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
     }
   };
 
+  // Badge stato di eleggibilità e ciclo di vita (Tranche 5)
+  const getEligibilityBadge = (rec: OptimizationRecommendation) => {
+    switch (rec.eligibility) {
+      case 'RECURRING_ACTIVE':
+        return (
+          <span className="badge badge-amber" title={rec.historyExplanation} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+            <AlertTriangle size={11} />
+            <span>Condizione ancora attiva</span>
+          </span>
+        );
+      case 'PENDING_VERIFICATION':
+        return (
+          <span className="badge badge-cyan" title={rec.historyExplanation} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+            <Clock size={11} />
+            <span>Verifica in attesa</span>
+          </span>
+        );
+      case 'COOLDOWN':
+        return (
+          <span className="badge badge-subtle" title={rec.historyExplanation} style={{ fontSize: '0.72rem' }}>
+            In riposo ({rec.cooldownRemainingDays ? `${rec.cooldownRemainingDays} gg` : 'cooldown'})
+          </span>
+        );
+      case 'ALREADY_RESOLVED':
+        return (
+          <span className="badge badge-emerald" title={rec.historyExplanation} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem' }}>
+            <CheckCircle2 size={11} />
+            <span>Risolta</span>
+          </span>
+        );
+      case 'ELIGIBLE':
+      default:
+        if (rec.executionCount && rec.executionCount > 0) {
+          return (
+            <span className="badge badge-subtle" title={rec.historyExplanation} style={{ fontSize: '0.72rem' }}>
+              Nuovamente eleggibile
+            </span>
+          );
+        }
+        return (
+          <span className="badge badge-subtle" style={{ fontSize: '0.72rem' }}>
+            Nuova
+          </span>
+        );
+    }
+  };
+
   // Badge disponibilità azione con semantica a 5 livelli
   const getActionAvailabilityBadge = (avail: ActionAvailability) => {
     switch (avail) {
@@ -208,6 +258,14 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
     if (score >= 50) return 'score-warning';
     return 'score-critical';
   };
+
+  const displayedRecommendations = useMemo(() => {
+    if (recViewFilter === 'actionable') {
+      return optReport.recommendations;
+    }
+    return optReport.resolvedOrCooldownRecommendations || [];
+  }, [recViewFilter, optReport]);
+
 
   return (
     <div className="care-overview-container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
@@ -397,29 +455,90 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
 
       {/* 3. RACCOMANDAZIONI MOTIVATE DI OTTIMIZZAZIONE */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
             <Sparkles size={18} color="var(--accent-cyan)" />
             <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600 }}>
               Ottimizzazioni Consigliate ({optReport.totalCount})
             </h3>
           </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Priorità deterministica trasparente
-          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+            {/* View filter: Da applicare vs In Cooldown / Risolte */}
+            {optReport.resolvedOrCooldownRecommendations && optReport.resolvedOrCooldownRecommendations.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 8px',
+                    backgroundColor: recViewFilter === 'actionable' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                    color: recViewFilter === 'actionable' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    border: 'none',
+                  }}
+                  onClick={() => setRecViewFilter('actionable')}
+                >
+                  Da applicare ({optReport.totalCount})
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 8px',
+                    backgroundColor: recViewFilter === 'resolved' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                    color: recViewFilter === 'resolved' ? 'var(--accent-emerald)' : 'var(--text-muted)',
+                    border: 'none',
+                  }}
+                  onClick={() => setRecViewFilter('resolved')}
+                >
+                  In Cooldown / Risolte ({optReport.resolvedOrCooldownRecommendations.length})
+                </button>
+              </div>
+            )}
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Memoria deterministica attiva
+            </span>
+          </div>
         </div>
 
-        {optReport.recommendations.length === 0 ? (
+        {displayedRecommendations.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
             <CheckCircle2 size={32} color="var(--accent-emerald)" style={{ margin: '0 auto var(--space-sm)' }} />
-            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Nessuna Ottimizzazione Necessaria</div>
-            <div style={{ fontSize: '0.85rem', marginTop: 'var(--space-xs)' }}>
-              Il tuo PC è aggiornato, le unità SSD sono ottimizzate e non risultano anomalie o file di sistema danneggiati.
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+              {recViewFilter === 'actionable'
+                ? 'Nessuna Ottimizzazione Necessaria'
+                : 'Nessuna Ottimizzazione in Cooldown'}
+            </div>
+            <div style={{ fontSize: '0.85rem', marginTop: 'var(--space-xs)', maxWidth: '520px', margin: 'var(--space-xs) auto 0' }}>
+              {recViewFilter === 'actionable' ? (
+                <>
+                  Il tuo PC è aggiornato, le unità SSD sono ottimizzate e non risultano anomalie o file di sistema danneggiati.
+                  {optReport.resolvedOrCooldownRecommendations && optReport.resolvedOrCooldownRecommendations.length > 0 && (
+                    <div style={{ marginTop: 'var(--space-sm)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        {optReport.resolvedOrCooldownRecommendations.length} ottimizzazioni sono attualmente in periodo di riposo (cooldown) o già verificate con successo.{' '}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        onClick={() => setRecViewFilter('resolved')}
+                        style={{ fontSize: '0.75rem', textDecoration: 'underline', color: 'var(--accent-cyan)', padding: 0 }}
+                      >
+                        Visualizza interventi in cooldown
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                'Tutte le ottimizzazioni disponibili sono attualmente eleggibili o non risultano interventi recenti in pausa.'
+              )}
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-            {optReport.recommendations.map((rec) => (
+            {displayedRecommendations.map((rec) => (
               <div key={rec.id} className="card care-rec-card" style={{ padding: 'var(--space-lg)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
                   <div>
@@ -434,7 +553,8 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                    {getEligibilityBadge(rec)}
                     {getRiskBadge(rec.risk)}
                     {getActionAvailabilityBadge(rec.actionAvailability)}
                   </div>
@@ -442,22 +562,57 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
 
                 <div className="care-rec-details-box" style={{ background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-md)', padding: 'var(--space-sm) var(--space-md)', margin: 'var(--space-sm) 0', fontSize: '0.825rem' }}>
                   <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: 'var(--space-2xs)' }}>
-                    <span style={{ color: 'var(--text-muted)', minWidth: '100px' }}>Fatto Rilevato:</span>
+                    <span style={{ color: 'var(--text-muted)', minWidth: '110px' }}>Fatto Rilevato:</span>
                     <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{rec.evidence}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: rec.actionDescription ? 'var(--space-2xs)' : '0' }}>
-                    <span style={{ color: 'var(--accent-emerald)', minWidth: '100px' }}>Beneficio:</span>
+                  <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: 'var(--space-2xs)' }}>
+                    <span style={{ color: 'var(--accent-emerald)', minWidth: '110px' }}>Beneficio:</span>
                     <span style={{ color: 'var(--text-secondary)' }}>{rec.expectedBenefit}</span>
                   </div>
+
+                  {/* Contesto Storico e Memoria del Ciclo di Vita (Tranche 5) */}
+                  {rec.historyExplanation && (
+                    <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: 'var(--space-2xs)' }}>
+                      <span style={{
+                        color: rec.eligibility === 'RECURRING_ACTIVE'
+                          ? 'var(--accent-amber)'
+                          : rec.eligibility === 'PENDING_VERIFICATION'
+                          ? 'var(--accent-cyan)'
+                          : 'var(--text-muted)',
+                        minWidth: '110px',
+                        fontWeight: rec.eligibility === 'RECURRING_ACTIVE' ? 600 : 400
+                      }}>
+                        Memoria Storica:
+                      </span>
+                      <span style={{
+                        color: rec.eligibility === 'RECURRING_ACTIVE'
+                          ? 'var(--text-primary)'
+                          : 'var(--text-secondary)',
+                        lineHeight: 1.4
+                      }}>
+                        {rec.historyExplanation}
+                      </span>
+                    </div>
+                  )}
+
+                  {rec.lastExecution && (
+                    <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: rec.actionDescription ? 'var(--space-2xs)' : '0' }}>
+                      <span style={{ color: 'var(--text-muted)', minWidth: '110px' }}>Ultima Azione:</span>
+                      <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
+                        {new Date(rec.lastExecution.timestampCompleted || rec.lastExecution.timestampStarted).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })} ore {new Date(rec.lastExecution.timestampCompleted || rec.lastExecution.timestampStarted).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} ({getOutcomeLabel(rec.lastExecution.outcome)})
+                      </span>
+                    </div>
+                  )}
+
                   {rec.actionDescription && (
                     <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: rec.verificationMethod ? 'var(--space-2xs)' : '0' }}>
-                      <span style={{ color: 'var(--accent-cyan)', minWidth: '100px' }}>Azione:</span>
+                      <span style={{ color: 'var(--accent-cyan)', minWidth: '110px' }}>Azione:</span>
                       <span style={{ color: 'var(--text-secondary)' }}>{rec.actionDescription}</span>
                     </div>
                   )}
                   {rec.verificationMethod && (
                     <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                      <span style={{ color: 'var(--text-muted)', minWidth: '100px' }}>Verifica:</span>
+                      <span style={{ color: 'var(--text-muted)', minWidth: '110px' }}>Verifica:</span>
                       <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{rec.verificationMethod}</span>
                     </div>
                   )}
@@ -470,9 +625,9 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
 
                   {rec.actionId && (
                     <button
-                      className="btn btn-primary btn-sm"
+                      className={`btn ${rec.eligibility === 'RECURRING_ACTIVE' ? 'btn-primary' : rec.eligibility === 'COOLDOWN' ? 'btn-secondary' : 'btn-primary'} btn-sm`}
                       onClick={() => handleActionClick(rec)}
-                      disabled={executingActionId === rec.id}
+                      disabled={executingActionId === rec.id || rec.eligibility === 'COOLDOWN'}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)' }}
                     >
                       {executingActionId === rec.id ? (
@@ -484,7 +639,13 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                         <>
                           <ArrowRight size={13} />
                           <span>
-                            {rec.actionAvailability === 'MANUAL' || rec.actionAvailability === 'MANUAL_GUIDED'
+                            {rec.eligibility === 'RECURRING_ACTIVE'
+                              ? 'Riprova Ottimizzazione'
+                              : rec.eligibility === 'PENDING_VERIFICATION'
+                              ? 'Verifica o Riesamina'
+                              : rec.eligibility === 'COOLDOWN'
+                              ? `In Pausa (${rec.cooldownRemainingDays ? `${rec.cooldownRemainingDays} gg` : 'cooldown'})`
+                              : rec.actionAvailability === 'MANUAL' || rec.actionAvailability === 'MANUAL_GUIDED'
                               ? 'Apri Sezione'
                               : rec.actionAvailability === 'USER_CONFIRMED'
                               ? 'Richiedi Conferma'
@@ -500,6 +661,7 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
           </div>
         )}
       </div>
+
 
       {/* 4. STORICO DELLE OTTIMIZZAZIONI ESEGUITE */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>

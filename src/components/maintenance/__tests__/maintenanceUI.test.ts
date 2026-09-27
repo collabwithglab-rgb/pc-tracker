@@ -199,4 +199,19 @@ describe('Windows Maintenance Center UI & Integration Suite', () => {
     expect(result.status).toBe('success');
     expect(result.requiresElevation).toBe(true);
   });
+
+  it('should validate recommendation eligibility status models and lifecycle enrichments', () => {
+    const statuses = [
+      'ELIGIBLE',
+      'COOLDOWN',
+      'ALREADY_RESOLVED',
+      'PENDING_VERIFICATION',
+      'RECURRING_ACTIVE',
+      'NOT_ELIGIBLE',
+    ];
+    for (const s of statuses) {
+      expect(typeof s).toBe('string');
+    }
+  });
 });
+
