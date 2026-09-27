@@ -2,7 +2,7 @@ import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings, ComponentR
 import { validateCheckpoint } from '../domain/checkpointEngine';
 
 const DB_NAME = 'pc_tracker_db';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 export const STORES = {
   COMPONENTS: 'components',
@@ -840,6 +840,11 @@ export async function getOptimizationRecordById(id: string): Promise<Optimizatio
  * Salva o aggiorna un record dello storico ottimizzazioni su IndexedDB.
  */
 export async function saveOptimizationRecordAtomic(record: OptimizationExecutionRecord): Promise<void> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.OPTIMIZATION_HISTORY)) {
+    console.warn(`[IndexedDB] Store ${STORES.OPTIMIZATION_HISTORY} non presente.`);
+    return;
+  }
   await putItem(STORES.OPTIMIZATION_HISTORY, record);
 }
 
@@ -847,6 +852,8 @@ export async function saveOptimizationRecordAtomic(record: OptimizationExecution
  * Elimina un record dello storico ottimizzazioni per ID da IndexedDB.
  */
 export async function deleteOptimizationRecordAtomic(id: string): Promise<void> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.OPTIMIZATION_HISTORY)) return;
   await deleteItemFromStore(STORES.OPTIMIZATION_HISTORY, id);
 }
 
