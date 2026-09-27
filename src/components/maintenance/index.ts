@@ -5,3 +5,4 @@ export { ToolResultModal } from './ToolResultModal';
 export { BiosParameterCardModal } from './BiosParameterCardModal';
 export { CareOverviewTab } from './CareOverviewTab';
 export { CareLiveTab } from './CareLiveTab';
+export { OptimizationHistoryModal } from './OptimizationHistoryModal';

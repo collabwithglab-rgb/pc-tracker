@@ -16,6 +16,7 @@ import {
 } from '../types/optimization';
 import { SystemFactsInput, SystemHealthReport } from '../types/health';
 import { evaluateSystemHealth, computeDaysBetween } from './healthEngine';
+import { isMetricAvailable } from '../services/monitoringService';
 
 /**
  * Genera il catalogo delle raccomandazioni ottimizzate per il sistema corrente.
@@ -28,13 +29,13 @@ export function generateOptimizationRecommendations(
   const health = providedHealthReport || evaluateSystemHealth(facts);
   const refDate = facts.referenceDate || new Date().toISOString();
 
-  // 1. Raccomandazioni su Storage e Manutenzione SSD
+  // 1. Raccomandazioni su Storage e Manutenzione SSD/Cestino/CHKDSK
   evaluateStorageRecommendations(facts, health, recommendations);
 
-  // 2. Raccomandazioni su Sicurezza e Punti di Ripristino
+  // 2. Raccomandazioni su Sicurezza, Ripristino e Component Store Windows
   evaluateSafetyAndIntegrityRecommendations(facts, health, recommendations, refDate);
 
-  // 3. Raccomandazioni su Performance, Cache e Schemi Energetici
+  // 3. Raccomandazioni su Performance, Cache, RAM e WinGet
   evaluatePerformanceRecommendations(facts, recommendations);
 
   // 4. Raccomandazioni su Termiche e Manutenzione Fisica (con Personal Baseline)
@@ -79,6 +80,8 @@ function evaluateStorageRecommendations(
         actionAvailability: 'ONE_CLICK',
         rollbackAvailability: 'NOT_APPLICABLE',
         actionId: 'run-trim',
+        actionDescription: `Invio comandi ReTrim al controller SSD per l'unità ${letter}:`,
+        verificationMethod: 'Conferma ricezione comando dal controller storage e aggiornamento data nel diario',
         parameters: { driveLetter: letter },
       });
     }
@@ -106,9 +109,60 @@ function evaluateStorageRecommendations(
         actionAvailability: 'ONE_CLICK',
         rollbackAvailability: 'NOT_APPLICABLE',
         actionId: 'open-cleanmgr',
+        actionDescription: 'Apertura dell\'utility ufficiale cleanmgr.exe per selezionare i file temporanei di sistema',
+        verificationMethod: 'Nuova scansione volumi: incremento dei byte liberi sull\'unità C:',
         parameters: { driveLetter: 'C:' },
       });
     }
+  }
+
+  // C. Svuotamento Cestino di Windows se saturo
+  if (facts.recycleBin && (facts.recycleBin.totalSizeBytes >= 500 * 1024 * 1024 || facts.recycleBin.itemCount >= 50)) {
+    const sizeMb = (facts.recycleBin.totalSizeBytes / (1024 * 1024)).toFixed(0);
+    recommendations.push({
+      id: 'opt-empty-recycle-bin',
+      title: 'Svuota Cestino di Windows',
+      category: 'storage',
+      reason: `Il Cestino di Windows trattiene ${facts.recycleBin.itemCount} elementi eliminati per un totale di ${sizeMb} MB. È opportuno liberare questo spazio.`,
+      evidence: `${facts.recycleBin.itemCount} file nel Cestino (${sizeMb} MB occupati)`,
+      expectedBenefit: `Recupero immediato di ${sizeMb} MB di spazio fisico su disco trattenuti da file eliminati.`,
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'USER_CONFIRMED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'empty-recycle-bin',
+      actionDescription: 'Eliminazione definitiva di tutti gli elementi allocati nel Cestino di sistema',
+      verificationMethod: 'Interrogazione queryRecycleBin: conteggio elementi e byte residui pari a zero',
+    });
+  }
+
+  // D. Scansione Integrità File System (CHKDSK read-only) su dischi con errori I/O
+  const disksWithErrors = (facts.smartDisks || []).filter(
+    (d) => d.readErrorsTotal > 0 || d.writeErrorsTotal > 0
+  );
+  for (const disk of disksWithErrors) {
+    const matchingDrive = (facts.drives || []).find(
+      (d) => (disk.friendlyName && d.friendlyName && d.friendlyName.toLowerCase() === disk.friendlyName.toLowerCase()) ||
+             (d.label && disk.friendlyName && disk.friendlyName.toLowerCase().includes(d.label.toLowerCase()))
+    ) || (facts.drives && facts.drives[0]);
+    const letter = matchingDrive ? matchingDrive.driveLetter.toUpperCase().replace(':', '') : 'C';
+
+    recommendations.push({
+      id: `opt-chkdsk-scan-${letter}`,
+      title: `Esegui Scansione File System (CHKDSK) su Unità ${letter}:`,
+      category: 'storage',
+      reason: `I contatori fisici del controller per ${disk.friendlyName} indicano errori di lettura/scrittura. Si raccomanda una verifica online non distruttiva del file system.`,
+      evidence: `Errori I/O rilevati: ${disk.readErrorsTotal} lettura, ${disk.writeErrorsTotal} scrittura su ${disk.friendlyName}`,
+      expectedBenefit: 'Verifica la coerenza dei metadati NTFS e identifica eventuali corruzioni di indici o directory prima che si aggravino.',
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'chkdsk-scan',
+      actionDescription: `Esecuzione del comando chkdsk ${letter}: /scan in modalità non distruttiva e online`,
+      verificationMethod: 'Report diagnostico CHKDSK privo di violazioni e assenza di ulteriori errori di I/O',
+      parameters: { driveLetter: letter },
+    });
   }
 }
 
@@ -144,6 +198,8 @@ function evaluateSafetyAndIntegrityRecommendations(
       actionAvailability: 'ASSISTED',
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'create-restore-point',
+      actionDescription: 'Creazione snapshot di protezione sistema tramite le API del Volume Shadow Copy di Windows',
+      verificationMethod: 'Presenza del nuovo punto di ripristino nel catalogo di sistema con timestamp aggiornato',
     });
   }
 
@@ -162,6 +218,8 @@ function evaluateSafetyAndIntegrityRecommendations(
       actionAvailability: 'ASSISTED',
       rollbackAvailability: 'MANUAL_RESTORE',
       actionId: 'sfc-repair',
+      actionDescription: 'Esecuzione sfc /scannow con riparazione automatica delle DLL e dei driver protetti',
+      verificationMethod: 'Nuova scansione SFC con esito "Nessuna violazione di integrità riscontrata"',
     });
   }
 
@@ -180,6 +238,37 @@ function evaluateSafetyAndIntegrityRecommendations(
       actionAvailability: 'MANUAL',
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'reboot-uefi',
+      actionDescription: 'Accesso guidato al BIOS/UEFI per impostare "Secure Boot" su "Enabled"',
+      verificationMethod: 'Riesame audit di sicurezza: secureBootEnabled impostato su true',
+    });
+  }
+
+  // D. Pulizia Component Store Windows (WinSxS DISM)
+  const lastDismDate = (facts.maintenanceEntries || [])
+    .filter((e) => e.title.toUpperCase().includes('WINSXS') || e.title.toUpperCase().includes('DISM'))
+    .sort((a, b) => b.date.localeCompare(a.date))[0]?.date;
+  const daysSinceDism = lastDismDate ? computeDaysBetween(lastDismDate, refDate) : 999;
+  const cDrive = (facts.drives || []).find((d) => d.driveLetter.toUpperCase().startsWith('C'))
+    || (facts.monitoring?.storage || []).find((s) => s.driveLetter.toUpperCase().startsWith('C'));
+  const cUsagePct = cDrive && cDrive.totalBytes > 0 ? ((cDrive.totalBytes - cDrive.freeBytes) / cDrive.totalBytes) * 100 : 0;
+
+  if (cDrive && daysSinceDism >= 60 && (cUsagePct >= 80 || facts.systemFilesStatus === 'corrupted')) {
+    recommendations.push({
+      id: 'opt-clean-component-store',
+      title: 'Ottimizza Archivio Componenti Windows (WinSxS)',
+      category: 'system',
+      reason: 'Windows conserva nel repository WinSxS le versioni obsolete dei file sostituite dagli aggiornamenti cumulativi di sistema.',
+      evidence: lastDismDate
+        ? `Ultima pulizia Component Store eseguita ${daysSinceDism} giorni fa`
+        : 'Nessuna pulizia WinSxS registrata negli ultimi 60 giorni',
+      expectedBenefit: 'Consolidamento del catalogo pacchetti e liberazione sicura di 1-4 GB sull\'unità di sistema C:.',
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'clean-component-store',
+      actionDescription: 'Esecuzione DISM /Online /Cleanup-Image /StartComponentCleanup con privilegi di amministratore',
+      verificationMethod: 'Conclusione con codice successo 0x0 del processo DISM e spazio incrementato su C:',
     });
   }
 }
@@ -209,6 +298,8 @@ function evaluatePerformanceRecommendations(
       actionAvailability: 'USER_CONFIRMED',
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'clean-shader-cache',
+      actionDescription: 'Eliminazione dei file temporanei dalla cache grafica DirectX (D3DSCache) e dai repository driver',
+      verificationMethod: 'Conteggio file rimossi e byte liberati, rigenerazione trasparente al successivo avvio 3D',
     });
   }
 
@@ -227,6 +318,53 @@ function evaluatePerformanceRecommendations(
       actionAvailability: 'ASSISTED',
       rollbackAvailability: 'AUTOMATIC',
       actionId: 'enable-ultimate-performance',
+      actionDescription: 'Sblocco e attivazione tramite powercfg dello schema GUID Prestazioni Eccellenti',
+      verificationMethod: 'Interrogazione powercfg /getactivescheme con conferma dello schema abilitato',
+    });
+  }
+
+  // C. Triage Pressione Memoria RAM
+  const mem = facts.monitoring?.memory;
+  if (mem && mem.totalBytes > 0 && mem.utilizationPercent >= 90) {
+    const usedGb = (mem.usedBytes / (1024 * 1024 * 1024)).toFixed(1);
+    const totalGb = (mem.totalBytes / (1024 * 1024 * 1024)).toFixed(1);
+    const availGb = (mem.availableBytes / (1024 * 1024 * 1024)).toFixed(1);
+    recommendations.push({
+      id: 'opt-ram-pressure-triage',
+      title: 'Ispezione Processi per Pressione Memoria RAM',
+      category: 'performance',
+      reason: 'La memoria fisica RAM è occupata per oltre il 90%. Il sistema ricorre attivamente al paging su disco, riducendo la fluidità.',
+      evidence: `RAM occupata al ${mem.utilizationPercent.toFixed(1)}% (${usedGb} GB usati su ${totalGb} GB, soli ${availGb} GB disponibili)`,
+      expectedBenefit: 'Identificazione e chiusura mirata di applicazioni o schede browser in memory-leak per prevenire micro-stuttering.',
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'READ_ONLY',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'open-taskmgr-memory',
+      actionDescription: 'Consultazione diagnostica dei processi a maggior assorbimento in Gestione Attività / Monitoraggio Risorse',
+      verificationMethod: 'Verifica telemetrica del rientro dell\'utilizzo RAM al di sotto dell\'80%',
+    });
+  }
+
+  // D. Aggiornamento Software di Supporto e Runtime con WinGet
+  if (facts.wingetUpdates && facts.wingetUpdates.length > 0) {
+    const count = facts.wingetUpdates.length;
+    const names = facts.wingetUpdates.slice(0, 2).map((u) => u.name).join(', ');
+    const extra = count > 2 ? ` e altri ${count - 2} pacchetti` : '';
+    recommendations.push({
+      id: 'opt-winget-updates',
+      title: `Aggiorna Software di Supporto e Runtime (${count} disponibili)`,
+      category: 'system',
+      reason: 'Sono disponibili nuove versioni ufficiali per runtime o applicazioni installate sul PC tramite il gestore pacchetti Microsoft WinGet.',
+      evidence: `${count} aggiornamenti rilevati (${names}${extra})`,
+      expectedBenefit: 'Aggiornamento di componenti runtime (es. VC++ Redistributable) con patch di compatibilità e sicurezza.',
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'view-winget-updates',
+      actionDescription: 'Apertura della sezione Windows Tools per l\'ispezione e installazione degli aggiornamenti WinGet',
+      verificationMethod: 'Riesame WinGet con esito 0 aggiornamenti pendenti per i pacchetti selezionati',
     });
   }
 }
@@ -236,12 +374,12 @@ function evaluatePerformanceRecommendations(
 // ---------------------------------------------------------------------------
 
 function evaluateThermalAndMaintenanceRecommendations(
-  _facts: SystemFactsInput,
+  facts: SystemFactsInput,
   health: SystemHealthReport,
   recommendations: OptimizationRecommendation[],
   _refDate: string
 ): void {
-  // A. Deviazione da Personal Baseline
+  // A. Deviazione da Personal Baseline per GPU
   const baselineFinding = health.findings.find((f) => f.id.startsWith('gpu-baseline-divergence'));
   if (baselineFinding) {
     recommendations.push({
@@ -256,7 +394,46 @@ function evaluateThermalAndMaintenanceRecommendations(
       actionAvailability: 'MANUAL',
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'clean-filters',
+      actionDescription: 'Controllo ventole scheda grafica, pulizia dissipatore e orientamento flussi d\'aria del case',
+      verificationMethod: 'Verifica telemetrica sotto carico: rientro del delta termico entro 4°C dalla baseline',
     });
+  }
+
+  // A2. Deviazione da Personal Baseline per CPU
+  const dailyCpuProfile = (facts.tuningProfiles || []).find(
+    (p) => p.category === 'cpu' && p.stability === 'daily' && p.temperatures?.load !== undefined
+  );
+  const baselineCpuLoadTemp = dailyCpuProfile?.temperatures?.load;
+  const cpu = facts.monitoring?.cpu;
+
+  if (
+    dailyCpuProfile &&
+    baselineCpuLoadTemp !== undefined &&
+    cpu &&
+    isMetricAvailable(cpu.packageTemperatureCelsius) &&
+    isMetricAvailable(cpu.utilizationPercent) &&
+    cpu.utilizationPercent.value >= 75
+  ) {
+    const cpuTemp = cpu.packageTemperatureCelsius.value;
+    const delta = cpuTemp - baselineCpuLoadTemp;
+    if (delta >= 10) {
+      recommendations.push({
+        id: 'opt-cpu-baseline-divergence',
+        title: 'Ispeziona Dissipazione CPU da Baseline Personale',
+        category: 'thermal',
+        reason: 'Il processore sotto carico opera a temperature nettamente superiori rispetto al tuo profilo Daily di riferimento validato.',
+        evidence: `Carico CPU al ${cpu.utilizationPercent.value}%: ${cpuTemp}°C (+${delta.toFixed(0)}°C rispetto al riferimento Daily di ${baselineCpuLoadTemp}°C per "${dailyCpuProfile.name}")`,
+        expectedBenefit: 'Prevenzione del thermal throttling di picco, mantenimento delle frequenze turbo stabili e riduzione della rumorosità delle ventole.',
+        risk: 'NONE',
+        confidence: 'HIGH',
+        actionAvailability: 'MANUAL',
+        rollbackAvailability: 'NOT_APPLICABLE',
+        actionId: 'inspect-cpu-cooling',
+        actionDescription: 'Controllo serraggio dissipatore, portata pompa a liquido o regime ventole dissipatore aria',
+        verificationMethod: 'Nuovo ciclo di carico sostenuto con delta termico inferiore a 5°C rispetto al riferimento',
+        parameters: { currentTemp: cpuTemp, baselineTemp: baselineCpuLoadTemp, delta },
+      });
+    }
   }
 
   // B. Sostituzione Pasta Termica Scaduta
@@ -274,6 +451,8 @@ function evaluateThermalAndMaintenanceRecommendations(
       actionAvailability: 'MANUAL',
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'apply-thermal-paste',
+      actionDescription: 'Rimozione vecchia pasta con alcool isopropilico e applicazione di nuovo composto termico ad alta conducibilità',
+      verificationMethod: 'Registrazione dell\'intervento nel diario di cura e monitoraggio delle temperature sotto carico',
     });
   }
 
@@ -292,6 +471,38 @@ function evaluateThermalAndMaintenanceRecommendations(
       actionAvailability: 'MANUAL',
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'clean-filters',
+      actionDescription: 'Smontaggio e rimozione meccanica della polvere dai filtri anteriore, inferiore e superiore del case',
+      verificationMethod: 'Registrazione dell\'intervento nel diario e miglioramento della temperatura interna',
+    });
+  }
+
+  // D. Termiche Anomale GPU in Idle (Inattività)
+  const gpus = facts.monitoring?.gpus || [];
+  const primaryGpu = gpus.find((g) => g.isDiscrete) || gpus[0];
+  if (
+    primaryGpu &&
+    primaryGpu.isDiscrete &&
+    isMetricAvailable(primaryGpu.coreTemperatureCelsius) &&
+    isMetricAvailable(primaryGpu.utilizationPercent) &&
+    primaryGpu.utilizationPercent.value <= 10 &&
+    primaryGpu.coreTemperatureCelsius.value >= 58
+  ) {
+    const idleTemp = primaryGpu.coreTemperatureCelsius.value;
+    const idleLoad = primaryGpu.utilizationPercent.value;
+    recommendations.push({
+      id: 'opt-gpu-idle-thermals',
+      title: `Verifica Ventilazione e Temperatura Idle GPU: ${primaryGpu.name}`,
+      category: 'thermal',
+      reason: 'La scheda grafica registra temperature elevate a riposo, senza carichi 3D o di calcolo attivi.',
+      evidence: `GPU in idle (carico ${idleLoad}%): temperatura a riposo di ${idleTemp}°C (atteso < 50°C)`,
+      expectedBenefit: 'Abbattimento del calore residuo nel case, prevenzione dell\'invecchiamento dei condensatori e riduzione dei consumi in standby.',
+      risk: 'NONE',
+      confidence: 'MEDIUM',
+      actionAvailability: 'MANUAL',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'inspect-gpu-idle',
+      actionDescription: 'Verifica della modalità Zero-RPM, pulizia feritoie di espulsione posteriore e verifica assenza processi fantasma in stato P0',
+      verificationMethod: 'Temperatura GPU stabilizzata sotto i 50°C a computer inattivo',
     });
   }
 }
@@ -302,25 +513,43 @@ function evaluateThermalAndMaintenanceRecommendations(
 
 function sortRecommendationsByPriority(recs: OptimizationRecommendation[]): void {
   // Punteggio di priorità per ordinamento deterministico:
-  // 1. Azioni critiche o correzioni di errori di sistema (SFC, Storage C: saturo)
-  // 2. Azioni ad alto beneficio e rischio nullo/basso (TRIM, Restore Point, Shader Cache)
-  // 3. Manutenzioni fisiche e firmware (Pasta termica, filtri, Secure Boot)
+  // 1. Correzioni integrità file di sistema Windows (SFC)
+  // 2. Azioni critiche su volumi saturi e corruzioni file system (Cleanmgr C:, CHKDSK)
+  // 3. Anomalie termiche rispetto a baseline validata (GPU/CPU baseline divergence)
+  // 4. Pressione memoria RAM e Cestino saturo (RAM triage, Recycle Bin)
+  // 5. Misure preventive e manutenzione SSD (Restore Point, TRIM, WinSxS)
+  // 6. Manutenzioni fisiche e aggiornamenti (Pasta termica, Shader cache, WinGet, filtri)
+  // 7. Ottimizzazioni prestazionali e firmware (Ultimate Performance, Idle thermals, Secure Boot)
   const priorityWeight: Record<string, number> = {
     'opt-sfc-repair': 100,
     'opt-cleanmgr-c': 90,
     'opt-cooling-baseline-divergence': 85,
+    'opt-cpu-baseline-divergence': 84,
+    'opt-ram-pressure-triage': 82,
+    'opt-empty-recycle-bin': 81,
     'opt-create-restore-point': 80,
-    'opt-trim-C': 75,
+    'opt-clean-component-store': 72,
     'opt-replace-thermal-paste': 70,
     'opt-clean-shader-cache': 65,
+    'opt-winget-updates': 62,
     'opt-clean-dust-filters': 60,
+    'opt-gpu-idle-thermals': 58,
     'opt-ultimate-performance': 55,
     'opt-enable-secure-boot': 50,
   };
 
+  const getWeight = (id: string, risk: OptimizationRisk): number => {
+    if (priorityWeight[id] !== undefined) {
+      return priorityWeight[id];
+    }
+    if (id.startsWith('opt-chkdsk-scan')) return 88;
+    if (id.startsWith('opt-trim-')) return 75;
+    return risk === 'NONE' ? 40 : 30;
+  };
+
   recs.sort((a, b) => {
-    const weightA = priorityWeight[a.id] || (a.risk === 'NONE' ? 40 : 30);
-    const weightB = priorityWeight[b.id] || (b.risk === 'NONE' ? 40 : 30);
+    const weightA = getWeight(a.id, a.risk);
+    const weightB = getWeight(b.id, b.risk);
     if (weightB !== weightA) {
       return weightB - weightA;
     }
@@ -365,3 +594,4 @@ function buildOptimizationReport(
     byRisk,
   };
 }
+

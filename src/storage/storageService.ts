@@ -10,6 +10,7 @@ import {
   TypographyPresetPreference,
   MaintenanceEntry,
   TuningProfile,
+  OptimizationExecutionRecord,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -184,6 +185,15 @@ export async function loadFullDatabase(): Promise<DatabaseSchema> {
     }
   }
 
+  let optimizationHistory: OptimizationExecutionRecord[] = [];
+  if (STORES.OPTIMIZATION_HISTORY) {
+    try {
+      optimizationHistory = await getAllFromStore<OptimizationExecutionRecord>(STORES.OPTIMIZATION_HISTORY);
+    } catch {
+      optimizationHistory = [];
+    }
+  }
+
   const settingsEntry = metadataList.find((m) => m.key === 'settings');
   const settings = normalizeSettings(settingsEntry?.value);
 
@@ -198,6 +208,7 @@ export async function loadFullDatabase(): Promise<DatabaseSchema> {
     checkpoints,
     maintenance,
     tuningProfiles,
+    optimizationHistory,
   };
 }
 
@@ -319,6 +330,13 @@ export {
   deleteTuningProfileAtomic,
 } from './indexedDB';
 
+export {
+  getAllOptimizationRecords,
+  getOptimizationRecordById,
+  saveOptimizationRecordAtomic as saveOptimizationRecord,
+  deleteOptimizationRecordAtomic as deleteOptimizationRecord,
+  clearOptimizationHistoryAtomic as clearOptimizationHistory,
+} from './indexedDB';
 
 /**
  * Verifica se il database locale è già stato inizializzato esplicitamente.

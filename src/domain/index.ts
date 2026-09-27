@@ -17,3 +17,4 @@ export * from './commandRegistry';
 export * from './rigComparisonEngine';
 export * from './healthEngine';
 export * from './optimizationEngine';
+export * from './optimizationHistoryEngine';

@@ -11,6 +11,8 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldAlert,
+  History,
+  Trash2,
 } from 'lucide-react';
 import {
   SystemFactsInput,
@@ -22,7 +24,9 @@ import {
   OptimizationReport,
   OptimizationRisk,
   ActionAvailability,
-} from '../../types/optimization';
+  OptimizationExecutionRecord,
+  OptimizationOutcome,
+} from '../../types';
 import {
   evaluateSystemHealth,
 } from '../../domain/healthEngine';
@@ -30,14 +34,18 @@ import {
   generateOptimizationRecommendations,
 } from '../../domain/optimizationEngine';
 import {
-  runSsdTrim,
-  openDiskCleanup,
-  createRestorePoint,
-  verifySystemFiles,
-  cleanGpuShaderCache,
-  enableUltimatePerformance,
-} from '../../services/windowsToolsService';
+  getOutcomeBadgeClass,
+  getOutcomeLabel,
+  getVerificationStatusBadgeClass,
+  getVerificationStatusLabel,
+} from '../../domain/optimizationHistoryEngine';
+import {
+  executeOptimizationWorkflow,
+  recordCancelledOptimization,
+} from '../../services/optimizationExecutionService';
+import { usePCStore } from '../../store';
 import { Modal } from '../common/Modal';
+import { OptimizationHistoryModal } from './OptimizationHistoryModal';
 
 interface CareOverviewTabProps {
   facts: SystemFactsInput;
@@ -54,9 +62,18 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
   onOpenWikiArticle: _onOpenWikiArticle,
   onShowNotification,
 }) => {
+  const {
+    optimizationHistory,
+    recordOptimizationExecution,
+    deleteOptimizationExecution,
+    clearOptimizationHistory,
+  } = usePCStore();
+
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
   const [showCoverageDetails, setShowCoverageDetails] = useState(false);
   const [confirmingRec, setConfirmingRec] = useState<OptimizationRecommendation | null>(null);
+  const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<OptimizationExecutionRecord | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<OptimizationOutcome | 'ALL'>('ALL');
 
   // Valutazione pura e deterministica della salute
   const healthReport: SystemHealthReport = useMemo(() => {
@@ -81,65 +98,18 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
     handleExecuteAction(rec);
   };
 
-  // Esecuzione diretta dell'azione consigliata
+  // Esecuzione diretta dell'azione consigliata con tracciamento storico centralizzato
   const handleExecuteAction = async (rec: OptimizationRecommendation) => {
     setExecutingActionId(rec.id);
     try {
-      if (rec.actionId === 'run-trim') {
-        const letter = (rec.parameters?.driveLetter as string) || 'C';
-        const res = await runSsdTrim(letter);
-        if (res.status === 'success') {
-          notify('success', `Ottimizzazione TRIM completata con successo su unità ${letter}:`);
-        } else {
-          notify('warning', res.message || 'Ottimizzazione TRIM completata con avvisi.');
-        }
-      } else if (rec.actionId === 'open-cleanmgr') {
-        const res = await openDiskCleanup();
-        if (res.status === 'success') {
-          notify('success', 'Utility Pulizia Disco di Windows avviata.');
-        } else {
-          notify('error', res.message || 'Impossibile avviare Pulizia Disco.');
-        }
-      } else if (rec.actionId === 'create-restore-point') {
-        const res = await createRestorePoint('PC Care Center - Salvaguardia Sistema');
-        if (res.status === 'success') {
-          notify('success', 'Punto di Ripristino di sicurezza creato con successo.');
-        } else if (res.status === 'cancelled') {
-          notify('info', 'Creazione annullata dall\'utente al prompt UAC.');
-        } else {
-          notify('warning', res.message || 'Verifica lo stato di Protezione Sistema.');
-        }
-      } else if (rec.actionId === 'sfc-repair') {
-        notify('info', 'Avvio scansione ed analisi file protetti di Windows...');
-        const res = await verifySystemFiles();
-        if (res.status === 'success') {
-          notify('success', 'Riparazione completata: ' + res.message);
-        } else {
-          notify('warning', res.message || 'Scansione completata con esito da verificare.');
-        }
-      } else if (rec.actionId === 'clean-shader-cache') {
-        const res = await cleanGpuShaderCache();
-        if (res.status === 'success') {
-          notify('success', `Shader Cache DirectX/GPU pulita (${res.message}).`);
-        } else {
-          notify('warning', res.message || 'Pulizia shader cache completata.');
-        }
-      } else if (rec.actionId === 'enable-ultimate-performance') {
-        const res = await enableUltimatePerformance();
-        if (res.status === 'success') {
-          notify('success', 'Schema Prestazioni Eccellenti attivato in Windows.');
-        } else {
-          notify('warning', res.message || 'Schema non applicato.');
-        }
-      } else if (rec.actionId === 'clean-filters' || rec.actionId === 'apply-thermal-paste') {
-        onSwitchTab?.('registro');
-      } else if (rec.actionId === 'reboot-uefi') {
-        onSwitchTab?.('windows');
-      } else {
-        notify('info', `Azione guidata: ${rec.title}`);
-      }
-
-      onRefreshFacts?.();
+      const res = await executeOptimizationWorkflow({
+        recommendation: rec,
+        facts,
+        recordExecution: recordOptimizationExecution,
+        onRefreshFacts,
+        onSwitchTab,
+      });
+      notify(res.notification.type, res.notification.message);
     } catch (err) {
       console.error('Errore durante l\'esecuzione dell\'azione:', err);
       notify('error', 'Si è verificato un errore durante l\'operazione.');
@@ -148,6 +118,37 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
       setConfirmingRec(null);
     }
   };
+
+  // Annullamento esplicito dal prompt di conferma (USER_CONFIRMED)
+  const handleCancelConfirmation = async () => {
+    if (confirmingRec) {
+      try {
+        await recordCancelledOptimization(
+          confirmingRec,
+          'Operazione annullata dall\'utente al prompt di conferma',
+          recordOptimizationExecution
+        );
+        notify('info', `Operazione annullata: ${confirmingRec.title}`);
+      } catch (err) {
+        console.error('Errore durante la registrazione dell\'annullamento:', err);
+      }
+      setConfirmingRec(null);
+    }
+  };
+
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'ALL') return optimizationHistory;
+    return optimizationHistory.filter((r) => r.outcome === historyFilter);
+  }, [optimizationHistory, historyFilter]);
+
+  const historyCounts = useMemo(() => {
+    return {
+      all: optimizationHistory.length,
+      success: optimizationHistory.filter((r) => r.outcome === 'success').length,
+      cancelled: optimizationHistory.filter((r) => r.outcome === 'cancelled').length,
+      failed: optimizationHistory.filter((r) => r.outcome === 'failed').length,
+    };
+  }, [optimizationHistory]);
 
   // Badge stile per severità finding
   const getSeverityBadge = (severity: HealthSeverity) => {
@@ -444,10 +445,22 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                     <span style={{ color: 'var(--text-muted)', minWidth: '100px' }}>Fatto Rilevato:</span>
                     <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{rec.evidence}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: rec.actionDescription ? 'var(--space-2xs)' : '0' }}>
                     <span style={{ color: 'var(--accent-emerald)', minWidth: '100px' }}>Beneficio:</span>
                     <span style={{ color: 'var(--text-secondary)' }}>{rec.expectedBenefit}</span>
                   </div>
+                  {rec.actionDescription && (
+                    <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: rec.verificationMethod ? 'var(--space-2xs)' : '0' }}>
+                      <span style={{ color: 'var(--accent-cyan)', minWidth: '100px' }}>Azione:</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>{rec.actionDescription}</span>
+                    </div>
+                  )}
+                  {rec.verificationMethod && (
+                    <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                      <span style={{ color: 'var(--text-muted)', minWidth: '100px' }}>Verifica:</span>
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{rec.verificationMethod}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-sm)' }}>
@@ -488,7 +501,195 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
         )}
       </div>
 
-      {/* 4. AUDIT & FINDINGS DETTAGLIATI */}
+      {/* 4. STORICO DELLE OTTIMIZZAZIONI ESEGUITE */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+            <History size={18} color="var(--accent-cyan)" />
+            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600 }}>
+              Storico Ottimizzazioni ({optimizationHistory.length})
+            </h3>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+            {/* Filtri Esito */}
+            <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+              <button
+                type="button"
+                className="btn btn-xs"
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '2px 8px',
+                  backgroundColor: historyFilter === 'ALL' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                  color: historyFilter === 'ALL' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                  border: 'none',
+                }}
+                onClick={() => setHistoryFilter('ALL')}
+              >
+                Tutti ({historyCounts.all})
+              </button>
+              <button
+                type="button"
+                className="btn btn-xs"
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '2px 8px',
+                  backgroundColor: historyFilter === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                  color: historyFilter === 'success' ? 'var(--accent-emerald)' : 'var(--text-muted)',
+                  border: 'none',
+                }}
+                onClick={() => setHistoryFilter('success')}
+              >
+                Riuscite ({historyCounts.success})
+              </button>
+              {historyCounts.cancelled > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 8px',
+                    backgroundColor: historyFilter === 'cancelled' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                    color: historyFilter === 'cancelled' ? 'var(--accent-amber)' : 'var(--text-muted)',
+                    border: 'none',
+                  }}
+                  onClick={() => setHistoryFilter('cancelled')}
+                >
+                  Annullate ({historyCounts.cancelled})
+                </button>
+              )}
+              {historyCounts.failed > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '2px 8px',
+                    backgroundColor: historyFilter === 'failed' ? 'rgba(244, 63, 94, 0.15)' : 'transparent',
+                    color: historyFilter === 'failed' ? 'var(--accent-ruby)' : 'var(--text-muted)',
+                    border: 'none',
+                  }}
+                  onClick={() => setHistoryFilter('failed')}
+                >
+                  Fallite ({historyCounts.failed})
+                </button>
+              )}
+            </div>
+
+            {optimizationHistory.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}
+                onClick={() => {
+                  if (window.confirm('Sei sicuro di voler azzerare lo storico delle ottimizzazioni registrate?')) {
+                    clearOptimizationHistory();
+                  }
+                }}
+                title="Azzera lo storico registrato"
+              >
+                <Trash2 size={12} style={{ marginRight: '4px' }} /> Azzera
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filteredHistory.length === 0 ? (
+          <div className="card" style={{ padding: 'var(--space-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <History size={24} color="var(--text-muted)" style={{ margin: '0 auto var(--space-xs)' }} />
+            <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+              Nessuna ottimizzazione registrata
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Le raccomandazioni eseguite o annullate verranno salvate qui con il confronto oggettivo prima/dopo e l'esito della verifica.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+            {filteredHistory.map((rec) => {
+              const beforeSummary = typeof rec.evidenceBefore === 'object' && rec.evidenceBefore !== null
+                ? rec.evidenceBefore.summary
+                : rec.evidenceBefore;
+              const afterSummary = typeof rec.evidenceAfter === 'object' && rec.evidenceAfter !== null
+                ? rec.evidenceAfter.summary
+                : rec.evidenceAfter;
+
+              return (
+                <div
+                  key={rec.id}
+                  className="card"
+                  onClick={() => setSelectedHistoryRecord(rec)}
+                  style={{
+                    padding: 'var(--space-sm) var(--space-md)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '';
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', minWidth: 0 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        {new Date(rec.timestampStarted).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })} {new Date(rec.timestampStarted).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                        {rec.recommendationTitle}
+                      </span>
+                      {rec.target && (
+                        <span className="badge badge-subtle" style={{ fontSize: '0.68rem', padding: '1px 5px' }}>
+                          {rec.target}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                      <span className={`badge ${getOutcomeBadgeClass(rec.outcome)}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                        {getOutcomeLabel(rec.outcome)}
+                      </span>
+                      <span className={`badge ${getVerificationStatusBadgeClass(rec.verificationStatus)}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                        Verifica: {getVerificationStatusLabel(rec.verificationStatus)}
+                      </span>
+                      <ArrowRight size={14} color="var(--text-muted)" />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {beforeSummary && afterSummary ? (
+                        <>
+                          <span style={{ color: 'var(--text-muted)' }}>Prima:</span>
+                          <span style={{ fontFamily: 'var(--font-mono)' }}>{beforeSummary}</span>
+                          <span style={{ color: 'var(--accent-cyan)' }}>→</span>
+                          <span style={{ color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+                            {afterSummary}
+                          </span>
+                        </>
+                      ) : (
+                        <span>{rec.actionDescription}</span>
+                      )}
+                    </div>
+
+                    {rec.metricsDelta?.description && (
+                      <span style={{ color: 'var(--accent-emerald)', fontWeight: 600, fontSize: '0.75rem', flexShrink: 0, marginLeft: 'var(--space-sm)' }}>
+                        {rec.metricsDelta.description}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 5. AUDIT & FINDINGS DETTAGLIATI */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
@@ -528,11 +729,11 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
         </div>
       </div>
 
-      {/* 5. MODALE DI CONFERMA SICUREZZA PER AZIONI MUTANTI (USER_CONFIRMED) */}
+      {/* 6. MODALE DI CONFERMA SICUREZZA PER AZIONI MUTANTI (USER_CONFIRMED) */}
       {confirmingRec && (
         <Modal
           isOpen={true}
-          onClose={() => setConfirmingRec(null)}
+          onClose={handleCancelConfirmation}
           title="Conferma Operazione di Ottimizzazione"
           subtitle="Azione mutante con richiesta di conferma esplicita"
           maxWidth="500px"
@@ -546,8 +747,8 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
               </div>
             </div>
 
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              <div style={{ marginBottom: '4px' }}>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div>
                 <strong style={{ color: 'var(--text-primary)' }}>Evidenza rilevata: </strong>
                 <span>{confirmingRec.evidence}</span>
               </div>
@@ -555,13 +756,25 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                 <strong style={{ color: 'var(--accent-emerald)' }}>Beneficio atteso: </strong>
                 <span>{confirmingRec.expectedBenefit}</span>
               </div>
+              {confirmingRec.actionDescription && (
+                <div>
+                  <strong style={{ color: 'var(--accent-cyan)' }}>Cosa verrà fatto: </strong>
+                  <span>{confirmingRec.actionDescription}</span>
+                </div>
+              )}
+              {confirmingRec.verificationMethod && (
+                <div>
+                  <strong style={{ color: 'var(--text-muted)' }}>Come verrà verificato: </strong>
+                  <span style={{ fontStyle: 'italic' }}>{confirmingRec.verificationMethod}</span>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={() => setConfirmingRec(null)}
+                onClick={handleCancelConfirmation}
                 disabled={executingActionId === confirmingRec.id}
               >
                 Annulla
@@ -578,6 +791,15 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* 7. MODALE DI DETTAGLIO RECORD STORICO OTTIMIZZAZIONE */}
+      {selectedHistoryRecord && (
+        <OptimizationHistoryModal
+          record={selectedHistoryRecord}
+          onClose={() => setSelectedHistoryRecord(null)}
+          onDeleteRecord={(id) => deleteOptimizationExecution(id)}
+        />
       )}
     </div>
   );

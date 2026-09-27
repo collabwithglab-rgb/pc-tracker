@@ -5,6 +5,7 @@ import { Checkpoint } from './checkpoint';
 import { ComponentReceipt } from './receipt';
 import { MaintenanceEntry } from './maintenance';
 import { TuningProfile } from './tuning';
+import { OptimizationExecutionRecord } from './optimizationHistory';
 
 export type UIDensity = 'comfortable' | 'compact';
 export type ReducedMotionPreference = 'system' | 'always' | 'never';
@@ -62,6 +63,7 @@ export interface DatabaseSchema {
   receipts?: ComponentReceipt[]; // Opzionale per retrocompatibilità
   maintenance?: MaintenanceEntry[]; // Registro Manutenzione (Sessione 4)
   tuningProfiles?: TuningProfile[]; // Tuning Journal (Sessione 4)
+  optimizationHistory?: OptimizationExecutionRecord[]; // Registro Storico Ottimizzazioni (Tranche 4)
 }
 
 export interface ImportPreview {
@@ -77,6 +79,7 @@ export interface ImportPreview {
     receipts?: number;
     maintenance?: number;
     tuningProfiles?: number;
+    optimizationHistory?: number;
   };
   settingsSummary?: {
     rigName?: string;

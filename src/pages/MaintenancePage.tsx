@@ -249,6 +249,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       maintenanceEntries: maintenanceEntries,
       tuningProfiles: tuningProfiles,
       currentRigComponents: components,
+      recycleBin: recycleBin,
+      wingetUpdates: wingetUpdates,
     };
   }, [
     monitoringSnapshot,
@@ -259,6 +261,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     maintenanceEntries,
     tuningProfiles,
     components,
+    recycleBin,
+    wingetUpdates,
   ]);
 
   // Esecuzione Scan Now

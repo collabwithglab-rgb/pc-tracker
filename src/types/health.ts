@@ -3,7 +3,13 @@
  */
 
 import { MonitoringSnapshot } from './monitoring';
-import { VolumeDriveInfo, DiskSmartHealth, SecurityAuditData } from './windowsTools';
+import {
+  VolumeDriveInfo,
+  DiskSmartHealth,
+  SecurityAuditData,
+  RecycleBinInfo,
+  WinGetUpdateItem,
+} from './windowsTools';
 import { MaintenanceEntry } from './maintenance';
 import { TuningProfile } from './tuning';
 import { Component } from './component';
@@ -42,6 +48,8 @@ export interface SystemFactsInput {
   tuningProfiles?: TuningProfile[];
   currentRigComponents?: Component[];
   referenceDate?: string;          // Data ISO opzionale per test deterministici
+  recycleBin?: RecycleBinInfo | null;
+  wingetUpdates?: WinGetUpdateItem[] | null;
 }
 
 export interface AreaHealthSummary {

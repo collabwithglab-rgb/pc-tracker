@@ -28,6 +28,8 @@ import {
   MaintenanceEntryInput,
   TuningProfile,
   TuningProfileInput,
+  OptimizationExecutionRecord,
+  CreateOptimizationRecordInput,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -57,6 +59,9 @@ import {
   deleteMaintenanceEntryAtomic,
   saveTuningProfileAtomic,
   deleteTuningProfileAtomic,
+  saveOptimizationRecord,
+  deleteOptimizationRecord,
+  clearOptimizationHistory,
 } from '../storage';
 import {
   computeTotalPurchased,
@@ -87,6 +92,9 @@ import {
   findPurchaseEvent,
   validateMaintenanceEntry,
   validateTuningProfile,
+  createOptimizationExecutionRecord,
+  validateOptimizationExecutionRecord,
+  sortOptimizationRecords,
 } from '../domain';
 import { generateId } from '../utils/id';
 
@@ -289,6 +297,12 @@ interface PCStoreState {
   updateTuningProfile: (id: string, updates: Partial<TuningProfileInput>) => Promise<void>;
   deleteTuningProfile: (id: string) => Promise<void>;
   getTuningProfilesForComponent: (componentId: string) => TuningProfile[];
+
+  // Registro Storico Ottimizzazioni (PC Care Center - Tranche 4)
+  optimizationHistory: OptimizationExecutionRecord[];
+  recordOptimizationExecution: (input: CreateOptimizationRecordInput) => Promise<OptimizationExecutionRecord>;
+  deleteOptimizationExecution: (id: string) => Promise<void>;
+  clearOptimizationHistory: () => Promise<void>;
 }
 
 const PCContext = createContext<PCStoreState | null>(null);
@@ -305,6 +319,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     checkpoints: [],
     maintenance: [],
     tuningProfiles: [],
+    optimizationHistory: [],
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -1624,6 +1639,46 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     return (data.tuningProfiles || []).filter((t) => t.componentId === componentId);
   };
 
+  const recordOptimizationExecution = async (
+    input: CreateOptimizationRecordInput
+  ): Promise<OptimizationExecutionRecord> => {
+    const record = createOptimizationExecutionRecord(input);
+    const validation = validateOptimizationExecutionRecord(record);
+    if (!validation.isValid) {
+      throw new Error(`Record ottimizzazione non valido: ${validation.error}`);
+    }
+
+    await saveOptimizationRecord(record);
+    setData((prev) => {
+      const currentList = prev.optimizationHistory || [];
+      const updatedList = [record, ...currentList.filter((r) => r.id !== record.id)];
+      return {
+        ...prev,
+        optimizationHistory: sortOptimizationRecords(updatedList),
+      };
+    });
+
+    return record;
+  };
+
+  const deleteOptimizationExecution = async (id: string): Promise<void> => {
+    await deleteOptimizationRecord(id);
+    setData((prev) => ({
+      ...prev,
+      optimizationHistory: (prev.optimizationHistory || []).filter((r) => r.id !== id),
+    }));
+    showNotification('success', 'Voce rimossa dallo storico ottimizzazioni.');
+  };
+
+  const handleClearOptimizationHistory = async (): Promise<void> => {
+    await clearOptimizationHistory();
+    setData((prev) => ({
+      ...prev,
+      optimizationHistory: [],
+    }));
+    showNotification('success', 'Storico ottimizzazioni azzerato.');
+  };
+
   const contextValue: PCStoreState = useMemo(
     () => ({
       components: data.components,
@@ -1685,6 +1740,10 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       updateTuningProfile,
       deleteTuningProfile,
       getTuningProfilesForComponent,
+      optimizationHistory: data.optimizationHistory || [],
+      recordOptimizationExecution,
+      deleteOptimizationExecution,
+      clearOptimizationHistory: handleClearOptimizationHistory,
     }),
     [
       data,

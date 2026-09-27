@@ -17,3 +17,4 @@ export * from './rigComparison';
 export * from './monitoring';
 export * from './health';
 export * from './optimization';
+export * from './optimizationHistory';

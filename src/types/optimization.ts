@@ -41,6 +41,8 @@ export interface OptimizationRecommendation {
   actionAvailability: ActionAvailability;
   rollbackAvailability: RollbackAvailability;
   actionId?: string;              // Riferimento al catalogo azioni native Windows
+  actionDescription?: string;     // Cosa viene concretamente eseguito dal sistema
+  verificationMethod?: string;    // Metodo di verifica dell'efficacia post-azione
   parameters?: Record<string, string | number | boolean>;
 }
 

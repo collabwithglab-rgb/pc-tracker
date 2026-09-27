@@ -16,6 +16,7 @@ import {
   MAX_TOTAL_RECEIPTS_BACKUP_BYTES,
   MaintenanceEntry,
   TuningProfile,
+  OptimizationExecutionRecord,
 } from '../types';
 import {
   STORES,
@@ -82,6 +83,7 @@ export function sortDataDeterministically(data: {
   receipts?: ComponentReceipt[];
   maintenance?: MaintenanceEntry[];
   tuningProfiles?: TuningProfile[];
+  optimizationHistory?: OptimizationExecutionRecord[];
 }): void {
   data.components.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -133,6 +135,14 @@ export function sortDataDeterministically(data: {
       if (dateComp !== 0) return dateComp;
       const nameComp = a.name.localeCompare(b.name);
       if (nameComp !== 0) return nameComp;
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  if (data.optimizationHistory) {
+    data.optimizationHistory.sort((a, b) => {
+      const dateComp = a.timestampStarted.localeCompare(b.timestampStarted);
+      if (dateComp !== 0) return dateComp;
       return a.id.localeCompare(b.id);
     });
   }
@@ -192,11 +202,21 @@ export async function exportDatabaseToJSON(): Promise<string> {
     }
   }
 
+  // Recupero sicuro dello storico ottimizzazioni (con fallback retrocompatibile per mock nei test)
+  let optimizationHistory: OptimizationExecutionRecord[] = [];
+  if (STORES.OPTIMIZATION_HISTORY) {
+    try {
+      optimizationHistory = await getAllFromStore<OptimizationExecutionRecord>(STORES.OPTIMIZATION_HISTORY);
+    } catch {
+      optimizationHistory = [];
+    }
+  }
+
   const settingsEntry = metadataList.find((m) => m.key === 'settings');
   const settings = normalizeSettings(settingsEntry?.value);
 
   // Ordinamento deterministico delle collezioni
-  sortDataDeterministically({ components, events, upgrades, checkpoints, receipts, maintenance, tuningProfiles });
+  sortDataDeterministically({ components, events, upgrades, checkpoints, receipts, maintenance, tuningProfiles, optimizationHistory });
 
   const exportTimestamp = new Date().toISOString();
 
@@ -215,6 +235,7 @@ export async function exportDatabaseToJSON(): Promise<string> {
     receipts: receipts.length > 0 ? receipts : undefined,
     maintenance: maintenance.length > 0 ? maintenance : undefined,
     tuningProfiles: tuningProfiles.length > 0 ? tuningProfiles : undefined,
+    optimizationHistory: optimizationHistory.length > 0 ? optimizationHistory : undefined,
   };
 
   return JSON.stringify(payload, null, 2);
@@ -574,6 +595,27 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
       }
     }
 
+    // 11. Validazione Storico Ottimizzazioni (Tranche 4)
+    if (rawData.optimizationHistory !== undefined && !Array.isArray(rawData.optimizationHistory)) {
+      return {
+        isValid: false,
+        error: "La sezione 'optimizationHistory' del file non è un array valido.",
+      };
+    }
+    const optIds = new Set<string>();
+    for (const opt of migratedData.optimizationHistory || []) {
+      if (!opt.id || typeof opt.id !== 'string' || opt.id.trim().length === 0) {
+        return { isValid: false, error: 'Rilevato un record di ottimizzazione privo di ID univoco valido.' };
+      }
+      if (optIds.has(opt.id)) {
+        return { isValid: false, error: `ID ottimizzazione duplicato rilevato nel backup: "${opt.id}".` };
+      }
+      optIds.add(opt.id);
+      if (!opt.timestampStarted || typeof opt.timestampStarted !== 'string' || isNaN(Date.parse(opt.timestampStarted))) {
+        return { isValid: false, error: `Timestamp ISO di inizio non valido per il record di ottimizzazione "${opt.id}".` };
+      }
+    }
+
     // Estrazione metadati opzionali di sintesi per la preview
     const rawSettings = (migratedData.settings || {}) as unknown as Record<string, unknown>;
     const settingsSummary = {
@@ -602,6 +644,7 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
         receipts: (migratedData.receipts || []).length,
         maintenance: (migratedData.maintenance || []).length,
         tuningProfiles: (migratedData.tuningProfiles || []).length,
+        optimizationHistory: (migratedData.optimizationHistory || []).length,
       },
       settingsSummary,
       parsedData: migratedData,
@@ -629,6 +672,7 @@ export async function executeImport(data: DatabaseSchema): Promise<void> {
     receipts: data.receipts || [],
     maintenance: data.maintenance || [],
     tuningProfiles: data.tuningProfiles || [],
+    optimizationHistory: data.optimizationHistory || [],
     metadataItems: [
       { key: 'settings', value: normalizeSettings(data.settings) },
       { key: 'initialized', value: true },

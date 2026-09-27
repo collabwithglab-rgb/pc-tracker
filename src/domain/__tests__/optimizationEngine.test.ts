@@ -4,7 +4,11 @@ import { SystemFactsInput, SystemHealthReport } from '../../types/health';
 import { Component } from '../../types/component';
 import { TuningProfile } from '../../types/tuning';
 import { MaintenanceEntry } from '../../types/maintenance';
-import { VolumeDriveInfo, SecurityAuditData } from '../../types/windowsTools';
+import {
+  VolumeDriveInfo,
+  SecurityAuditData,
+  DiskSmartHealth,
+} from '../../types/windowsTools';
 import { MonitoringSnapshot } from '../../types/monitoring';
 
 describe('optimizationEngine', () => {
@@ -556,4 +560,563 @@ describe('optimizationEngine', () => {
       expect(report.recommendations.some((r) => r.id === 'opt-sfc-repair')).toBe(true);
     });
   });
+
+  describe('Expanded Storage Recommendations (Recycle Bin & CHKDSK)', () => {
+    it('recommends emptying Recycle Bin when size is >= 500 MB or count >= 50', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        recycleBin: {
+          itemCount: 65,
+          totalSizeBytes: 750 * 1024 * 1024, // 750 MB
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const binRec = report.recommendations.find((r) => r.id === 'opt-empty-recycle-bin');
+
+      expect(binRec).toBeDefined();
+      expect(binRec?.category).toBe('storage');
+      expect(binRec?.risk).toBe('LOW');
+      expect(binRec?.actionAvailability).toBe('USER_CONFIRMED');
+      expect(binRec?.actionId).toBe('empty-recycle-bin');
+      expect(binRec?.actionDescription).toContain('Cestino');
+      expect(binRec?.verificationMethod).toContain('queryRecycleBin');
+    });
+
+    it('does NOT recommend emptying Recycle Bin when content is minimal (< 500 MB and < 50 items)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        recycleBin: {
+          itemCount: 4,
+          totalSizeBytes: 15 * 1024 * 1024, // 15 MB
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-empty-recycle-bin')).toBeUndefined();
+    });
+
+    it('does NOT recommend emptying Recycle Bin when recycleBin fact is null or undefined', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        recycleBin: null,
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-empty-recycle-bin')).toBeUndefined();
+    });
+
+    it('recommends CHKDSK read-only scan when disk SMART counters detect I/O errors', () => {
+      const smartDisk: DiskSmartHealth = {
+        deviceId: '0',
+        friendlyName: 'Samsung SSD 990 PRO 2TB',
+        mediaType: 'SSD',
+        readErrorsTotal: 12,
+        writeErrorsTotal: 4,
+        healthStatus: 'Warning',
+      };
+
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        drives: [createDrive('C:', 2_000_000_000_000, 1_500_000_000_000, true, true)],
+        smartDisks: [smartDisk],
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const chkdskRec = report.recommendations.find((r) => r.id.startsWith('opt-chkdsk-scan'));
+
+      expect(chkdskRec).toBeDefined();
+      expect(chkdskRec?.category).toBe('storage');
+      expect(chkdskRec?.actionAvailability).toBe('ASSISTED');
+      expect(chkdskRec?.risk).toBe('NONE');
+      expect(chkdskRec?.actionDescription).toContain('chkdsk');
+      expect(chkdskRec?.verificationMethod).toBeDefined();
+    });
+
+    it('does NOT recommend CHKDSK when SMART reports 0 read and write errors', () => {
+      const smartDisk: DiskSmartHealth = {
+        deviceId: '0',
+        friendlyName: 'Samsung SSD 990 PRO 2TB',
+        mediaType: 'SSD',
+        readErrorsTotal: 0,
+        writeErrorsTotal: 0,
+        healthStatus: 'Healthy',
+      };
+
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        drives: [createDrive('C:', 2_000_000_000_000, 1_500_000_000_000, true, true)],
+        smartDisks: [smartDisk],
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id.startsWith('opt-chkdsk-scan'))).toBeUndefined();
+    });
+  });
+
+  describe('Expanded System Integrity (WinSxS Component Store)', () => {
+    it('recommends WinSxS Component Store cleanup when C: is >= 80% used and no recent DISM cleanup (> 60 days)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        drives: [createDrive('C:', 1_000_000_000_000, 180_000_000_000)], // 82% used
+        maintenanceEntries: [
+          createMaintenanceEntry('m-old-dism', 'Pulizia WinSxS DISM', '2026-06-01', 'system_maintenance'),
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const dismRec = report.recommendations.find((r) => r.id === 'opt-clean-component-store');
+
+      expect(dismRec).toBeDefined();
+      expect(dismRec?.category).toBe('system');
+      expect(dismRec?.actionAvailability).toBe('ASSISTED');
+      expect(dismRec?.actionId).toBe('clean-component-store');
+      expect(dismRec?.actionDescription).toContain('DISM');
+      expect(dismRec?.verificationMethod).toContain('0x0');
+    });
+
+    it('does NOT recommend WinSxS cleanup if performed recently (< 60 days)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        drives: [createDrive('C:', 1_000_000_000_000, 180_000_000_000)], // 82% used
+        maintenanceEntries: [
+          createMaintenanceEntry('m-recent-dism', 'Pulizia WinSxS DISM', '2026-09-10', 'system_maintenance'),
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-clean-component-store')).toBeUndefined();
+    });
+  });
+
+  describe('Expanded Performance & Memory (RAM Pressure & WinGet Updates)', () => {
+    it('recommends RAM pressure triage when utilization is >= 90%', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 15, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 16,
+            baseFrequencyMhz: { value: 4000, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 16_000_000_000,
+            usedBytes: 15_000_000_000,
+            availableBytes: 1_000_000_000,
+            utilizationPercent: 93.7,
+          },
+          gpus: [],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 2000 },
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const ramRec = report.recommendations.find((r) => r.id === 'opt-ram-pressure-triage');
+
+      expect(ramRec).toBeDefined();
+      expect(ramRec?.category).toBe('performance');
+      expect(ramRec?.actionAvailability).toBe('READ_ONLY');
+      expect(ramRec?.risk).toBe('NONE');
+      expect(ramRec?.actionDescription).toContain('Gestione Attività');
+      expect(ramRec?.verificationMethod).toContain('80%');
+    });
+
+    it('does NOT recommend RAM triage when memory usage is normal (< 90%)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 10, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 32_000_000_000,
+            usedBytes: 16_000_000_000,
+            availableBytes: 16_000_000_000,
+            utilizationPercent: 50,
+          },
+          gpus: [],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 1000 },
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-ram-pressure-triage')).toBeUndefined();
+    });
+
+    it('recommends software update via WinGet when updates are detected', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        wingetUpdates: [
+          {
+            name: 'Microsoft Visual C++ 2015-2022 Redistributable (x64)',
+            id: 'Microsoft.VCRedist.2015+.x64',
+            installedVersion: '14.40.33810.0',
+            availableVersion: '14.42.34433.0',
+          },
+          {
+            name: '7-Zip',
+            id: '7zip.7zip',
+            installedVersion: '24.08',
+            availableVersion: '24.09',
+          },
+        ],
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const wingetRec = report.recommendations.find((r) => r.id === 'opt-winget-updates');
+
+      expect(wingetRec).toBeDefined();
+      expect(wingetRec?.category).toBe('system');
+      expect(wingetRec?.actionAvailability).toBe('ASSISTED');
+      expect(wingetRec?.evidence).toContain('2 aggiornamenti');
+      expect(wingetRec?.verificationMethod).toBeDefined();
+    });
+
+    it('does NOT recommend WinGet updates when update list is empty or absent', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        wingetUpdates: [],
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-winget-updates')).toBeUndefined();
+    });
+  });
+
+  describe('Expanded Thermals & Personal Baseline (CPU Baseline & GPU Idle)', () => {
+    it('recommends CPU cooling inspection when load temp diverges >= 10°C from Daily baseline', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        tuningProfiles: [
+          createTuningProfile('tune-cpu-daily', 'Daily Undervolt Curve -25', 'cpu', 'daily', 72),
+        ],
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 85, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 16,
+            baseFrequencyMhz: { value: 4200, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: 86, availability: 'available', unit: '°C', source: 'ACPI' }, // +14°C vs baseline 72°C
+            packagePowerWatts: { value: 95, availability: 'available', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 32_000_000_000,
+            usedBytes: 12_000_000_000,
+            availableBytes: 20_000_000_000,
+            utilizationPercent: 37.5,
+          },
+          gpus: [],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 3000 },
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const cpuDivRec = report.recommendations.find((r) => r.id === 'opt-cpu-baseline-divergence');
+
+      expect(cpuDivRec).toBeDefined();
+      expect(cpuDivRec?.category).toBe('thermal');
+      expect(cpuDivRec?.actionAvailability).toBe('MANUAL');
+      expect(cpuDivRec?.actionDescription).toContain('dissipatore');
+      expect(cpuDivRec?.verificationMethod).toContain('5°C');
+      expect(cpuDivRec?.parameters?.delta).toBe(14);
+    });
+
+    it('does NOT recommend CPU baseline divergence if package temperature sensor is unsupported', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        tuningProfiles: [
+          createTuningProfile('tune-cpu-daily', 'Daily Undervolt Curve -25', 'cpu', 'daily', 72),
+        ],
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 85, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 16,
+            baseFrequencyMhz: { value: 4200, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 32_000_000_000,
+            usedBytes: 12_000_000_000,
+            availableBytes: 20_000_000_000,
+            utilizationPercent: 37.5,
+          },
+          gpus: [],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 3000 },
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-cpu-baseline-divergence')).toBeUndefined();
+    });
+
+    it('does NOT recommend CPU baseline divergence if CPU load is below 75%', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        tuningProfiles: [
+          createTuningProfile('tune-cpu-daily', 'Daily Undervolt Curve -25', 'cpu', 'daily', 72),
+        ],
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 35, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 16,
+            baseFrequencyMhz: { value: 4200, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: 86, availability: 'available', unit: '°C', source: 'ACPI' },
+            packagePowerWatts: { value: 45, availability: 'available', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 32_000_000_000,
+            usedBytes: 12_000_000_000,
+            availableBytes: 20_000_000_000,
+            utilizationPercent: 37.5,
+          },
+          gpus: [],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 3000 },
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-cpu-baseline-divergence')).toBeUndefined();
+    });
+
+    it('recommends GPU idle ventilation check when discrete GPU runs hot (>= 58°C) under <= 10% load', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 5, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 16,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 32_000_000_000,
+            usedBytes: 8_000_000_000,
+            availableBytes: 24_000_000_000,
+            utilizationPercent: 25,
+          },
+          gpus: [
+            {
+              id: 'gpu-0',
+              name: 'NVIDIA GeForce RTX 4080',
+              vendor: 'NVIDIA',
+              utilizationPercent: { value: 3, availability: 'available', unit: '%', source: 'NVML' },
+              vramTotalBytes: { value: 16_000_000_000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 1_200_000_000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 7.5, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 62, availability: 'available', unit: '°C', source: 'NVML' }, // 62°C in idle!
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 210, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 405, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 18, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 0, availability: 'available', source: 'NVML' },
+              isDiscrete: true,
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 4000 },
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const idleRec = report.recommendations.find((r) => r.id === 'opt-gpu-idle-thermals');
+
+      expect(idleRec).toBeDefined();
+      expect(idleRec?.category).toBe('thermal');
+      expect(idleRec?.actionAvailability).toBe('MANUAL');
+      expect(idleRec?.actionDescription).toContain('Zero-RPM');
+      expect(idleRec?.verificationMethod).toContain('50°C');
+    });
+
+    it('does NOT recommend GPU idle check when GPU idle temperature is cool (< 58°C)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 5, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 16,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: null, availability: 'unsupported', source: 'ACPI' },
+            packagePowerWatts: { value: null, availability: 'unsupported', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 32_000_000_000,
+            usedBytes: 8_000_000_000,
+            availableBytes: 24_000_000_000,
+            utilizationPercent: 25,
+          },
+          gpus: [
+            {
+              id: 'gpu-0',
+              name: 'NVIDIA GeForce RTX 4080',
+              vendor: 'NVIDIA',
+              utilizationPercent: { value: 3, availability: 'available', unit: '%', source: 'NVML' },
+              vramTotalBytes: { value: 16_000_000_000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 1_200_000_000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 7.5, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 41, availability: 'available', unit: '°C', source: 'NVML' }, // 41°C cool idle
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 210, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 405, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 15, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 0, availability: 'available', source: 'NVML' },
+              isDiscrete: true,
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 4000 },
+        },
+        maintenanceEntries: [
+          createMaintenanceEntry('m-rp', 'Punto di ripristino', '2026-09-20'),
+        ],
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.find((r) => r.id === 'opt-gpu-idle-thermals')).toBeUndefined();
+    });
+  });
+
+  describe('Contract and Transparency Verification for all Recommendations', () => {
+    it('guarantees that every generated recommendation possesses explainable evidence, benefit, action and verification', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        systemFilesStatus: 'corrupted',
+        drives: [createDrive('C:', 1_000_000_000_000, 100_000_000_000)], // 90% used
+        recycleBin: { itemCount: 100, totalSizeBytes: 1024 * 1024 * 900 },
+        smartDisks: [
+          {
+            deviceId: '0',
+            friendlyName: 'SSD Disk 0',
+            mediaType: 'SSD',
+            readErrorsTotal: 5,
+            writeErrorsTotal: 2,
+            healthStatus: 'Warning',
+          },
+        ],
+        wingetUpdates: [
+          { name: 'Git', id: 'Git.Git', installedVersion: '2.40.0', availableVersion: '2.45.0' },
+        ],
+        tuningProfiles: [
+          createTuningProfile('tune-cpu-1', 'Daily CPU', 'cpu', 'daily', 65),
+          createTuningProfile('tune-gpu-1', 'Daily GPU', 'gpu', 'daily', 65),
+        ],
+        monitoring: {
+          timestamp: baseRefDate,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 80, availability: 'available', unit: '%', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Registry' },
+            packageTemperatureCelsius: { value: 85, availability: 'available', source: 'ACPI' }, // +20 vs baseline
+            packagePowerWatts: { value: 65, availability: 'available', source: 'RAPL' },
+          },
+          memory: {
+            totalBytes: 16_000_000_000,
+            usedBytes: 15_000_000_000,
+            availableBytes: 1_000_000_000,
+            utilizationPercent: 93.75, // RAM pressure
+          },
+          gpus: [
+            {
+              id: 'gpu-0',
+              name: 'NVIDIA RTX 4070',
+              vendor: 'NVIDIA',
+              isDiscrete: true,
+              utilizationPercent: { value: 90, availability: 'available', source: 'NVML' },
+              vramTotalBytes: { value: 12_000_000_000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 6_000_000_000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 50, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 78, availability: 'available', source: 'NVML' }, // +13 vs baseline
+              hotspotTemperatureCelsius: { value: null, availability: 'unsupported', source: 'NVML' },
+              coreClockMhz: { value: 2500, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 10500, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 180, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 70, availability: 'available', source: 'NVML' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 5000 },
+        },
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      expect(report.recommendations.length).toBeGreaterThan(5);
+
+      for (const rec of report.recommendations) {
+        expect(rec.id).toBeTruthy();
+        expect(rec.title).toBeTruthy();
+        expect(rec.category).toBeTruthy();
+        expect(rec.reason).toBeTruthy();
+        expect(rec.evidence).toBeTruthy();
+        expect(rec.expectedBenefit).toBeTruthy();
+        expect(rec.actionAvailability).toMatch(/^(READ_ONLY|ONE_CLICK|USER_CONFIRMED|ASSISTED|MANUAL)$/);
+        expect(rec.actionDescription).toBeTruthy();
+        expect(rec.verificationMethod).toBeTruthy();
+      }
+    });
+  });
 });
+

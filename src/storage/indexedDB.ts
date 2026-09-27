@@ -1,8 +1,8 @@
-import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings, ComponentReceipt, MaintenanceEntry, TuningProfile } from '../types';
+import { Component, ComponentEvent, Upgrade, Checkpoint, AppSettings, ComponentReceipt, MaintenanceEntry, TuningProfile, OptimizationExecutionRecord } from '../types';
 import { validateCheckpoint } from '../domain/checkpointEngine';
 
 const DB_NAME = 'pc_tracker_db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export const STORES = {
   COMPONENTS: 'components',
@@ -13,6 +13,7 @@ export const STORES = {
   RECEIPTS: 'receipts',
   MAINTENANCE: 'maintenance',
   TUNING: 'tuningProfiles',
+  OPTIMIZATION_HISTORY: 'optimizationHistory',
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
@@ -104,6 +105,15 @@ export function openDatabase(): Promise<IDBDatabase> {
         const tuningStore = db.createObjectStore(STORES.TUNING, { keyPath: 'id' });
         tuningStore.createIndex('category', 'category', { unique: false });
         tuningStore.createIndex('date', 'date', { unique: false });
+      }
+
+      // Store: optimizationHistory (versione 5 - Registro Storico Ottimizzazioni)
+      if (!db.objectStoreNames.contains(STORES.OPTIMIZATION_HISTORY)) {
+        const optStore = db.createObjectStore(STORES.OPTIMIZATION_HISTORY, { keyPath: 'id' });
+        optStore.createIndex('timestampStarted', 'timestampStarted', { unique: false });
+        optStore.createIndex('recommendationId', 'recommendationId', { unique: false });
+        optStore.createIndex('category', 'category', { unique: false });
+        optStore.createIndex('outcome', 'outcome', { unique: false });
       }
     };
 
@@ -374,11 +384,12 @@ export interface ReplaceAllDataAtomicParams {
   receipts?: ComponentReceipt[];
   maintenance?: MaintenanceEntry[];
   tuningProfiles?: TuningProfile[];
+  optimizationHistory?: OptimizationExecutionRecord[];
 }
 
 /**
  * Esegue la sostituzione atomica di tutti i dati del database in una singola transazione IDB multi-store.
- * Coinvolge: COMPONENTS, EVENTS, UPGRADES, METADATA, CHECKPOINTS, RECEIPTS, MAINTENANCE, TUNING.
+ * Coinvolge: COMPONENTS, EVENTS, UPGRADES, METADATA, CHECKPOINTS, RECEIPTS, MAINTENANCE, TUNING, OPTIMIZATION_HISTORY.
  * Se una qualsiasi scrittura o operazione fallisce, IndexedDB esegue il rollback automatico:
  * nessun dato nuovo viene persistito e il database precedente rimane intatto.
  */
@@ -403,6 +414,10 @@ export async function replaceAllDataAtomic(params: ReplaceAllDataAtomicParams): 
     const hasTuningStore = db.objectStoreNames.contains(STORES.TUNING);
     if (hasTuningStore) {
       storeNames.push(STORES.TUNING);
+    }
+    const hasOptHistoryStore = db.objectStoreNames.contains(STORES.OPTIMIZATION_HISTORY);
+    if (hasOptHistoryStore) {
+      storeNames.push(STORES.OPTIMIZATION_HISTORY);
     }
 
     const tx = db.transaction(storeNames, 'readwrite');
@@ -449,6 +464,16 @@ export async function replaceAllDataAtomic(params: ReplaceAllDataAtomicParams): 
         if (params.tuningProfiles && params.tuningProfiles.length > 0) {
           for (const t of params.tuningProfiles) {
             tuningStore.put(t);
+          }
+        }
+      }
+
+      if (hasOptHistoryStore) {
+        const optStore = tx.objectStore(STORES.OPTIMIZATION_HISTORY);
+        optStore.clear();
+        if (params.optimizationHistory && params.optimizationHistory.length > 0) {
+          for (const o of params.optimizationHistory) {
+            optStore.put(o);
           }
         }
       }
@@ -791,5 +816,54 @@ export async function saveTuningProfileAtomic(profile: TuningProfile): Promise<v
  */
 export async function deleteTuningProfileAtomic(id: string): Promise<void> {
   await deleteItemFromStore(STORES.TUNING, id);
+}
+
+/**
+ * Recupera tutti i record dello storico ottimizzazioni memorizzati in IndexedDB.
+ */
+export async function getAllOptimizationRecords(): Promise<OptimizationExecutionRecord[]> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.OPTIMIZATION_HISTORY)) return [];
+  return getAllFromStore<OptimizationExecutionRecord>(STORES.OPTIMIZATION_HISTORY);
+}
+
+/**
+ * Recupera un singolo record dello storico ottimizzazioni per ID.
+ */
+export async function getOptimizationRecordById(id: string): Promise<OptimizationExecutionRecord | undefined> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.OPTIMIZATION_HISTORY)) return undefined;
+  return getByIdFromStore<OptimizationExecutionRecord>(STORES.OPTIMIZATION_HISTORY, id);
+}
+
+/**
+ * Salva o aggiorna un record dello storico ottimizzazioni su IndexedDB.
+ */
+export async function saveOptimizationRecordAtomic(record: OptimizationExecutionRecord): Promise<void> {
+  await putItem(STORES.OPTIMIZATION_HISTORY, record);
+}
+
+/**
+ * Elimina un record dello storico ottimizzazioni per ID da IndexedDB.
+ */
+export async function deleteOptimizationRecordAtomic(id: string): Promise<void> {
+  await deleteItemFromStore(STORES.OPTIMIZATION_HISTORY, id);
+}
+
+/**
+ * Elimina tutti i record dello storico ottimizzazioni da IndexedDB.
+ */
+export async function clearOptimizationHistoryAtomic(): Promise<void> {
+  const db = await openDatabase();
+  if (!db.objectStoreNames.contains(STORES.OPTIMIZATION_HISTORY)) return;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.OPTIMIZATION_HISTORY, 'readwrite');
+    const store = tx.objectStore(STORES.OPTIMIZATION_HISTORY);
+    const req = store.clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
