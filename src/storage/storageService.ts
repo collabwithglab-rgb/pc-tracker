@@ -11,6 +11,7 @@ import {
   MaintenanceEntry,
   TuningProfile,
   OptimizationExecutionRecord,
+  DEFAULT_SCHEDULER_SETTINGS,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -29,7 +30,10 @@ import {
   BatchComponentWithEventsItem,
 } from './indexedDB';
 import { CURRENT_SCHEMA_VERSION } from './migrations';
-
+import {
+  normalizeSchedulerSettings,
+  normalizeReminderInteractions,
+} from '../domain';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   rigName: '',
@@ -50,6 +54,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   archiveDefaultView: 'cards',
   confirmEventDeletion: true,
   autoCloseMovementModal: true,
+  scheduler: DEFAULT_SCHEDULER_SETTINGS,
+  reminderInteractions: {},
 };
 
 /**
@@ -133,6 +139,8 @@ export function normalizeSettings(rawSettings: unknown): AppSettings {
       typeof s.autoCloseMovementModal === 'boolean'
         ? s.autoCloseMovementModal
         : DEFAULT_SETTINGS.autoCloseMovementModal,
+    scheduler: normalizeSchedulerSettings(s.scheduler),
+    reminderInteractions: normalizeReminderInteractions(s.reminderInteractions),
     customCategories: Array.isArray(s.customCategories) ? s.customCategories : undefined,
   };
 }
@@ -337,6 +345,11 @@ export {
   deleteOptimizationRecordAtomic as deleteOptimizationRecord,
   clearOptimizationHistoryAtomic as clearOptimizationHistory,
 } from './indexedDB';
+
+export {
+  normalizeSchedulerSettings,
+  normalizeReminderInteractions,
+};
 
 /**
  * Verifica se il database locale è già stato inizializzato esplicitamente.

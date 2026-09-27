@@ -17,6 +17,7 @@ import {
   MaintenanceEntry,
   TuningProfile,
   OptimizationExecutionRecord,
+  AppSettings,
 } from '../types';
 import {
   STORES,
@@ -664,6 +665,12 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
  * e il database preesistente rimane intatto.
  */
 export async function executeImport(data: DatabaseSchema): Promise<void> {
+  const rawSettings = data.settings || ({} as AppSettings);
+  const settingsWithInteractions = {
+    ...rawSettings,
+    reminderInteractions: rawSettings.reminderInteractions || data.reminderInteractions,
+  };
+
   await replaceAllDataAtomic({
     components: data.components,
     events: data.events,
@@ -674,7 +681,7 @@ export async function executeImport(data: DatabaseSchema): Promise<void> {
     tuningProfiles: data.tuningProfiles || [],
     optimizationHistory: data.optimizationHistory || [],
     metadataItems: [
-      { key: 'settings', value: normalizeSettings(data.settings) },
+      { key: 'settings', value: normalizeSettings(settingsWithInteractions) },
       { key: 'initialized', value: true },
     ],
   });

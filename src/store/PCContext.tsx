@@ -30,6 +30,11 @@ import {
   TuningProfileInput,
   OptimizationExecutionRecord,
   CreateOptimizationRecordInput,
+  SchedulerSettings,
+  ReminderInteraction,
+  MaintenanceReminder,
+  OptimizationRecommendation,
+  SystemFactsInput,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -95,6 +100,11 @@ import {
   createOptimizationExecutionRecord,
   validateOptimizationExecutionRecord,
   sortOptimizationRecords,
+  normalizeSchedulerSettings,
+  normalizeReminderInteractions,
+  evaluateMaintenanceReminders,
+  extractLocalDateString,
+  isValidISODateString,
 } from '../domain';
 import { generateId } from '../utils/id';
 
@@ -303,6 +313,20 @@ interface PCStoreState {
   recordOptimizationExecution: (input: CreateOptimizationRecordInput) => Promise<OptimizationExecutionRecord>;
   deleteOptimizationExecution: (id: string) => Promise<void>;
   clearOptimizationHistory: () => Promise<void>;
+
+  // Smart Maintenance Scheduler (Tranche 2)
+  schedulerSettings: SchedulerSettings;
+  reminderInteractions: Record<string, ReminderInteraction>;
+  maintenanceReminders: MaintenanceReminder[];
+  updateSchedulerSettings: (updates: Partial<SchedulerSettings>) => Promise<void>;
+  setReminderSnooze: (reminderId: string, snoozedUntil: string) => Promise<void>;
+  clearReminderInteraction: (reminderId: string) => Promise<void>;
+  markReminderNotified: (reminderId: string, notifiedDate?: string, cycleExecutionId?: string) => Promise<void>;
+  computeMaintenanceReminders: (
+    recommendations?: OptimizationRecommendation[],
+    facts?: SystemFactsInput,
+    currentTimestamp?: string
+  ) => MaintenanceReminder[];
 }
 
 const PCContext = createContext<PCStoreState | null>(null);
@@ -1679,6 +1703,147 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     showNotification('success', 'Storico ottimizzazioni azzerato.');
   };
 
+  // --- SMART MAINTENANCE SCHEDULER (TRANCHE 2) ---
+
+  const schedulerSettings: SchedulerSettings = useMemo(
+    () => normalizeSchedulerSettings(data.settings.scheduler),
+    [data.settings.scheduler]
+  );
+
+  const reminderInteractions: Record<string, ReminderInteraction> = useMemo(
+    () => normalizeReminderInteractions(data.settings.reminderInteractions),
+    [data.settings.reminderInteractions]
+  );
+
+  const maintenanceReminders: MaintenanceReminder[] = useMemo(() => {
+    return evaluateMaintenanceReminders({
+      recommendations: [],
+      maintenanceEntries: data.maintenance || [],
+      optimizationHistory: data.optimizationHistory || [],
+      settings: schedulerSettings,
+      interactions: reminderInteractions,
+      currentTimestamp: new Date().toISOString(),
+    });
+  }, [data.maintenance, data.optimizationHistory, schedulerSettings, reminderInteractions]);
+
+  const computeMaintenanceReminders = (
+    recommendations: OptimizationRecommendation[] = [],
+    facts?: SystemFactsInput,
+    currentTimestamp?: string
+  ): MaintenanceReminder[] => {
+    return evaluateMaintenanceReminders({
+      recommendations,
+      facts,
+      maintenanceEntries: data.maintenance || [],
+      optimizationHistory: data.optimizationHistory || [],
+      settings: schedulerSettings,
+      interactions: reminderInteractions,
+      currentTimestamp: currentTimestamp || new Date().toISOString(),
+    });
+  };
+
+  const updateSchedulerSettings = async (updates: Partial<SchedulerSettings>): Promise<void> => {
+    const currentScheduler = normalizeSchedulerSettings(data.settings.scheduler);
+    const mergedScheduler = normalizeSchedulerSettings({ ...currentScheduler, ...updates });
+    const updatedSettings: AppSettings = {
+      ...data.settings,
+      scheduler: mergedScheduler,
+    };
+    await saveSettings(updatedSettings);
+    setData((prev) => ({
+      ...prev,
+      settings: updatedSettings,
+      lastModified: new Date().toISOString(),
+    }));
+  };
+
+  const setReminderSnooze = async (reminderId: string, snoozedUntil: string): Promise<void> => {
+    if (!reminderId || typeof reminderId !== 'string') {
+      throw new Error('ID promemoria non valido.');
+    }
+    if (!isValidISODateString(snoozedUntil)) {
+      throw new Error(`Data di snooze non valida: "${snoozedUntil}". Formato atteso: YYYY-MM-DD.`);
+    }
+
+    const currentInteractions = normalizeReminderInteractions(data.settings.reminderInteractions);
+    const existingInteraction = currentInteractions[reminderId] || { reminderId };
+    const updatedInteractions: Record<string, ReminderInteraction> = {
+      ...currentInteractions,
+      [reminderId]: {
+        ...existingInteraction,
+        reminderId,
+        snoozedUntil,
+      },
+    };
+
+    const updatedSettings: AppSettings = {
+      ...data.settings,
+      reminderInteractions: updatedInteractions,
+    };
+    await saveSettings(updatedSettings);
+    setData((prev) => ({
+      ...prev,
+      settings: updatedSettings,
+      lastModified: new Date().toISOString(),
+    }));
+  };
+
+  const clearReminderInteraction = async (reminderId: string): Promise<void> => {
+    if (!reminderId) return;
+    const currentInteractions = normalizeReminderInteractions(data.settings.reminderInteractions);
+    if (!currentInteractions[reminderId]) return;
+
+    const updatedInteractions = { ...currentInteractions };
+    delete updatedInteractions[reminderId];
+
+    const updatedSettings: AppSettings = {
+      ...data.settings,
+      reminderInteractions: updatedInteractions,
+    };
+    await saveSettings(updatedSettings);
+    setData((prev) => ({
+      ...prev,
+      settings: updatedSettings,
+      lastModified: new Date().toISOString(),
+    }));
+  };
+
+  const markReminderNotified = async (
+    reminderId: string,
+    notifiedDate?: string,
+    cycleExecutionId?: string
+  ): Promise<void> => {
+    if (!reminderId || typeof reminderId !== 'string') {
+      throw new Error('ID promemoria non valido.');
+    }
+    const dateToSet = notifiedDate && isValidISODateString(notifiedDate)
+      ? notifiedDate
+      : extractLocalDateString(new Date().toISOString());
+
+    const currentInteractions = normalizeReminderInteractions(data.settings.reminderInteractions);
+    const existingInteraction = currentInteractions[reminderId] || { reminderId };
+    const updatedInteractions: Record<string, ReminderInteraction> = {
+      ...currentInteractions,
+      [reminderId]: {
+        ...existingInteraction,
+        reminderId,
+        lastNotifiedDate: dateToSet,
+        ...(cycleExecutionId ? { cycleExecutionId } : {}),
+      },
+    };
+
+    const updatedSettings: AppSettings = {
+      ...data.settings,
+      reminderInteractions: updatedInteractions,
+    };
+    await saveSettings(updatedSettings);
+    setData((prev) => ({
+      ...prev,
+      settings: updatedSettings,
+      lastModified: new Date().toISOString(),
+    }));
+  };
+
   const contextValue: PCStoreState = useMemo(
     () => ({
       components: data.components,
@@ -1744,6 +1909,14 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       recordOptimizationExecution,
       deleteOptimizationExecution,
       clearOptimizationHistory: handleClearOptimizationHistory,
+      schedulerSettings,
+      reminderInteractions,
+      maintenanceReminders,
+      updateSchedulerSettings,
+      setReminderSnooze,
+      clearReminderInteraction,
+      markReminderNotified,
+      computeMaintenanceReminders,
     }),
     [
       data,
@@ -1755,6 +1928,9 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       historicalNetCost,
       currentRigCost,
       rigStats,
+      schedulerSettings,
+      reminderInteractions,
+      maintenanceReminders,
     ]
   );
 

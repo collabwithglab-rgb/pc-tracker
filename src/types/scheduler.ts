@@ -76,6 +76,8 @@ export interface SchedulerSettings {
   leadTimeDays: SchedulerLeadTimeDays;
 }
 
+export type MaintenanceSchedulerSettings = SchedulerSettings;
+
 /**
  * Valori predefiniti sicuri e non invadenti per lo scheduler.
  */

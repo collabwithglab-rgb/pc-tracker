@@ -18,6 +18,9 @@ import {
   SystemFactsInput,
   MaintenanceReminder,
   SchedulerSettings,
+  SchedulerNotificationMode,
+  SchedulerLeadTimeDays,
+  ALLOWED_LEAD_TIME_DAYS,
   ReminderInteraction,
   ReminderUrgency,
   DEFAULT_SCHEDULER_SETTINGS,
@@ -31,6 +34,91 @@ import {
 } from './optimizationLifecycleEngine';
 import { isValidISODateString } from './validators';
 import { formatDate } from '../utils/formatters';
+
+/**
+ * Normalizza e convalida in modo deterministico le impostazioni dello scheduler,
+ * garantendo fallback sicuro a fronte di campi mancanti, non validi o legacy.
+ */
+export function normalizeSchedulerSettings(raw: unknown): SchedulerSettings {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ...DEFAULT_SCHEDULER_SETTINGS };
+  }
+
+  const s = raw as Record<string, unknown>;
+
+  const enabled = typeof s.enabled === 'boolean' ? s.enabled : DEFAULT_SCHEDULER_SETTINGS.enabled;
+
+  const validModes: SchedulerNotificationMode[] = ['all', 'important_only', 'verification_only', 'none'];
+  const notificationMode: SchedulerNotificationMode =
+    typeof s.notificationMode === 'string' && validModes.includes(s.notificationMode as SchedulerNotificationMode)
+      ? (s.notificationMode as SchedulerNotificationMode)
+      : DEFAULT_SCHEDULER_SETTINGS.notificationMode;
+
+  const leadTimeDays: SchedulerLeadTimeDays =
+    typeof s.leadTimeDays === 'number' && (ALLOWED_LEAD_TIME_DAYS as readonly number[]).includes(s.leadTimeDays)
+      ? (s.leadTimeDays as SchedulerLeadTimeDays)
+      : DEFAULT_SCHEDULER_SETTINGS.leadTimeDays;
+
+  return {
+    enabled,
+    notificationMode,
+    leadTimeDays,
+  };
+}
+
+/**
+ * Normalizza e ripulisce le interazioni utente registrate per i promemoria (snooze, lastNotified, cycleExecutionId).
+ * Garanzia architetturale: filtra via qualsiasi stato computato o derivato (eligibility, urgency, dueDate, ecc.)
+ * preservando ESCLUSIVAMENTE i dati persistenti di interazione dell'utente.
+ */
+export function normalizeReminderInteractions(raw: unknown): Record<string, ReminderInteraction> {
+  const result: Record<string, ReminderInteraction> = {};
+  if (!raw || typeof raw !== 'object') return result;
+
+  const entries: [string, unknown][] = Array.isArray(raw)
+    ? raw.map((item, idx) => [item?.reminderId || String(idx), item])
+    : Object.entries(raw as Record<string, unknown>);
+
+  for (const [key, val] of entries) {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
+    const item = val as Record<string, unknown>;
+    const reminderId =
+      typeof item.reminderId === 'string' && item.reminderId.trim()
+        ? item.reminderId.trim()
+        : typeof key === 'string' && key.trim()
+        ? key.trim()
+        : '';
+
+    if (!reminderId) continue;
+
+    const snoozedUntil =
+      typeof item.snoozedUntil === 'string' && isValidISODateString(item.snoozedUntil)
+        ? item.snoozedUntil
+        : undefined;
+
+    const lastNotifiedDate =
+      typeof item.lastNotifiedDate === 'string' && isValidISODateString(item.lastNotifiedDate)
+        ? item.lastNotifiedDate
+        : undefined;
+
+    const cycleExecutionId =
+      typeof item.cycleExecutionId === 'string' && item.cycleExecutionId.trim()
+        ? item.cycleExecutionId.trim()
+        : undefined;
+
+    // Persistiamo solo record che contengono effettivamente almeno un'interazione utente
+    if (snoozedUntil || lastNotifiedDate || cycleExecutionId) {
+      result[reminderId] = {
+        reminderId,
+        ...(snoozedUntil ? { snoozedUntil } : {}),
+        ...(lastNotifiedDate ? { lastNotifiedDate } : {}),
+        ...(cycleExecutionId ? { cycleExecutionId } : {}),
+      };
+    }
+  }
+
+  return result;
+}
 
 /**
  * Estrae la porzione di data di calendario 'YYYY-MM-DD' da un timestamp ISO o da una stringa data.
@@ -151,10 +239,7 @@ export function evaluateMaintenanceReminders({
   currentTimestamp,
 }: EvaluateMaintenanceRemindersInput): MaintenanceReminder[] {
   // 1. Normalizzazione impostazioni
-  const settings: SchedulerSettings = {
-    ...DEFAULT_SCHEDULER_SETTINGS,
-    ...partialSettings,
-  };
+  const settings: SchedulerSettings = normalizeSchedulerSettings(partialSettings);
 
   // Se lo scheduler è disabilitato dall'utente, restituisce un array vuoto
   if (!settings.enabled) {
@@ -166,20 +251,10 @@ export function evaluateMaintenanceReminders({
   const currentMs = new Date(currentTimestamp).getTime();
 
   // 3. Normalizzazione interazioni utente in Map per lookup O(1)
-  const interactionMap = new Map<string, ReminderInteraction>();
-  if (Array.isArray(interactions)) {
-    for (const item of interactions) {
-      if (item && item.reminderId) {
-        interactionMap.set(item.reminderId, item);
-      }
-    }
-  } else if (interactions && typeof interactions === 'object') {
-    for (const [key, item] of Object.entries(interactions)) {
-      if (item && typeof item === 'object') {
-        interactionMap.set(item.reminderId || key, item);
-      }
-    }
-  }
+  const normalizedInteractions = normalizeReminderInteractions(interactions);
+  const interactionMap = new Map<string, ReminderInteraction>(
+    Object.entries(normalizedInteractions)
+  );
 
   // 4. Preparazione raccomandazioni con ciclo di vita
   // Se le raccomandazioni contengono già eligibility, le utilizziamo direttamente;
