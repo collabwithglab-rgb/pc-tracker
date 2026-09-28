@@ -10,6 +10,7 @@
 
 import {
   HealthFinding,
+  HealthSeverity,
   HealthAffectedArea,
   SystemFactsInput,
   SystemHealthReport,
@@ -44,6 +45,12 @@ function toGb(bytes: number): number {
   return Math.round((bytes / (1024 * 1024 * 1024)) * 10) / 10;
 }
 
+// Costanti denominate per soglie Memory Commit e Disponibilità Fisica (Rule J - No Magic Numbers)
+export const MEMORY_COMMIT_HIGH_THRESHOLD_PERCENT = 88;
+export const MEMORY_COMMIT_CRITICAL_THRESHOLD_PERCENT = 94;
+export const MEMORY_PHYSICAL_LOW_AVAILABILITY_PERCENT = 15;
+export const MEMORY_PHYSICAL_CRITICAL_AVAILABILITY_PERCENT = 8;
+
 /**
  * Valuta obiettivamente i fatti di sistema e produce il report di salute completo.
  */
@@ -54,22 +61,28 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   // 1. Valutazione Sottosistema Storage (S.M.A.R.T. e Volumi)
   evaluateStorageHealth(facts, findings);
 
-  // 2. Valutazione Sottosistema Memoria RAM
+  // 2. Valutazione Sottosistema Memoria RAM Fisica
   evaluateMemoryHealth(facts, findings);
 
-  // 3. Valutazione Sottosistema GPU & Termiche (incluso confronto con Personal Baseline)
+  // 2b. Valutazione Diagnostica Spazio di Commit Memoria Virtuale (Tranche 7B)
+  evaluateMemoryCommitAndPressure(facts, findings);
+
+  // 3. Valutazione Integrità Periferiche e Driver Hardware (Tranche 7B)
+  evaluateDeviceProblems(facts, findings);
+
+  // 4. Valutazione Sottosistema GPU & Termiche (incluso confronto con Personal Baseline)
   evaluateGpuAndThermalHealth(facts, findings);
 
-  // 4. Valutazione Registro Manutenzione e Cura Fisica
+  // 5. Valutazione Registro Manutenzione e Cura Fisica
   evaluateMaintenanceHealth(facts, findings, refDate);
 
-  // 5. Valutazione Integrità di Sistema e Sicurezza Kernel
+  // 6. Valutazione Integrità di Sistema e Sicurezza Kernel
   evaluateSystemAndSecurityHealth(facts, findings);
 
-  // 6. Calcolo del punteggio sintetico e ripartizione per area
+  // 7. Calcolo del punteggio sintetico e ripartizione per area
   const report = buildHealthReport(findings, refDate);
 
-  // 7. Calcolo puro della Copertura Diagnostica (indipendente dallo Health Score)
+  // 8. Calcolo puro della Copertura Diagnostica (indipendente dallo Health Score)
   report.diagnosticCoverage = computeDiagnosticCoverage(facts);
 
   return report;
@@ -308,6 +321,118 @@ function evaluateMemoryHealth(facts: SystemFactsInput, findings: HealthFinding[]
       evidence: `Utilizzo al ${usagePct.toFixed(1)}% (${availGb} GB memoria libera/in cache)`,
       explanation: 'La memoria fisica a disposizione favorisce un multitasking fluido minimizzando il ricorso allo swap su disco.',
       confidence: 'HIGH',
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2b. MEMORY COMMIT & PRESSURE EVALUATION (TRANCHE 7B - RULE J)
+// ---------------------------------------------------------------------------
+
+function evaluateMemoryCommitAndPressure(facts: SystemFactsInput, findings: HealthFinding[]): void {
+  const commit = facts.diagnostics?.memoryCommit;
+  if (!commit || commit.availability !== 'available' || commit.commitLimitBytes <= 0) {
+    // API non disponibile o unsupported: coverage only, nessun impatto sullo Health Score
+    return;
+  }
+
+  const commitPct = commit.commitUtilizationPercent;
+  const physPct = commit.physicalUtilizationPercent;
+  const availPhysGb = toGb(commit.physicalAvailableBytes);
+  const commitTotalGb = toGb(commit.commitTotalBytes);
+  const commitLimitGb = toGb(commit.commitLimitBytes);
+  const physAvailPct = 100 - physPct;
+
+  // Saturazione critica: commit estremo E RAM fisica quasi esaurita
+  if (
+    commitPct >= MEMORY_COMMIT_CRITICAL_THRESHOLD_PERCENT &&
+    physAvailPct <= MEMORY_PHYSICAL_CRITICAL_AVAILABILITY_PERCENT
+  ) {
+    findings.push({
+      id: 'memory-commit-critical-exhaustion',
+      severity: 'WARNING',
+      area: 'ram',
+      title: 'Saturazione Elevata dello Spazio di Commit',
+      evidence: `Spazio di commit al ${commitPct.toFixed(1)}% (${commitTotalGb} GB su ${commitLimitGb} GB) e RAM fisica residua a soli ${availPhysGb} GB`,
+      explanation: 'La memoria virtuale protetta dal file di paging e la RAM fisica sono prossime all\'esaurimento. Possibili rallentamenti marcati o errori di allocazione nelle applicazioni più pesanti.',
+      confidence: 'HIGH',
+      recommendedActionId: 'inspect-memory-pressure',
+      metadata: { commitPct, physPct, commitTotalGb, commitLimitGb },
+    });
+  } else if (
+    commitPct >= MEMORY_COMMIT_HIGH_THRESHOLD_PERCENT &&
+    physAvailPct <= MEMORY_PHYSICAL_LOW_AVAILABILITY_PERCENT
+  ) {
+    findings.push({
+      id: 'memory-commit-high-pressure',
+      severity: 'ATTENTION',
+      area: 'ram',
+      title: 'Pressione Significativa sullo Spazio di Commit',
+      evidence: `Spazio di commit all'${commitPct.toFixed(1)}% (${commitTotalGb} GB su ${commitLimitGb} GB, ${availPhysGb} GB RAM fisica disponibile)`,
+      explanation: 'Le applicazioni attive hanno prenotato una quota consistente di spazio di commit nel sistema operativo. Il sistema opera correttamente ma con margine ridotto.',
+      confidence: 'MEDIUM',
+      recommendedActionId: 'inspect-memory-pressure',
+      metadata: { commitPct, physPct },
+    });
+  } else if (commitPct < 75 && physPct < 75) {
+    findings.push({
+      id: 'memory-commit-optimal',
+      severity: 'GOOD',
+      area: 'ram',
+      title: 'Spazio di Commit e Allocazione Memoria Ottimali',
+      evidence: `Spazio di commit al ${commitPct.toFixed(1)}% (${commitTotalGb} GB su ${commitLimitGb} GB), RAM fisica disponibile ${availPhysGb} GB`,
+      explanation: 'Ampio margine sia nella memoria RAM fisica che nel file di paging di Windows, ideale per carichi multitasking e sessioni di lavoro intensive.',
+      confidence: 'HIGH',
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2c. DEVICE & DRIVER FAULTS EVALUATION (TRANCHE 7B - RULE I)
+// ---------------------------------------------------------------------------
+
+function evaluateDeviceProblems(facts: SystemFactsInput, findings: HealthFinding[]): void {
+  const devFacts = facts.diagnostics?.deviceProblems;
+  if (!devFacts || devFacts.availability !== 'available') {
+    // Canale non disponibile: tracciato in Diagnostic Coverage, nessun finding penalizzante
+    return;
+  }
+
+  if (devFacts.problemCount === 0 || devFacts.devicesWithProblems.length === 0) {
+    findings.push({
+      id: 'device-tree-healthy',
+      severity: 'GOOD',
+      area: 'system',
+      title: 'Tutti i Dispositivi e Driver Funzionanti',
+      evidence: `${devFacts.totalDevicesScanned} nodi hardware scansionati in Gestione Dispositivi senza errori`,
+      explanation: 'Nessuna periferica, controller o driver di sistema ha segnalato codici di errore o problemi di avvio a Windows.',
+      confidence: 'HIGH',
+    });
+    return;
+  }
+
+  for (const dev of devFacts.devicesWithProblems) {
+    const devName = dev.friendlyName || dev.deviceId;
+    const isCritical = dev.severity === 'critical';
+    const isWarning = dev.severity === 'warning';
+    const isInfo = dev.severity === 'info';
+
+    let severity: HealthSeverity = 'ATTENTION';
+    if (isCritical) severity = 'CRITICAL';
+    else if (isWarning) severity = 'WARNING';
+    else if (isInfo) severity = 'INFO';
+
+    const safeId = dev.deviceId.replace(/[^a-zA-Z0-9-_]/g, '_').slice(-24);
+    findings.push({
+      id: `device-fault-${dev.problemCode}-${safeId}`,
+      severity,
+      area: 'system',
+      title: `Problema Periferica: ${devName}`,
+      evidence: `${dev.problemLabel}: ${dev.problemDescription}`,
+      explanation: `Windows segnala uno stato anomalo per il dispositivo. Codice problema: ${dev.problemCode}. Stato flag: 0x${dev.statusFlags.toString(16).toUpperCase()}.`,
+      confidence: 'HIGH',
+      recommendedActionId: 'inspect-device-fault',
+      metadata: { deviceId: dev.deviceId, problemCode: dev.problemCode },
     });
   }
 }
@@ -987,6 +1112,77 @@ export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCo
       area: 'system',
       status: 'unavailable',
       details: 'Scansione integrità file di sistema non eseguita',
+    });
+  }
+
+  // 11. Integrità Dispositivi & Driver Hardware (DevNode)
+  const devFacts = facts.diagnostics?.deviceProblems;
+  if (devFacts && devFacts.availability === 'available') {
+    channels.push({
+      id: 'device_faults',
+      label: 'Stato Periferiche & Driver Hardware',
+      area: 'system',
+      status: 'available',
+      source: devFacts.source || 'CM_Get_DevNode_Status',
+      details: `${devFacts.totalDevicesScanned} periferiche verificate (${devFacts.problemCount} con codice problema)`,
+    });
+  } else {
+    const status = (devFacts?.availability as DiagnosticChannelStatus) || 'unavailable';
+    channels.push({
+      id: 'device_faults',
+      label: 'Stato Periferiche & Driver Hardware',
+      area: 'system',
+      status,
+      details: devFacts?.errorDetails || 'Scansione nodi hardware Windows non eseguita',
+    });
+  }
+
+  // 12. Spazio di Commit Memoria Virtuale
+  const memCommit = facts.diagnostics?.memoryCommit;
+  if (memCommit && memCommit.availability === 'available' && memCommit.commitLimitBytes > 0) {
+    channels.push({
+      id: 'memory_commit',
+      label: 'Spazio di Commit Memoria Virtuale',
+      area: 'ram',
+      status: 'available',
+      source: memCommit.source || 'GetPerformanceInfo',
+      details: `Commit ${memCommit.commitUtilizationPercent}% (${toGb(memCommit.commitTotalBytes)} GB su ${toGb(memCommit.commitLimitBytes)} GB)`,
+    });
+  } else {
+    const status = (memCommit?.availability as DiagnosticChannelStatus) || 'unavailable';
+    channels.push({
+      id: 'memory_commit',
+      label: 'Spazio di Commit Memoria Virtuale',
+      area: 'ram',
+      status,
+      details: memCommit?.errorDetails || 'Dati di commit della memoria virtuale non disponibili',
+    });
+  }
+
+  // 13. Architettura Energetica & Alimentazione
+  const pwrStatus = facts.diagnostics?.powerStatus;
+  if (pwrStatus && pwrStatus.availability === 'available') {
+    const pwrDesc = pwrStatus.powerArchitecture === 'desktop_like'
+      ? 'Desktop Fisso (Rete Elettrica AC)'
+      : pwrStatus.isOnBattery
+      ? `Portatile su Batteria (${pwrStatus.batteryLifePercent ?? 'N/D'}%)`
+      : 'Portatile Collegato a Rete AC';
+    channels.push({
+      id: 'power_architecture',
+      label: 'Architettura Energetica & Alimentazione',
+      area: 'system',
+      status: 'available',
+      source: pwrStatus.source || 'GetSystemPowerStatus',
+      details: pwrDesc,
+    });
+  } else {
+    const status = (pwrStatus?.availability as DiagnosticChannelStatus) || 'unavailable';
+    channels.push({
+      id: 'power_architecture',
+      label: 'Architettura Energetica & Alimentazione',
+      area: 'system',
+      status,
+      details: pwrStatus?.errorDetails || 'Stato di alimentazione energetica non rilevato',
     });
   }
 

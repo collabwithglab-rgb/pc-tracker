@@ -16,6 +16,9 @@ import {
   Clock,
   Calendar,
   Wrench,
+  Cpu,
+  Zap,
+  Battery,
 } from 'lucide-react';
 import {
   SystemFactsInput,
@@ -624,6 +627,128 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 2.3 DIAGNOSTICA NATIVA: HARDWARE FAULTS, MEMORY COMMIT & POWER (TRANCHE 7B) */}
+      {facts.diagnostics && facts.diagnostics.status !== 'unsupported' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-md)' }}>
+          {/* Card 1: Periferiche e Driver Hardware */}
+          <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Cpu size={16} color="var(--accent-primary)" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Periferiche & Driver
+                  </span>
+                </div>
+                <span
+                  className={`badge ${
+                    facts.diagnostics.deviceProblems.problemCount === 0 ? 'badge-emerald' : 'badge-amber'
+                  }`}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  {facts.diagnostics.deviceProblems.problemCount === 0
+                    ? '0 Problemi'
+                    : `${facts.diagnostics.deviceProblems.problemCount} Problemi`}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                {facts.diagnostics.deviceProblems.problemCount === 0 ? (
+                  <span>Tutti i {facts.diagnostics.deviceProblems.totalDevicesScanned} nodi hardware operano nominalmente senza codici errore Windows.</span>
+                ) : (
+                  <span>
+                    Rilevati codici di errore in {facts.diagnostics.deviceProblems.problemCount} periferiche su {facts.diagnostics.deviceProblems.totalDevicesScanned} scansionate.
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+              Fonte: CM_Get_DevNode_Status • Windows CfgMgr
+            </div>
+          </div>
+
+          {/* Card 2: Spazio di Commit e Paging */}
+          <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Layers size={16} color="var(--accent-primary)" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Spazio di Commit
+                  </span>
+                </div>
+                <span
+                  className={`badge ${
+                    facts.diagnostics.memoryCommit.commitUtilizationPercent >= 88
+                      ? 'badge-amber'
+                      : 'badge-emerald'
+                  }`}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  {facts.diagnostics.memoryCommit.commitUtilizationPercent}% Allocato
+                </span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <div>
+                  <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                    {(facts.diagnostics.memoryCommit.commitTotalBytes / (1024 * 1024 * 1024)).toFixed(1)} GB
+                  </strong>{' '}
+                  / {(facts.diagnostics.memoryCommit.commitLimitBytes / (1024 * 1024 * 1024)).toFixed(1)} GB limite
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  RAM libera: {(facts.diagnostics.memoryCommit.physicalAvailableBytes / (1024 * 1024 * 1024)).toFixed(1)} GB • Cache: {(facts.diagnostics.memoryCommit.systemCacheBytes / (1024 * 1024 * 1024)).toFixed(1)} GB
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+              Fonte: GetPerformanceInfo • Memoria virtuale protetta
+            </div>
+          </div>
+
+          {/* Card 3: Architettura Energetica */}
+          <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {facts.diagnostics.powerStatus.hasSystemBattery ? (
+                    <Battery size={16} color="var(--accent-primary)" />
+                  ) : (
+                    <Zap size={16} color="var(--accent-primary)" />
+                  )}
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Alimentazione
+                  </span>
+                </div>
+                <span
+                  className={`badge ${
+                    facts.diagnostics.powerStatus.isOnBattery ? 'badge-amber' : 'badge-cyan'
+                  }`}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  {facts.diagnostics.powerStatus.isOnBattery ? 'Batteria' : 'Rete AC'}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <div>
+                  {facts.diagnostics.powerStatus.powerArchitecture === 'desktop_like'
+                    ? 'Desktop Fisso (Rete Elettrica AC)'
+                    : facts.diagnostics.powerStatus.isOnBattery
+                    ? `Portatile su Batteria (${facts.diagnostics.powerStatus.batteryLifePercent ?? 'N/D'}%)`
+                    : 'Portatile Collegato ad Alimentazione AC'}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {facts.diagnostics.powerStatus.batterySaverActive
+                    ? 'Risparmio batteria Windows: Attivo'
+                    : 'Profilo energetico standard Windows'}
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+              Fonte: GetSystemPowerStatus • Architettura operativa
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2.5 PROSSIMI PROMEMORIA (SMART MAINTENANCE SCHEDULER) */}
       <div className="care-reminders-container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>

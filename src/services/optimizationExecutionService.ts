@@ -248,6 +248,11 @@ export async function executeOptimizationWorkflow({
       evidenceAfterSummary = 'Indicazioni fornite: consultazione Gestione Attività (Ctrl+Shift+Esc)';
       notificationType = 'info';
       notificationMessage = 'Consulta Gestione Attività (Ctrl+Shift+Esc) per ordinare i processi per RAM.';
+    } else if (rec.actionId === 'inspect-device-fault') {
+      verificationStatus = 'pending';
+      evidenceAfterSummary = 'Indicazioni fornite: consultazione Gestione Dispositivi (devmgmt.msc)';
+      notificationType = 'info';
+      notificationMessage = 'Apri Gestione Dispositivi (tasto Windows + X -> Gestione dispositivi) per verificare lo stato del dispositivo.';
     } else if (rec.actionId === 'inspect-cpu-cooling') {
       onSwitchTab?.('tuning');
       verificationStatus = 'pending';

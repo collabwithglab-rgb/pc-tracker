@@ -547,13 +547,53 @@ describe('healthEngine', () => {
           storage: [],
           system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 100 },
         },
+        diagnostics: {
+          timestamp: REF_DATE,
+          status: 'success',
+          collectionDurationMs: 4,
+          deviceProblems: {
+            availability: 'available',
+            source: 'CM_Get_DevNode_Status',
+            totalDevicesScanned: 219,
+            problemCount: 0,
+            devicesWithProblems: [],
+          },
+          memoryCommit: {
+            availability: 'available',
+            source: 'GetPerformanceInfo',
+            commitTotalBytes: 16 * 1024 * 1024 * 1024,
+            commitLimitBytes: 32 * 1024 * 1024 * 1024,
+            commitPeakBytes: 20 * 1024 * 1024 * 1024,
+            physicalTotalBytes: 32 * 1024 * 1024 * 1024,
+            physicalAvailableBytes: 18 * 1024 * 1024 * 1024,
+            systemCacheBytes: 10 * 1024 * 1024 * 1024,
+            kernelPagedBytes: 500 * 1024 * 1024,
+            kernelNonpagedBytes: 400 * 1024 * 1024,
+            processCount: 250,
+            threadCount: 3500,
+            commitUtilizationPercent: 50.0,
+            physicalUtilizationPercent: 43.8,
+          },
+          powerStatus: {
+            availability: 'available',
+            source: 'GetSystemPowerStatus',
+            acLineStatus: 1,
+            batteryFlag: 128,
+            batteryLifePercent: null,
+            batterySaverActive: false,
+            hasSystemBattery: false,
+            isOnAC: true,
+            isOnBattery: false,
+            powerArchitecture: 'desktop_like',
+          },
+        },
       };
 
       const coverage = computeDiagnosticCoverage(facts);
       expect(coverage.level).toBe('full');
       expect(coverage.percentage).toBe(100);
-      expect(coverage.availableChannels).toBe(10);
-      expect(coverage.totalChannels).toBe(10);
+      expect(coverage.availableChannels).toBe(13);
+      expect(coverage.totalChannels).toBe(13);
       expect(coverage.hasHardwareGaps).toBe(false);
 
       const report = evaluateSystemHealth(facts);
@@ -634,8 +674,8 @@ describe('healthEngine', () => {
       const coverage = computeDiagnosticCoverage(facts);
       expect(coverage.level).toBe('partial');
       expect(coverage.availableChannels).toBe(8);
-      expect(coverage.totalChannels).toBe(10);
-      expect(coverage.percentage).toBe(80);
+      expect(coverage.totalChannels).toBe(13);
+      expect(coverage.percentage).toBe(62);
 
       const cpuTempChannel = coverage.channels.find((c) => c.id === 'cpu_temp');
       expect(cpuTempChannel?.status).toBe('unsupported');

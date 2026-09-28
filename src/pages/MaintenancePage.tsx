@@ -22,6 +22,7 @@ import {
   WinGetUpdateItem,
   SystemFactsInput,
   MonitoringSnapshot,
+  SystemDiagnosticsSnapshot,
 } from '../types';
 import {
   formatDate as formatWithSettings,
@@ -64,6 +65,7 @@ import {
   checkWinGetUpdates,
 } from '../services/windowsToolsService';
 import { getMonitoringSnapshot } from '../services/monitoringService';
+import { getSystemDiagnosticsSnapshot } from '../services/diagnosticsService';
 import {
   MaintenanceEntryModal,
   TuningProfileModal,
@@ -203,11 +205,12 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [isRestorePointModalOpen, setIsRestorePointModalOpen] = useState(false);
   const [restorePointDesc, setRestorePointDesc] = useState('PC Tracker Safety Point');
   const [monitoringSnapshot, setMonitoringSnapshot] = useState<MonitoringSnapshot | null>(null);
+  const [diagnosticsSnapshot, setDiagnosticsSnapshot] = useState<SystemDiagnosticsSnapshot | null>(null);
 
   // Caricamento dati iniziali per la tab Strumenti e Panoramica
   const loadWindowsToolsData = async () => {
     try {
-      const [vols, trim, bin, hiber, smart, sec, snap] = await Promise.all([
+      const [vols, trim, bin, hiber, smart, sec, snap, diag] = await Promise.all([
         scanStorageVolumes(),
         queryTrimConfiguration(),
         queryRecycleBin(),
@@ -215,6 +218,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         getStorageSmartHealth(),
         querySecurityAudit(),
         getMonitoringSnapshot(),
+        getSystemDiagnosticsSnapshot(),
       ]);
 
       if (vols.data && vols.data.length > 0) {
@@ -228,6 +232,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       if (smart.data) setSmartHealthList(smart.data);
       if (sec.data) setSecurityAudit(sec.data);
       if (snap) setMonitoringSnapshot(snap);
+      if (diag) setDiagnosticsSnapshot(diag);
     } catch (err) {
       console.warn('Errore caricamento dati strumenti Windows:', err);
     }
@@ -251,6 +256,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       currentRigComponents: components,
       recycleBin: recycleBin,
       wingetUpdates: wingetUpdates,
+      diagnostics: diagnosticsSnapshot,
     };
   }, [
     monitoringSnapshot,
@@ -263,6 +269,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     components,
     recycleBin,
     wingetUpdates,
+    diagnosticsSnapshot,
   ]);
 
   // Esecuzione Scan Now

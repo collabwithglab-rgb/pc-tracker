@@ -1,6 +1,7 @@
 pub mod hardware;
 pub mod windows_tools;
 pub mod monitoring;
+pub mod diagnostics;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -31,6 +32,7 @@ pub fn run() {
       windows_tools::reboot_to_uefi,
       windows_tools::check_winget_updates,
       monitoring::get_monitoring_snapshot,
+      diagnostics::get_system_diagnostics_snapshot,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

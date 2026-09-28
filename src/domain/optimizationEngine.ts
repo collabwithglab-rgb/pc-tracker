@@ -322,15 +322,25 @@ function evaluatePerformanceRecommendations(
     });
   }
 
-  // B. Schema Prestazioni Elevate per Utenti con Profilo Tuning
+  // B. Schema Prestazioni Elevate per Utenti con Profilo Tuning (Rule K - Power Policy)
   const hasTuningDaily = (facts.tuningProfiles || []).some((p) => p.stability === 'daily');
-  if (hasTuningDaily) {
+  const power = facts.diagnostics?.powerStatus;
+  const isBatteryActive = power?.isOnBattery === true || power?.batterySaverActive === true;
+  const isBatteryCapable = power?.powerArchitecture === 'battery_capable';
+
+  // Rule K: Non proporre mai Ultimate Performance su batteria, risparmio batteria attivo o portatili non collegati ad AC
+  if (hasTuningDaily && !isBatteryActive && (!isBatteryCapable || power?.isOnAC === true)) {
+    const powerNote = isBatteryCapable && power?.isOnAC
+      ? ' Il sistema è un dispositivo portatile attualmente collegato alla presa elettrica fissa.'
+      : '';
     recommendations.push({
       id: 'opt-ultimate-performance',
       title: 'Attiva Schema Prestazioni Eccellenti (Ultimate Performance)',
       category: 'performance',
-      reason: 'Il tuo sistema dispone di profili di tuning stabili ma Windows potrebbe applicare stati di risparmio energetico restrittivi.',
-      evidence: 'Profili di tuning daily registrati nel database',
+      reason: `Il tuo sistema dispone di profili di tuning stabili ed è alimentato da rete fissa senza restrizioni di batteria.${powerNote}`,
+      evidence: isBatteryCapable
+        ? 'Profili tuning daily registrati e alimentazione AC attiva (batteria non attiva)'
+        : 'Profili di tuning daily registrati nel database',
       expectedBenefit: 'Riduce le latenze di transizione dei core CPU favorendo il mantenimento delle frequenze operative sotto carico.',
       risk: 'LOW',
       confidence: 'HIGH',
@@ -342,18 +352,25 @@ function evaluatePerformanceRecommendations(
     });
   }
 
-  // C. Triage Pressione Memoria RAM
+  // C. Triage Pressione Memoria RAM e Spazio di Commit (Rule B.2, J)
   const mem = facts.monitoring?.memory;
-  if (mem && mem.totalBytes > 0 && mem.utilizationPercent >= 90) {
-    const usedGb = (mem.usedBytes / (1024 * 1024 * 1024)).toFixed(1);
-    const totalGb = (mem.totalBytes / (1024 * 1024 * 1024)).toFixed(1);
-    const availGb = (mem.availableBytes / (1024 * 1024 * 1024)).toFixed(1);
+  const commit = facts.diagnostics?.memoryCommit;
+  const isHighRam = mem && mem.totalBytes > 0 && mem.utilizationPercent >= 88;
+  const isHighCommit = commit && commit.availability === 'available' && commit.commitUtilizationPercent >= 88;
+
+  if (isHighRam || isHighCommit) {
+    const ramPct = mem ? `${mem.utilizationPercent.toFixed(1)}%` : 'N/D';
+    const commitEvidence = commit && commit.availability === 'available'
+      ? `, Commit al ${commit.commitUtilizationPercent.toFixed(1)}% (${(commit.commitTotalBytes / (1024 * 1024 * 1024)).toFixed(1)} GB / ${(commit.commitLimitBytes / (1024 * 1024 * 1024)).toFixed(1)} GB)`
+      : '';
     recommendations.push({
       id: 'opt-ram-pressure-triage',
       title: 'Ispezione Processi per Pressione Memoria RAM',
       category: 'performance',
-      reason: 'La memoria fisica RAM è occupata per oltre il 90%. Il sistema ricorre attivamente al paging su disco, riducendo la fluidità.',
-      evidence: `RAM occupata al ${mem.utilizationPercent.toFixed(1)}% (${usedGb} GB usati su ${totalGb} GB, soli ${availGb} GB disponibili)`,
+      reason: isHighCommit
+        ? 'Lo spazio di commit o la memoria RAM fisica sono sotto pressione significativa. Il sistema ricorre attivamente al paging su disco.'
+        : 'La memoria fisica RAM è occupata per oltre l\'88%. Il sistema ricorre attivamente al paging su disco, riducendo la fluidità.',
+      evidence: `RAM al ${ramPct}${commitEvidence}`,
       expectedBenefit: 'Identificazione e chiusura mirata di applicazioni o schede browser in memory-leak per prevenire micro-stuttering.',
       risk: 'NONE',
       confidence: 'HIGH',
@@ -361,7 +378,32 @@ function evaluatePerformanceRecommendations(
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'open-taskmgr-memory',
       actionDescription: 'Consultazione diagnostica dei processi a maggior assorbimento in Gestione Attività / Monitoraggio Risorse',
-      verificationMethod: 'Verifica telemetrica del rientro dell\'utilizzo RAM al di sotto dell\'80%',
+      verificationMethod: 'Verifica telemetrica del rientro dell\'utilizzo RAM e commit al di sotto dell\'80%',
+    });
+  }
+
+  // D. Ispezione Periferiche con Errore Windows (Rule L & M)
+  const deviceProblems = (facts.diagnostics?.deviceProblems.devicesWithProblems || [])
+    .filter((d) => d.severity === 'critical' || d.severity === 'warning');
+
+  if (deviceProblems.length > 0) {
+    const firstDev = deviceProblems[0];
+    const devName = firstDev.friendlyName || firstDev.deviceId;
+    recommendations.push({
+      id: 'opt-device-fault-inspection',
+      title: `Ispezione Periferica con Errore Windows: ${devName}`,
+      category: 'system',
+      reason: `Windows ha arrestato o rilevato un problema hardware/driver su questa periferica (${firstDev.problemLabel}).`,
+      evidence: `${firstDev.problemLabel}: ${firstDev.problemDescription}`,
+      expectedBenefit: 'Identificazione del controller o driver difettoso per prevenire instabilità di sistema o crash BSOD.',
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'inspect-device-fault',
+      actionDescription: 'Apertura guidata di Gestione Dispositivi di Windows (devmgmt.msc) per visualizzare lo stato della periferica',
+      verificationMethod: 'Nuova scansione dei nodi hardware con azzeramento del codice di errore',
+      parameters: { deviceId: firstDev.deviceId },
     });
   }
 

@@ -13,6 +13,7 @@ import {
 import { MaintenanceEntry } from './maintenance';
 import { TuningProfile } from './tuning';
 import { Component } from './component';
+import { SystemDiagnosticsSnapshot } from './diagnostics';
 
 export type HealthSeverity = 'INFO' | 'GOOD' | 'ATTENTION' | 'WARNING' | 'CRITICAL';
 
@@ -50,6 +51,7 @@ export interface SystemFactsInput {
   referenceDate?: string;          // Data ISO opzionale per test deterministici
   recycleBin?: RecycleBinInfo | null;
   wingetUpdates?: WinGetUpdateItem[] | null;
+  diagnostics?: SystemDiagnosticsSnapshot | null;
 }
 
 export interface AreaHealthSummary {

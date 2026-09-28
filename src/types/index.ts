@@ -19,3 +19,4 @@ export * from './health';
 export * from './optimization';
 export * from './optimizationHistory';
 export * from './scheduler';
+export * from './diagnostics';
