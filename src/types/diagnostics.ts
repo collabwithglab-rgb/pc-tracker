@@ -6,6 +6,9 @@
  */
 
 import { MetricAvailability } from './monitoring';
+import type { HealthAffectedArea } from './health';
+import type { TuningProfile } from './tuning';
+import type { DiskSmartHealth } from './windowsTools';
 
 export type DeviceProblemSeverity = 'info' | 'attention' | 'warning' | 'critical';
 
@@ -602,5 +605,41 @@ export function createServiceFact(params: {
     serviceSpecificExitCode,
     processId,
   };
+}
+
+/**
+ * Tipi e contratti per la Correlazione Diagnostica Pura (Tranche 8C)
+ * - Rilevamento correlazioni pure e deterministiche tra Native Facts
+ * - Zero causalità dichiarata ("evidenze convergenti", "segnali correlati", "coincidenza temporale")
+ * - Distinzione rigorosa tra DIRECT_MATCH, RELATED_SIGNAL e WEAK_CONTEXT
+ */
+
+export type CorrelationStrength =
+  | 'DIRECT_MATCH'     // Stesso hardware id, stesso driver, stesso failure code
+  | 'RELATED_SIGNAL'   // Stesso sottosistema o tuning profile correlato nel lasso temporale
+  | 'WEAK_CONTEXT'     // Segnale compatibile ma privo di legame provato
+  | 'NO_CORRELATION';  // Eventi indipendenti
+
+export interface DiagnosticCorrelation {
+  id: string;
+  strength: CorrelationStrength;
+  affectedArea: HealthAffectedArea;
+  title: string;
+  hardwareEvidence: string;
+  eventEvidence: string;
+  explanation: string;            // Formula trasparente e non causale
+  recommendedActionId?: string;
+}
+
+export interface DiagnosticCorrelationInput {
+  deviceProblems?: DeviceProblemsFact | null;
+  deviceFaults?: DeviceProblemFact[] | null;
+  eventLog?: EventLogDiagnosticsSnapshot | null;
+  events?: EventLogNativeFact[] | null;
+  services?: WindowsServicesSnapshot | null;
+  serviceFacts?: WindowsServiceNativeFact[] | null;
+  tuningProfiles?: TuningProfile[] | null;
+  smartDisks?: DiskSmartHealth[] | null;
+  powerStatus?: PowerStatusSnapshot | null;
 }
 
