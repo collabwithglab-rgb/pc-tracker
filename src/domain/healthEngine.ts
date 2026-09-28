@@ -904,9 +904,9 @@ export function evaluateEventLogHealth(facts: SystemFactsInput): HealthFinding[]
         id: 'event-kp41-unclean-reboot',
         severity: 'ATTENTION',
         area: 'system',
-        title: 'Riavvio Imprevisto di Sistema (Kernel-Power 41)',
-        evidence: formatEvidence(count, 'Kernel-Power 41: arresto anomalo senza codice bugcheck (0x0)'),
-        explanation: 'Il computer si è arrestato o riavviato senza completare la consueta procedura di spegnimento (es. interruzione di corrente, pressione del tasto reset o blocco improvviso). Non indica necessariamente un guasto dell\'alimentatore o della scheda madre.',
+        title: 'Riavvio/arresto non pulito rilevato (Kernel-Power 41)',
+        evidence: formatEvidence(count, 'Kernel-Power 41: riavvio o arresto non pulito senza codice bugcheck (0x0)'),
+        explanation: 'Possibili cause includono interruzione dell\'alimentazione, reset hardware o arresto forzato. La causa non è determinata da questo evento da solo.',
         confidence: 'HIGH',
         metadata: { eventId: 41, bugcheckCode: 0, count, isTruncated },
       });

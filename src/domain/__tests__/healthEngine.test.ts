@@ -1267,6 +1267,9 @@ describe('healthEngine', () => {
         expect(findings[0].severity).toBe('ATTENTION');
         expect(findings[0].area).toBe('system');
         // Verifica divieto assoluto di BSOD, alimentatore guasto o PSU guasto
+        expect(findings[0].title).toBe('Riavvio/arresto non pulito rilevato (Kernel-Power 41)');
+        expect(findings[0].explanation).toContain('Possibili cause includono interruzione dell\'alimentazione, reset hardware o arresto forzato');
+        expect(findings[0].explanation).toContain('La causa non è determinata da questo evento da solo');
         expect(findings[0].title).not.toMatch(/BSOD|alimentatore guasto|PSU guasto/i);
         expect(findings[0].explanation).not.toMatch(/BSOD|alimentatore guasto|PSU guasto/i);
       });
