@@ -21,6 +21,10 @@ import {
   DiagnosticCoverageLevel,
 } from '../types/health';
 import { isMetricAvailable } from '../services/monitoringService';
+import {
+  WindowsServiceNativeFact,
+  WINDOWS_SERVICES_CATALOG,
+} from '../types/diagnostics';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -82,6 +86,10 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   // 6b. Valutazione Registro Eventi Hardware e Kernel (Tranche 8D-1)
   const eventFindings = evaluateEventLogHealth(facts);
   findings.push(...eventFindings);
+
+  // 6c. Valutazione Salute Servizi di Sistema Windows (Tranche 8D-2)
+  const serviceFindings = evaluateWindowsServicesHealth(facts);
+  findings.push(...serviceFindings);
 
   // 7. Calcolo del punteggio sintetico e ripartizione per area
   const report = buildHealthReport(findings, refDate);
@@ -1092,6 +1100,233 @@ export function evaluateEventLogHealth(facts: SystemFactsInput): HealthFinding[]
 }
 
 // ---------------------------------------------------------------------------
+// 5c. WINDOWS SERVICES HEALTH EVALUATION (TRANCHE 8D-2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Valutazione pura dei fatti dei Servizi di Sistema Windows (Tranche 8D-2).
+ * 
+ * Regole architetturali:
+ * - Funzione pura: riceve facts e restituisce SEMPRE un nuovo array di HealthFinding[].
+ * - Nessuna mutazione degli input.
+ * - Nessun uso di Date.now(), I/O, IPC o DB.
+ * - Availability Gate: se systemServices.availability !== 'available', restituisce [].
+ *   services: [] con availability !== 'available' NON indica servizi sani (Coverage Gap).
+ * - Catalogo mirato esclusivo: EventLog, Winmgmt, wuauserv, TrustedInstaller, VSS, WinDefend.
+ * - Rispetta il modello operativo (always_running, on_demand, contextual), stato corrente, tipo di avvio e exit code.
+ * - Permutation Invariance: ordinamento deterministico dei findings indipendentemente dall'ordine dei servizi in input.
+ * - Deduplicazione: nessun finding duplicato.
+ */
+export function evaluateWindowsServicesHealth(facts: SystemFactsInput): HealthFinding[] {
+  const systemServices = facts.diagnostics?.systemServices;
+  if (!systemServices || systemServices.availability !== 'available') {
+    return [];
+  }
+
+  const rawServices = systemServices.services;
+  if (!rawServices || rawServices.length === 0) {
+    return [];
+  }
+
+  // Mappa deduplicata dei servizi per nome (previene duplicati in input)
+  const serviceMap = new Map<string, WindowsServiceNativeFact>();
+  for (const s of rawServices) {
+    if (!serviceMap.has(s.serviceName)) {
+      serviceMap.set(s.serviceName, s);
+    }
+  }
+
+  const findings: HealthFinding[] = [];
+
+  // Scansione deterministica nell'ordine del catalogo ufficiale di 6 servizi
+  for (const item of WINDOWS_SERVICES_CATALOG) {
+    const service = serviceMap.get(item.serviceName);
+    if (!service) continue;
+
+    const { serviceName, currentState, startType, win32ExitCode, serviceSpecificExitCode } = service;
+
+    if (serviceName === 'EventLog') {
+      // EVENTLOG (always_running):
+      // currentState === stopped -> CRITICAL
+      if (currentState === 'stopped') {
+        const hasAbnormalExit = win32ExitCode !== 0;
+        const exitDetail = hasAbnormalExit
+          ? `, codice di uscita Win32 anomalo: ${win32ExitCode}${
+              serviceSpecificExitCode != null ? ` (codice specifico: ${serviceSpecificExitCode})` : ''
+            }`
+          : '';
+
+        findings.push({
+          id: 'service-eventlog-stopped',
+          severity: 'CRITICAL',
+          area: 'system',
+          title: 'Servizio Registro Eventi Windows Arrestato (EventLog)',
+          evidence: `Servizio Windows Event Log (EventLog) in stato arrestato (stopped, modello: always_running)${exitDetail}`,
+          explanation:
+            'Il servizio Windows Event Log è fondamentale per la registrazione degli eventi di sistema, sicurezza e diagnostica hardware. Il suo arresto impedisce il monitoraggio e il rilevamento delle anomalie.',
+          confidence: 'HIGH',
+          metadata: {
+            serviceName: 'EventLog',
+            currentState,
+            win32ExitCode,
+            ...(serviceSpecificExitCode != null ? { serviceSpecificExitCode } : {}),
+          },
+        });
+      } else if (win32ExitCode !== 0) {
+        // Se non è stopped ma ha exit code anomalo
+        findings.push({
+          id: 'service-eventlog-abnormal-exit',
+          severity: 'WARNING',
+          area: 'system',
+          title: 'Arresto o Errore Anomalo del Servizio EventLog',
+          evidence: `Servizio EventLog con codice di uscita Win32: ${win32ExitCode}${
+            serviceSpecificExitCode != null ? ` (codice specifico: ${serviceSpecificExitCode})` : ''
+          }`,
+          explanation: `Il servizio EventLog ha registrato un codice di errore non nullo (Win32 exit code ${win32ExitCode}).`,
+          confidence: 'HIGH',
+          metadata: {
+            serviceName: 'EventLog',
+            win32ExitCode,
+            ...(serviceSpecificExitCode != null ? { serviceSpecificExitCode } : {}),
+          },
+        });
+      }
+    } else if (serviceName === 'Winmgmt') {
+      // WINMGMT (always_running):
+      // currentState === stopped -> WARNING
+      if (currentState === 'stopped') {
+        const hasAbnormalExit = win32ExitCode !== 0;
+        const exitDetail = hasAbnormalExit
+          ? `, codice di uscita Win32 anomalo: ${win32ExitCode}${
+              serviceSpecificExitCode != null ? ` (codice specifico: ${serviceSpecificExitCode})` : ''
+            }`
+          : '';
+
+        findings.push({
+          id: 'service-winmgmt-stopped',
+          severity: 'WARNING',
+          area: 'system',
+          title: 'Servizio Strumentazione Gestione Windows Arrestato (Winmgmt)',
+          evidence: `Servizio WMI (Winmgmt) in stato arrestato (stopped, modello: always_running)${exitDetail}`,
+          explanation:
+            'Il servizio WMI (Windows Management Instrumentation) fornisce accesso ai dati diagnostici e di gestione dell\'hardware. Il suo arresto può degradare la telemetria di sistema.',
+          confidence: 'HIGH',
+          metadata: {
+            serviceName: 'Winmgmt',
+            currentState,
+            win32ExitCode,
+            ...(serviceSpecificExitCode != null ? { serviceSpecificExitCode } : {}),
+          },
+        });
+      } else if (win32ExitCode !== 0) {
+        findings.push({
+          id: 'service-winmgmt-abnormal-exit',
+          severity: 'WARNING',
+          area: 'system',
+          title: 'Arresto o Errore Anomalo del Servizio Winmgmt',
+          evidence: `Servizio Winmgmt con codice di uscita Win32: ${win32ExitCode}${
+            serviceSpecificExitCode != null ? ` (codice specifico: ${serviceSpecificExitCode})` : ''
+          }`,
+          explanation: `Il servizio Winmgmt ha registrato un codice di errore non nullo (Win32 exit code ${win32ExitCode}).`,
+          confidence: 'HIGH',
+          metadata: {
+            serviceName: 'Winmgmt',
+            win32ExitCode,
+            ...(serviceSpecificExitCode != null ? { serviceSpecificExitCode } : {}),
+          },
+        });
+      }
+    } else if (serviceName === 'VSS') {
+      // VSS (on_demand):
+      // startType === disabled -> ATTENTION
+      if (startType === 'disabled') {
+        findings.push({
+          id: 'service-vss-disabled',
+          severity: 'ATTENTION',
+          area: 'system',
+          title: 'Servizio Copia Shadow del Volume Disabilitato (VSS)',
+          evidence: 'Servizio VSS configurato con tipo di avvio disabilitato (startType: disabled)',
+          explanation:
+            'Il servizio Volume Shadow Copy è disabilitato. Ciò impedisce la creazione di punti di ripristino di sistema e snapshot di backup dei volumi.',
+          confidence: 'HIGH',
+          metadata: {
+            serviceName: 'VSS',
+            startType: 'disabled',
+          },
+        });
+      }
+      // Se win32ExitCode !== 0 (arresto anomalo)
+      if (win32ExitCode !== 0) {
+        findings.push({
+          id: 'service-vss-abnormal-exit',
+          severity: 'WARNING',
+          area: 'system',
+          title: 'Arresto Anomalo del Servizio Volume Shadow Copy (VSS)',
+          evidence: `Servizio VSS terminato con codice di uscita Win32: ${win32ExitCode}${
+            serviceSpecificExitCode != null ? ` (codice specifico: ${serviceSpecificExitCode})` : ''
+          }`,
+          explanation: `Il servizio VSS ha riscontrato un codice di errore non nullo (Win32 exit code ${win32ExitCode}) durante l'esecuzione o l'arresto.`,
+          confidence: 'HIGH',
+          metadata: {
+            serviceName: 'VSS',
+            win32ExitCode,
+            ...(serviceSpecificExitCode != null ? { serviceSpecificExitCode } : {}),
+          },
+        });
+      }
+      // stopped + demand + win32ExitCode === 0 -> nessun finding (comportamento on-demand standard)
+    } else if (serviceName === 'wuauserv' || serviceName === 'TrustedInstaller') {
+      // ON-DEMAND (wuauserv, TrustedInstaller):
+      // stopped + demand + win32ExitCode === 0 -> nessun finding
+      // win32ExitCode !== 0 -> finding arresto anomalo
+      if (win32ExitCode !== 0) {
+        findings.push({
+          id: `service-${serviceName.toLowerCase()}-abnormal-exit`,
+          severity: 'WARNING',
+          area: 'system',
+          title: `Arresto Anomalo del Servizio ${service.displayName || serviceName}`,
+          evidence: `Servizio ${serviceName} terminato con codice di uscita Win32: ${win32ExitCode}${
+            serviceSpecificExitCode != null ? ` (codice specifico: ${serviceSpecificExitCode})` : ''
+          }`,
+          explanation: `Il servizio ha riscontrato un codice di errore non nullo (Win32 exit code ${win32ExitCode}) durante l'esecuzione o l'arresto.`,
+          confidence: 'HIGH',
+          metadata: {
+            serviceName,
+            win32ExitCode,
+            ...(serviceSpecificExitCode != null ? { serviceSpecificExitCode } : {}),
+          },
+        });
+      }
+    } else if (serviceName === 'WinDefend') {
+      // WINDEFEND (contextual):
+      // Non dedurre "nessun antivirus alternativo" senza fact esplicito.
+      // Se dato third-party AV è unknown: nessun finding per stato stopped.
+      // Se win32ExitCode !== 0 -> finding arresto anomalo.
+      if (win32ExitCode !== 0) {
+        findings.push({
+          id: 'service-windefend-abnormal-exit',
+          severity: 'WARNING',
+          area: 'system',
+          title: 'Arresto Anomalo del Servizio Microsoft Defender Antivirus (WinDefend)',
+          evidence: `Servizio WinDefend terminato con codice di uscita Win32: ${win32ExitCode}${
+            serviceSpecificExitCode != null ? ` (codice specifico: ${serviceSpecificExitCode})` : ''
+          }`,
+          explanation: `Il servizio Microsoft Defender ha riscontrato un codice di errore non nullo (Win32 exit code ${win32ExitCode}) durante l'esecuzione o l'arresto.`,
+          confidence: 'HIGH',
+          metadata: {
+            serviceName: 'WinDefend',
+            win32ExitCode,
+            ...(serviceSpecificExitCode != null ? { serviceSpecificExitCode } : {}),
+          },
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
+// ---------------------------------------------------------------------------
 // 6. HEALTH REPORT & SCORE CALCULATION
 // ---------------------------------------------------------------------------
 
@@ -1538,10 +1773,61 @@ export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCo
     });
   }
 
+  // 14. Registro Eventi Hardware e Kernel (Event Log)
+  const evtLog = facts.diagnostics?.eventLog;
+  if (evtLog && evtLog.availability === 'available') {
+    channels.push({
+      id: 'system_events',
+      label: 'Registro Eventi Hardware e Kernel',
+      area: 'system',
+      status: 'available',
+      source: evtLog.source || 'Wevtapi_SystemLog',
+      details: `${evtLog.returnedEventCount ?? evtLog.events?.length ?? 0} eventi analizzati${evtLog.truncated ? ' (campione parziale)' : ''}`,
+    });
+  } else {
+    const status = (evtLog?.availability as DiagnosticChannelStatus) || 'unavailable';
+    channels.push({
+      id: 'system_events',
+      label: 'Registro Eventi Hardware e Kernel',
+      area: 'system',
+      status,
+      source: evtLog?.source || 'Wevtapi_SystemLog',
+      details: evtLog?.errorDetails || 'Acquisizione registro eventi di sistema non eseguita',
+    });
+  }
+
+  // 15. Servizi di Sistema Windows (Advapi32 SCM)
+  const sysServices = facts.diagnostics?.systemServices;
+  if (sysServices && sysServices.availability === 'available') {
+    channels.push({
+      id: 'system_services',
+      label: 'Stato Servizi Critici di Sistema',
+      area: 'system',
+      status: 'available',
+      source: sysServices.source || 'Advapi32_SCM',
+      details: `${sysServices.services?.length ?? 0}/${sysServices.catalogCount || 6} servizi verificati`,
+    });
+  } else {
+    const status = (sysServices?.availability as DiagnosticChannelStatus) || 'unavailable';
+    channels.push({
+      id: 'system_services',
+      label: 'Stato Servizi Critici di Sistema',
+      area: 'system',
+      status,
+      source: sysServices?.source || 'Advapi32_SCM',
+      details: sysServices?.errorDetails || 'Interrogazione Service Control Manager non eseguita',
+    });
+  }
+
   const totalChannels = channels.length;
   const availableChannels = channels.filter((c) => c.status === 'available').length;
   const percentage = Math.round((availableChannels / totalChannels) * 100);
-  const hasHardwareGaps = availableChannels < totalChannels;
+
+  // Distinzione rigorosa tra Coverage Gap (canali non disponibili) e Hardware Gap (canali hardware non coperti)
+  // Canali puramente software/OS (system_events, system_services) non costituiscono un hardware gap
+  const NON_HARDWARE_CHANNEL_IDS = new Set(['system_events', 'system_services']);
+  const hardwareChannels = channels.filter((c) => !NON_HARDWARE_CHANNEL_IDS.has(c.id));
+  const hasHardwareGaps = hardwareChannels.some((c) => c.status !== 'available');
 
   let level: DiagnosticCoverageLevel = 'full';
   if (percentage < 60) {

@@ -372,14 +372,14 @@ describe('Tranche 7B — Domain Integration: Health Engine & Optimization Engine
   // 4. DIAGNOSTIC COVERAGE (RULE N)
   // -------------------------------------------------------------------------
   describe('4. Diagnostic Coverage (Rule N)', () => {
-    it('Correctly counts all 13 channels when native facts are present', () => {
+    it('Correctly counts all 15 channels when native facts are present', () => {
       const facts: SystemFactsInput = {
         diagnostics: baseDiagnostics,
       };
 
       const cov = computeDiagnosticCoverage(facts);
 
-      expect(cov.totalChannels).toBe(13);
+      expect(cov.totalChannels).toBe(15);
       const devChannel = cov.channels.find((c) => c.id === 'device_faults');
       const memChannel = cov.channels.find((c) => c.id === 'memory_commit');
       const pwrChannel = cov.channels.find((c) => c.id === 'power_architecture');

@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   evaluateSystemHealth,
   evaluateEventLogHealth,
+  evaluateWindowsServicesHealth,
   computeDaysBetween,
   computeDiagnosticCoverage,
 } from '../healthEngine';
 import { SystemFactsInput } from '../../types/health';
-import { EventLogNativeFact } from '../../types/diagnostics';
+import { EventLogNativeFact, WindowsServiceNativeFact } from '../../types/diagnostics';
 
 describe('healthEngine', () => {
   const REF_DATE = '2026-09-24T12:00:00.000Z';
@@ -588,14 +589,37 @@ describe('healthEngine', () => {
             isOnBattery: false,
             powerArchitecture: 'desktop_like',
           },
+          eventLog: {
+            availability: 'available',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 0,
+            truncated: false,
+            events: [],
+          },
+          systemServices: {
+            availability: 'available',
+            source: 'Advapi32_SCM',
+            scannedAt: REF_DATE,
+            catalogCount: 6,
+            services: [
+              { serviceName: 'EventLog', displayName: 'Windows Event Log', operationalModel: 'always_running', currentState: 'running', startType: 'auto', win32ExitCode: 0 },
+              { serviceName: 'Winmgmt', displayName: 'Windows Management Instrumentation', operationalModel: 'always_running', currentState: 'running', startType: 'auto', win32ExitCode: 0 },
+              { serviceName: 'wuauserv', displayName: 'Windows Update', operationalModel: 'on_demand', currentState: 'stopped', startType: 'demand', win32ExitCode: 0 },
+              { serviceName: 'TrustedInstaller', displayName: 'Windows Modules Installer', operationalModel: 'on_demand', currentState: 'stopped', startType: 'demand', win32ExitCode: 0 },
+              { serviceName: 'VSS', displayName: 'Volume Shadow Copy', operationalModel: 'on_demand', currentState: 'stopped', startType: 'demand', win32ExitCode: 0 },
+              { serviceName: 'WinDefend', displayName: 'Microsoft Defender Antivirus Service', operationalModel: 'contextual', currentState: 'running', startType: 'auto', win32ExitCode: 0 },
+            ],
+          },
         },
       };
 
       const coverage = computeDiagnosticCoverage(facts);
       expect(coverage.level).toBe('full');
       expect(coverage.percentage).toBe(100);
-      expect(coverage.availableChannels).toBe(13);
-      expect(coverage.totalChannels).toBe(13);
+      expect(coverage.availableChannels).toBe(15);
+      expect(coverage.totalChannels).toBe(15);
       expect(coverage.hasHardwareGaps).toBe(false);
 
       const report = evaluateSystemHealth(facts);
@@ -671,13 +695,23 @@ describe('healthEngine', () => {
           storage: [],
           system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 100 },
         },
+        diagnostics: {
+          timestamp: REF_DATE,
+          status: 'success',
+          deviceProblems: { availability: 'available', source: 'CM_Get_DevNode_Status', totalDevicesScanned: 10, problemCount: 0, devicesWithProblems: [] },
+          memoryCommit: { availability: 'available', source: 'GetPerformanceInfo', commitTotalBytes: 10, commitLimitBytes: 20, commitPeakBytes: 15, physicalTotalBytes: 16, physicalAvailableBytes: 8, systemCacheBytes: 2, kernelPagedBytes: 1, kernelNonpagedBytes: 1, processCount: 10, threadCount: 100, commitUtilizationPercent: 50, physicalUtilizationPercent: 50 },
+          powerStatus: { availability: 'available', source: 'GetSystemPowerStatus', acLineStatus: 1, batteryFlag: 128, batteryLifePercent: null, batterySaverActive: false, hasSystemBattery: false, isOnAC: true, isOnBattery: false, powerArchitecture: 'desktop_like' },
+          eventLog: { availability: 'available', source: 'Wevtapi', queryTimeWindowHours: 168, maxEventsCap: 50, returnedEventCount: 0, truncated: false, events: [] },
+          systemServices: { availability: 'available', source: 'Advapi32', scannedAt: REF_DATE, catalogCount: 6, services: [] },
+          collectionDurationMs: 5,
+        },
       };
 
       const coverage = computeDiagnosticCoverage(facts);
       expect(coverage.level).toBe('partial');
-      expect(coverage.availableChannels).toBe(8);
-      expect(coverage.totalChannels).toBe(13);
-      expect(coverage.percentage).toBe(62);
+      expect(coverage.availableChannels).toBe(13);
+      expect(coverage.totalChannels).toBe(15);
+      expect(coverage.percentage).toBe(87);
 
       const cpuTempChannel = coverage.channels.find((c) => c.id === 'cpu_temp');
       expect(cpuTempChannel?.status).toBe('unsupported');
@@ -1675,5 +1709,434 @@ describe('healthEngine', () => {
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // TRANCHE 8D-2 — WINDOWS SERVICES HEALTH & 15-CHANNEL COVERAGE
+  // -------------------------------------------------------------------------
+  describe('Tranche 8D-2 — Windows Services Health & 15-Channel Diagnostic Coverage', () => {
+    const createService = (overrides: Partial<WindowsServiceNativeFact>): WindowsServiceNativeFact => ({
+      serviceName: 'EventLog',
+      displayName: 'Windows Event Log',
+      operationalModel: 'always_running',
+      currentState: 'running',
+      startType: 'auto',
+      win32ExitCode: 0,
+      ...overrides,
+    });
+
+    const createServiceFacts = (
+      services: WindowsServiceNativeFact[],
+      availability: 'available' | 'unavailable' | 'unsupported' | 'error' = 'available'
+    ): SystemFactsInput => ({
+      referenceDate: REF_DATE,
+      diagnostics: {
+        timestamp: REF_DATE,
+        status: 'success',
+        collectionDurationMs: 5,
+        deviceProblems: { availability: 'available', source: 'test', totalDevicesScanned: 10, problemCount: 0, devicesWithProblems: [] },
+        memoryCommit: { availability: 'available', source: 'test', commitTotalBytes: 1, commitLimitBytes: 10, commitPeakBytes: 5, physicalTotalBytes: 10, physicalAvailableBytes: 5, systemCacheBytes: 1, kernelPagedBytes: 1, kernelNonpagedBytes: 1, processCount: 1, threadCount: 1, commitUtilizationPercent: 10, physicalUtilizationPercent: 50 },
+        powerStatus: { availability: 'available', source: 'test', acLineStatus: 1, batteryFlag: 128, batteryLifePercent: null, batterySaverActive: false, hasSystemBattery: false, isOnAC: true, isOnBattery: false, powerArchitecture: 'desktop_like' },
+        systemServices: {
+          availability,
+          source: 'Advapi32_SCM',
+          scannedAt: REF_DATE,
+          catalogCount: 6,
+          services,
+        },
+      },
+    });
+
+    // 1. EventLog running → nessun finding
+    it('1. EventLog running: nessun finding di salute', () => {
+      const s = createService({ serviceName: 'EventLog', currentState: 'running', win32ExitCode: 0 });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 2. EventLog stopped → CRITICAL
+    it('2. EventLog stopped: genera finding CRITICAL con penalita Health Score', () => {
+      const s = createService({ serviceName: 'EventLog', currentState: 'stopped', win32ExitCode: 0 });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].id).toBe('service-eventlog-stopped');
+      expect(findings[0].severity).toBe('CRITICAL');
+      expect(findings[0].area).toBe('system');
+      expect(findings[0].confidence).toBe('HIGH');
+      expect(findings[0].evidence).toContain('stopped');
+
+      const report = evaluateSystemHealth(facts);
+      expect(report.healthScore).toBe(75); // 100 - 25
+      expect(report.overallStatus).toBe('critical');
+    });
+
+    // 3. Winmgmt stopped → WARNING
+    it('3. Winmgmt stopped: genera finding WARNING', () => {
+      const s = createService({
+        serviceName: 'Winmgmt',
+        displayName: 'Windows Management Instrumentation',
+        operationalModel: 'always_running',
+        currentState: 'stopped',
+        win32ExitCode: 0,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].id).toBe('service-winmgmt-stopped');
+      expect(findings[0].severity).toBe('WARNING');
+      expect(findings[0].area).toBe('system');
+      expect(findings[0].evidence).toContain('stopped');
+
+      const report = evaluateSystemHealth(facts);
+      expect(report.healthScore).toBe(88); // 100 - 12
+      expect(report.overallStatus).toBe('warning');
+    });
+
+    // 4. wuauserv stopped + demand → nessun finding
+    it('4. wuauserv stopped + demand: nessun finding (on-demand idle fisiologico)', () => {
+      const s = createService({
+        serviceName: 'wuauserv',
+        displayName: 'Windows Update',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 0,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 5. TrustedInstaller stopped + demand → nessun finding
+    it('5. TrustedInstaller stopped + demand: nessun finding (on-demand idle fisiologico)', () => {
+      const s = createService({
+        serviceName: 'TrustedInstaller',
+        displayName: 'Windows Modules Installer',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 0,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 6. VSS stopped + demand → nessun finding
+    it('6. VSS stopped + demand: nessun finding (on-demand idle fisiologico)', () => {
+      const s = createService({
+        serviceName: 'VSS',
+        displayName: 'Volume Shadow Copy',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 0,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 7. VSS disabled → ATTENTION
+    it('7. VSS disabled: genera finding ATTENTION', () => {
+      const s = createService({
+        serviceName: 'VSS',
+        displayName: 'Volume Shadow Copy',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'disabled',
+        win32ExitCode: 0,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].id).toBe('service-vss-disabled');
+      expect(findings[0].severity).toBe('ATTENTION');
+      expect(findings[0].area).toBe('system');
+      expect(findings[0].evidence).toContain('disabled');
+
+      const report = evaluateSystemHealth(facts);
+      expect(report.healthScore).toBe(96); // 100 - 4
+      expect(report.overallStatus).toBe('attention');
+    });
+
+    // 8. WinDefend stopped + AV unknown → nessun finding
+    it('8. WinDefend stopped + AV unknown: nessun finding (non dedurre assenza antivirus alternativo)', () => {
+      const s = createService({
+        serviceName: 'WinDefend',
+        displayName: 'Microsoft Defender Antivirus Service',
+        operationalModel: 'contextual',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 0,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 9. service win32ExitCode != 0 → finding
+    it('9. service win32ExitCode != 0: genera finding coerente con arresto anomalo', () => {
+      const s = createService({
+        serviceName: 'wuauserv',
+        displayName: 'Windows Update',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 1067,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].id).toBe('service-wuauserv-abnormal-exit');
+      expect(findings[0].severity).toBe('WARNING');
+      expect(findings[0].evidence).toContain('1067');
+      expect(findings[0].metadata?.win32ExitCode).toBe(1067);
+    });
+
+    // 10. serviceSpecificExitCode preserved
+    it('10. serviceSpecificExitCode preserved: preservato nell evidenza e nei metadati', () => {
+      const s = createService({
+        serviceName: 'TrustedInstaller',
+        displayName: 'Windows Modules Installer',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 1066,
+        serviceSpecificExitCode: 2147942402,
+      });
+      const facts = createServiceFacts([s]);
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].evidence).toContain('1066');
+      expect(findings[0].evidence).toContain('2147942402');
+      expect(findings[0].metadata?.win32ExitCode).toBe(1066);
+      expect(findings[0].metadata?.serviceSpecificExitCode).toBe(2147942402);
+    });
+
+    // 11. systemServices unavailable → no finding
+    it('11. systemServices unavailable: restituisce array vuoto', () => {
+      const s = createService({ serviceName: 'EventLog', currentState: 'stopped' });
+      const facts = createServiceFacts([s], 'unavailable');
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 12. systemServices unsupported → no finding
+    it('12. systemServices unsupported: restituisce array vuoto', () => {
+      const s = createService({ serviceName: 'EventLog', currentState: 'stopped' });
+      const facts = createServiceFacts([s], 'unsupported');
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 13. systemServices error → no finding
+    it('13. systemServices error: restituisce array vuoto', () => {
+      const s = createService({ serviceName: 'EventLog', currentState: 'stopped' });
+      const facts = createServiceFacts([s], 'error');
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(0);
+    });
+
+    // 14. coverage 13 + 2 → totalChannels === 15
+    it('14. coverage 13 + 2: totalChannels calcola esattamente 15 canali', () => {
+      const facts = createServiceFacts([]);
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.channels).toHaveLength(15);
+    });
+
+    // 15. system_events status corretto
+    it('15. system_events status corretto: riflette availability di eventLog nativo', () => {
+      // Available
+      const factsAvail: SystemFactsInput = {
+        diagnostics: {
+          timestamp: REF_DATE,
+          status: 'success',
+          collectionDurationMs: 1,
+          deviceProblems: { availability: 'available', source: 't', totalDevicesScanned: 0, problemCount: 0, devicesWithProblems: [] },
+          memoryCommit: { availability: 'available', source: 't', commitTotalBytes: 1, commitLimitBytes: 2, commitPeakBytes: 1, physicalTotalBytes: 2, physicalAvailableBytes: 1, systemCacheBytes: 0, kernelPagedBytes: 0, kernelNonpagedBytes: 0, processCount: 1, threadCount: 1, commitUtilizationPercent: 50, physicalUtilizationPercent: 50 },
+          powerStatus: { availability: 'available', source: 't', acLineStatus: 1, batteryFlag: 128, batteryLifePercent: null, batterySaverActive: false, hasSystemBattery: false, isOnAC: true, isOnBattery: false, powerArchitecture: 'desktop_like' },
+          eventLog: { availability: 'available', source: 'Wevtapi', queryTimeWindowHours: 168, maxEventsCap: 50, returnedEventCount: 0, truncated: false, events: [] },
+        },
+      };
+      const covAvail = computeDiagnosticCoverage(factsAvail);
+      const chAvail = covAvail.channels.find((c) => c.id === 'system_events');
+      expect(chAvail?.status).toBe('available');
+
+      // Unsupported
+      const factsUnsup: SystemFactsInput = {
+        diagnostics: {
+          ...factsAvail.diagnostics!,
+          eventLog: { availability: 'unsupported', source: 'Wevtapi', queryTimeWindowHours: 168, maxEventsCap: 50, returnedEventCount: 0, truncated: false, events: [] },
+        },
+      };
+      const covUnsup = computeDiagnosticCoverage(factsUnsup);
+      const chUnsup = covUnsup.channels.find((c) => c.id === 'system_events');
+      expect(chUnsup?.status).toBe('unsupported');
+
+      // Error
+      const factsErr: SystemFactsInput = {
+        diagnostics: {
+          ...factsAvail.diagnostics!,
+          eventLog: { availability: 'error', source: 'Wevtapi', queryTimeWindowHours: 168, maxEventsCap: 50, returnedEventCount: 0, truncated: false, events: [], errorDetails: 'Access denied' },
+        },
+      };
+      const covErr = computeDiagnosticCoverage(factsErr);
+      const chErr = covErr.channels.find((c) => c.id === 'system_events');
+      expect(chErr?.status).toBe('error');
+
+      // Omitted -> unavailable
+      const factsOmitted: SystemFactsInput = {};
+      const covOmitted = computeDiagnosticCoverage(factsOmitted);
+      const chOmitted = covOmitted.channels.find((c) => c.id === 'system_events');
+      expect(chOmitted?.status).toBe('unavailable');
+    });
+
+    // 16. system_services status corretto
+    it('16. system_services status corretto: riflette availability di systemServices nativo', () => {
+      // Available
+      const factsAvail = createServiceFacts([], 'available');
+      const covAvail = computeDiagnosticCoverage(factsAvail);
+      const chAvail = covAvail.channels.find((c) => c.id === 'system_services');
+      expect(chAvail?.status).toBe('available');
+
+      // Unsupported
+      const factsUnsup = createServiceFacts([], 'unsupported');
+      const covUnsup = computeDiagnosticCoverage(factsUnsup);
+      const chUnsup = covUnsup.channels.find((c) => c.id === 'system_services');
+      expect(chUnsup?.status).toBe('unsupported');
+
+      // Error
+      const factsErr = createServiceFacts([], 'error');
+      const covErr = computeDiagnosticCoverage(factsErr);
+      const chErr = covErr.channels.find((c) => c.id === 'system_services');
+      expect(chErr?.status).toBe('error');
+
+      // Omitted -> unavailable
+      const factsOmitted: SystemFactsInput = {};
+      const covOmitted = computeDiagnosticCoverage(factsOmitted);
+      const chOmitted = covOmitted.channels.find((c) => c.id === 'system_services');
+      expect(chOmitted?.status).toBe('unavailable');
+    });
+
+    // 17. coverage gaps NON impostano hardware gaps
+    it('17. coverage gaps NON impostano hardware gaps: canali software/OS mancanti non attivano hasHardwareGaps', () => {
+      const factsHardwareOnly: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        systemFilesStatus: 'clean',
+        securityAudit: {
+          secureBootEnabled: true,
+          tpmPresent: true,
+          tpmReady: true,
+          vbsRunning: true,
+          hvciRunning: true,
+          hostsFileClean: true,
+          hostsCustomEntriesCount: 0,
+          details: 'Audit OK',
+        },
+        drives: [
+          { driveLetter: 'C:', label: 'OS', fileSystem: 'NTFS', totalBytes: 1_000_000_000_000, freeBytes: 500_000_000_000, isSSD: true, mediaType: 'SSD', trimSupported: true },
+        ],
+        smartDisks: [
+          { deviceId: '0', friendlyName: 'NVMe', mediaType: 'SSD', healthStatus: 'Healthy', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'available' },
+        ],
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 15, availability: 'available', source: 'Win32' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Win32' },
+            packageTemperatureCelsius: { value: 45, availability: 'available', source: 'ACPI' },
+            packagePowerWatts: { value: 65, availability: 'available', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50 },
+          gpus: [
+            {
+              id: 'gpu-0',
+              name: 'RTX 4070',
+              vendor: 'NVIDIA',
+              isDiscrete: true,
+              utilizationPercent: { value: 20, availability: 'available', source: 'NVML' },
+              vramTotalBytes: { value: 12000000000, availability: 'available', source: 'NVML' },
+              vramUsedBytes: { value: 2000000000, availability: 'available', source: 'NVML' },
+              vramUtilizationPercent: { value: 16.6, availability: 'available', source: 'NVML' },
+              coreTemperatureCelsius: { value: 50, availability: 'available', source: 'NVML' },
+              hotspotTemperatureCelsius: { value: 60, availability: 'available', source: 'NVML' },
+              coreClockMhz: { value: 2000, availability: 'available', source: 'NVML' },
+              memoryClockMhz: { value: 10000, availability: 'available', source: 'NVML' },
+              powerWatts: { value: 50, availability: 'available', source: 'NVML' },
+              fanSpeedPercent: { value: 0, availability: 'available', source: 'NVML' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 100 },
+        },
+        diagnostics: {
+          timestamp: REF_DATE,
+          status: 'success',
+          collectionDurationMs: 4,
+          deviceProblems: { availability: 'available', source: 'CM_Get_DevNode_Status', totalDevicesScanned: 219, problemCount: 0, devicesWithProblems: [] },
+          memoryCommit: { availability: 'available', source: 'GetPerformanceInfo', commitTotalBytes: 16 * 1024 * 1024 * 1024, commitLimitBytes: 32 * 1024 * 1024 * 1024, commitPeakBytes: 20 * 1024 * 1024 * 1024, physicalTotalBytes: 32 * 1024 * 1024 * 1024, physicalAvailableBytes: 18 * 1024 * 1024 * 1024, systemCacheBytes: 10 * 1024 * 1024 * 1024, kernelPagedBytes: 500 * 1024 * 1024, kernelNonpagedBytes: 400 * 1024 * 1024, processCount: 250, threadCount: 3500, commitUtilizationPercent: 50.0, physicalUtilizationPercent: 43.8 },
+          powerStatus: { availability: 'available', source: 'GetSystemPowerStatus', acLineStatus: 1, batteryFlag: 128, batteryLifePercent: null, batterySaverActive: false, hasSystemBattery: false, isOnAC: true, isOnBattery: false, powerArchitecture: 'desktop_like' },
+          // eventLog e systemServices sono omessi
+        },
+      };
+
+      const cov = computeDiagnosticCoverage(factsHardwareOnly);
+      expect(cov.availableChannels).toBe(13);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.hasHardwareGaps).toBe(false); // Coverage gap software ma NESSUN hardware gap!
+    });
+
+    // 18. unavailable services NON riducono Health Score
+    it('18. unavailable services NON riducono Health Score: score isolation perfetta', () => {
+      const baseFacts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        systemFilesStatus: 'clean',
+      };
+      const reportBase = evaluateSystemHealth(baseFacts);
+
+      const factsWithUnavailable = createServiceFacts([], 'unavailable');
+      factsWithUnavailable.systemFilesStatus = 'clean';
+      const reportUnavail = evaluateSystemHealth(factsWithUnavailable);
+
+      expect(reportUnavail.healthScore).toBe(reportBase.healthScore);
+    });
+
+    // 19. nessun finding duplicato
+    it('19. nessun finding duplicato: previene findings ridondanti anche con duplicati in input', () => {
+      const s1 = createService({ serviceName: 'EventLog', currentState: 'stopped' });
+      const s2 = createService({ serviceName: 'EventLog', currentState: 'stopped' }); // duplicato
+      const s3 = createService({ serviceName: 'Winmgmt', currentState: 'stopped' });
+      const facts = createServiceFacts([s1, s2, s3]);
+
+      const findings = evaluateWindowsServicesHealth(facts);
+      expect(findings).toHaveLength(2); // 1 EventLog + 1 Winmgmt
+      const ids = findings.map((f) => f.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    // 20. permutation invariance
+    it('20. permutation invariance: ordine dei servizi in input non altera i findings prodotti', () => {
+      const s1 = createService({ serviceName: 'EventLog', currentState: 'stopped' });
+      const s2 = createService({ serviceName: 'Winmgmt', currentState: 'stopped' });
+      const s3 = createService({ serviceName: 'VSS', startType: 'disabled' });
+
+      const factsOrder1 = createServiceFacts([s1, s2, s3]);
+      const factsOrder2 = createServiceFacts([s3, s1, s2]);
+      const factsOrder3 = createServiceFacts([s2, s3, s1]);
+
+      const findings1 = evaluateWindowsServicesHealth(factsOrder1);
+      const findings2 = evaluateWindowsServicesHealth(factsOrder2);
+      const findings3 = evaluateWindowsServicesHealth(factsOrder3);
+
+      expect(findings1).toEqual(findings2);
+      expect(findings2).toEqual(findings3);
+    });
+  });
 });
+
 
