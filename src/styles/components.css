@@ -2907,8 +2907,101 @@
   border-color: rgba(244, 63, 94, 0.3);
 }
 
-.settings-danger-group:hover {
-  border-color: rgba(244, 63, 94, 0.45);
+/* Toggle Switch & Scheduler Controls per Impostazioni */
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-apple-fast);
+}
+
+.settings-switch-row:hover {
+  border-color: var(--border-default);
+}
+
+.settings-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 6px;
+  border-radius: 9999px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background-color var(--transition-apple-fast), border-color var(--transition-apple-fast), color var(--transition-apple-fast);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+.settings-switch-btn:hover {
+  border-color: var(--border-default);
+}
+
+.settings-switch-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.settings-switch-btn[aria-checked="true"] {
+  background-color: var(--accent-primary-subtle);
+  border-color: var(--accent-primary-border);
+  color: var(--accent-primary);
+}
+
+.settings-switch-track {
+  width: 36px;
+  height: 20px;
+  border-radius: 9999px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  position: relative;
+  display: inline-block;
+  transition: background-color var(--transition-apple-fast), border-color var(--transition-apple-fast);
+}
+
+.settings-switch-btn[aria-checked="true"] .settings-switch-track {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.settings-switch-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform var(--transition-apple-fast), background-color var(--transition-apple-fast);
+}
+
+.settings-switch-btn[aria-checked="true"] .settings-switch-thumb {
+  transform: translateX(16px);
+  background-color: #ffffff;
+}
+
+.settings-feedback-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--accent-emerald);
+  font-weight: 500;
+}
+
+.settings-subgroup-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: grayscale(0.4);
+  transition: opacity var(--transition-apple-fast);
 }
 
 /* Mobile responsive */

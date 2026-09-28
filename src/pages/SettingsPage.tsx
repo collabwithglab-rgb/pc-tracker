@@ -22,6 +22,7 @@ import {
   Package,
   RefreshCw,
   BookOpen,
+  Wrench,
 } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import {
@@ -50,6 +51,9 @@ import {
   ImportPreview,
   SettingsTab,
   VALID_SETTINGS_TABS,
+  SchedulerNotificationMode,
+  SchedulerLeadTimeDays,
+  DEFAULT_SCHEDULER_SETTINGS,
 } from '../types';
 
 export type { SettingsTab };
@@ -218,6 +222,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     upgrades,
     checkpoints,
     showNotification,
+    schedulerSettings,
+    updateSchedulerSettings,
   } = usePCStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(
@@ -242,6 +248,49 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     settings.buildYear ? String(settings.buildYear) : ''
   );
   const [isIdentitySaved, setIsIdentitySaved] = useState(false);
+
+  // Feedback discreto per modifiche scheduler (Tranche 4)
+  const [schedulerFeedback, setSchedulerFeedback] = useState<string | null>(null);
+  const schedulerFeedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showSchedulerFeedback = (msg: string = 'Preferenze salvate.') => {
+    if (schedulerFeedbackTimerRef.current) {
+      clearTimeout(schedulerFeedbackTimerRef.current);
+    }
+    setSchedulerFeedback(msg);
+    schedulerFeedbackTimerRef.current = setTimeout(() => {
+      setSchedulerFeedback(null);
+    }, 2500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (schedulerFeedbackTimerRef.current) {
+        clearTimeout(schedulerFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleToggleScheduler = async () => {
+    const nextState = !schedulerSettings.enabled;
+    await updateSchedulerSettings({ enabled: nextState });
+    showSchedulerFeedback(nextState ? 'Promemoria manutenzione attivati.' : 'Promemoria disattivati.');
+  };
+
+  const handleUpdateSchedulerMode = async (mode: SchedulerNotificationMode) => {
+    await updateSchedulerSettings({ notificationMode: mode });
+    showSchedulerFeedback('Modalità notifiche aggiornata.');
+  };
+
+  const handleUpdateLeadTime = async (days: SchedulerLeadTimeDays) => {
+    await updateSchedulerSettings({ leadTimeDays: days });
+    showSchedulerFeedback('Anticipo promemoria aggiornato.');
+  };
+
+  const handleResetSchedulerDefaults = async () => {
+    await updateSchedulerSettings(DEFAULT_SCHEDULER_SETTINGS);
+    showSchedulerFeedback('Impostazioni predefinite ripristinate.');
+  };
 
   // Sincronizza stato locale se settings cambiano dall'esterno
   useEffect(() => {
@@ -1040,6 +1089,238 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   );
                 })}
               </div>
+            </div>
+          </div>
+
+          {/* Gruppo 4: Cura del PC — Promemoria Manutenzione */}
+          <div className="settings-group" id="settings-group-care">
+            <div className="settings-group-header">
+              <h2 className="settings-group-title">
+                <Wrench size={18} color="var(--accent-primary)" />
+                <span>Cura del PC</span>
+              </h2>
+              <p className="settings-group-desc">
+                Controlla la generazione automatica dei promemoria locali e le notifiche per la manutenzione hardware e di sistema.
+              </p>
+            </div>
+
+            {/* Master Toggle */}
+            <div className="settings-switch-row">
+              <div style={{ minWidth: 0 }}>
+                <span
+                  id="scheduler-toggle-label"
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    display: 'block',
+                  }}
+                >
+                  Promemoria manutenzione
+                </span>
+                <span
+                  id="scheduler-toggle-desc"
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                    display: 'block',
+                    marginTop: '2px',
+                  }}
+                >
+                  Controlla i promemoria generati dal PC Care Center.
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                id="scheduler-master-toggle"
+                aria-checked={schedulerSettings.enabled}
+                aria-labelledby="scheduler-toggle-label"
+                aria-describedby="scheduler-toggle-desc"
+                className="settings-switch-btn"
+                onClick={handleToggleScheduler}
+              >
+                <span className="settings-switch-track" aria-hidden="true">
+                  <span className="settings-switch-thumb" />
+                </span>
+                <span>{schedulerSettings.enabled ? 'ON' : 'OFF'}</span>
+              </button>
+            </div>
+
+            {!schedulerSettings.enabled && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--bg-app)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '12.5px',
+                }}
+              >
+                <Info size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                <span>
+                  Promemoria disattivati. Il motore non genererà promemoria fino alla riattivazione.
+                </span>
+              </div>
+            )}
+
+            {/* Modalità Notifiche */}
+            <div
+              className={!schedulerSettings.enabled ? 'settings-subgroup-disabled' : ''}
+              aria-disabled={!schedulerSettings.enabled}
+              style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}
+            >
+              <div style={{ marginBottom: '8px' }}>
+                <label
+                  id="scheduler-notification-mode-label"
+                  className="form-label"
+                  style={{ marginBottom: '2px', display: 'block' }}
+                >
+                  Notifiche
+                </label>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'block' }}>
+                  Seleziona quali categorie di promemoria generano avvisi e notifiche attive.
+                </span>
+              </div>
+
+              <div
+                className="settings-option-grid"
+                role="radiogroup"
+                aria-labelledby="scheduler-notification-mode-label"
+              >
+                {[
+                  {
+                    id: 'important_only' as const,
+                    title: 'Solo importanti',
+                    badge: 'Consigliato',
+                    desc: 'Verifiche post-azione in sospeso, anomalie persistenti e manutenzioni prioritarie (TRIM, filtri)',
+                  },
+                  {
+                    id: 'all' as const,
+                    title: 'Tutti',
+                    desc: 'Tutti i promemoria di manutenzione e cura pianificati dal sistema',
+                  },
+                  {
+                    id: 'verification_only' as const,
+                    title: 'Solo verifiche',
+                    desc: 'Mostra esclusivamente le verifiche di efficacia post-azione in sospeso (> 48h)',
+                  },
+                  {
+                    id: 'none' as const,
+                    title: 'Silenzioso',
+                    desc: 'Nessun avviso proattivo (i promemoria restano comunque visibili nella panoramica)',
+                  },
+                ].map((opt) => {
+                  const isActive = schedulerSettings.notificationMode === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      role="radio"
+                      disabled={!schedulerSettings.enabled}
+                      aria-checked={isActive}
+                      onClick={() => handleUpdateSchedulerMode(opt.id)}
+                      className={`settings-option-btn ${isActive ? 'is-active' : ''}`}
+                    >
+                      <div className="settings-option-top">
+                        <span className="settings-option-title">{opt.title}</span>
+                        {isActive ? (
+                          <span className="settings-option-badge">Attiva</span>
+                        ) : opt.badge ? (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              padding: '1px 6px',
+                              borderRadius: 'var(--radius-xs)',
+                              backgroundColor: 'var(--accent-primary-subtle)',
+                              color: 'var(--accent-primary)',
+                              border: '1px solid var(--accent-primary-border)',
+                              fontFamily: 'var(--font-mono)',
+                            }}
+                          >
+                            {opt.badge}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="settings-option-desc">{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Anticipo Promemoria */}
+            <div
+              className={!schedulerSettings.enabled ? 'settings-subgroup-disabled' : ''}
+              aria-disabled={!schedulerSettings.enabled}
+              style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}
+            >
+              <div style={{ marginBottom: '8px' }}>
+                <label
+                  htmlFor="scheduler-lead-time-select"
+                  className="form-label"
+                  style={{ marginBottom: '2px', display: 'block' }}
+                >
+                  Anticipo
+                </label>
+                <span
+                  id="scheduler-lead-time-desc"
+                  style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'block' }}
+                >
+                  Con quanto anticipo vuoi vedere un promemoria prima della scadenza.
+                </span>
+              </div>
+
+              <div style={{ maxWidth: '320px' }}>
+                <select
+                  id="scheduler-lead-time-select"
+                  disabled={!schedulerSettings.enabled}
+                  aria-describedby="scheduler-lead-time-desc"
+                  className="form-select"
+                  value={schedulerSettings.leadTimeDays}
+                  onChange={(e) => handleUpdateLeadTime(Number(e.target.value) as SchedulerLeadTimeDays)}
+                >
+                  <option value={0}>0 giorni (Al giorno di scadenza)</option>
+                  <option value={1}>1 giorno prima</option>
+                  <option value={3}>3 giorni prima (Default)</option>
+                  <option value={7}>7 giorni prima</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Azione di Reset e Feedback discreto */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                borderTop: '1px solid var(--border-subtle)',
+                paddingTop: '16px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleResetSchedulerDefaults}
+                className="btn btn-secondary"
+                style={{ fontSize: '12.5px', padding: '6px 14px', gap: '6px' }}
+                title="Ripristina valori predefiniti per promemoria manutenzione"
+              >
+                <RotateCcw size={13} />
+                <span>Ripristina impostazioni predefinite</span>
+              </button>
+
+              {schedulerFeedback && (
+                <span className="settings-feedback-badge" role="status" aria-live="polite">
+                  <CheckCircle2 size={14} />
+                  <span>{schedulerFeedback}</span>
+                </span>
+              )}
             </div>
           </div>
         </section>
