@@ -169,3 +169,17 @@ La roadmap è organizzata in fasi sequenziali, indipendenti, verificabili e modu
 - Ottimizzazione responsive per schermi tablet e mobile.
 - Supporto scorciatoie da tastiera (es. `Esc` per chiudere i modali, `N` per nuovo movimento).
 - Script di avvio rapido `avvia-pc-tracker.bat` per lancio locale con doppio click.
+
+---
+
+### FASE 12 — PC Care Center & Smart Maintenance Engine (IN CORSO)
+- [x] **Tranche 1**: Monitoring Live locale (CPU/RAM/GPU NVML/Storage volumi/System info).
+- [x] **Tranche 2**: Health Engine deterministico & Diagnostic Coverage (Score 0-100 indipendente dai sensori non supportati).
+- [x] **Tranche 3**: Optimization Engine & Lifecycle con memoria storica (anti-duplicazione azioni eseguite).
+- [x] **Tranche 4**: Smart Maintenance Scheduler & UI Prossimi Promemoria (snooze persistito, lead time, impostazioni scheduler).
+- [x] **Tranche 5**: Valutazione Architetturale Notifiche Windows Native (**Decisione: OPTION 1 — KEEP IN-APP ONLY**, zero processi residenti in background).
+- [x] **Tranche 6**: Deep PC Diagnostics & Optimization Expansion Audit (Mappatura telemetria, gap analysis P0-P3, blacklist snake-oil, documento di riferimento `docs/diagnostics-and-optimization-audit.md`).
+- [ ] **Tranche 7** *(Prossima)*: Core Hardware Faults, Commit Memory & Power Architecture (`CfgMgr32` device errors, `PSAPI` commit charge, `GetSystemPowerStatus` Desktop vs Laptop).
+- [ ] **Tranche 8**: Startup Intelligence & Network Diagnostics (`StartupApproved\Run`, test latenza/packet loss ICMP on-demand).
+- [ ] **Tranche 9**: Telemetria GPU AMD Radeon (Caricamento dinamico `atiadlxx.dll` via ADL/ADLX).
+
