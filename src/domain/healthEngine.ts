@@ -79,6 +79,10 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   // 6. Valutazione Integrità di Sistema e Sicurezza Kernel
   evaluateSystemAndSecurityHealth(facts, findings);
 
+  // 6b. Valutazione Registro Eventi Hardware e Kernel (Tranche 8D-1)
+  const eventFindings = evaluateEventLogHealth(facts);
+  findings.push(...eventFindings);
+
   // 7. Calcolo del punteggio sintetico e ripartizione per area
   const report = buildHealthReport(findings, refDate);
 
@@ -737,6 +741,354 @@ function evaluateSystemAndSecurityHealth(facts: SystemFactsInput, findings: Heal
       });
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// 5b. EVENT LOG HARDWARE & KERNEL HEALTH EVALUATION (TRANCHE 8D-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Costanti di soglia per la severità degli eventi (PRODUCT_SEVERITY_POLICY).
+ * Definite specificamente come policy deterministica di prodotto di PC Tracker, non standard Microsoft.
+ */
+export const WHEA_17_ATTENTION_THRESHOLD = 5;
+export const WHEA_18_CRITICAL_THRESHOLD = 2;
+export const WHEA_19_WARNING_THRESHOLD = 3;
+export const WHEA_47_WARNING_THRESHOLD = 3;
+export const DISK_7_REPEATED_THRESHOLD = 3;
+export const DISPLAY_4101_FREQUENT_THRESHOLD = 3;
+
+/**
+ * Valutazione pura dei fatti del Registro Eventi di Windows (Tranche 8D-1).
+ * 
+ * Regole architetturali:
+ * - Funzione pura: riceve facts e restituisce SEMPRE un nuovo array di HealthFinding[].
+ * - Nessuna mutazione degli input.
+ * - Nessun uso di Date.now() o stato globale.
+ * - Availability Gate: se availability !== 'available', restituisce [].
+ *   events: [] con availability !== 'available' NON indica registro pulito.
+ * - Truncation Safety: se truncated === true, usa "nel campione limitato di diagnostica".
+ * - Divieto categorico di parole causali non dimostrate (es. "CPU guasta", "alimentatore guasto", ecc.).
+ */
+export function evaluateEventLogHealth(facts: SystemFactsInput): HealthFinding[] {
+  const eventLog = facts.diagnostics?.eventLog;
+  if (!eventLog || eventLog.availability !== 'available') {
+    return [];
+  }
+
+  const rawEvents = eventLog.events;
+  if (!rawEvents || rawEvents.length === 0) {
+    return [];
+  }
+
+  const isTruncated = eventLog.truncated ?? false;
+  const findings: HealthFinding[] = [];
+
+  // Helper locale per format evidence conforme a Truncation Safety
+  const formatEvidence = (count: number, desc: string): string => {
+    if (isTruncated) {
+      return `${count} ${count === 1 ? 'evento rilevato' : 'eventi rilevati'} nel campione limitato di diagnostica (${desc})`;
+    }
+    return `${count} ${count === 1 ? 'evento registrato' : 'eventi registrati'} nel registro di sistema (${desc})`;
+  };
+
+  // 1. Filtraggio e Raggruppamento per Categoria di Evento Supportata
+  // L'ordine di valutazione è FISSO e DETERMINISTICO per garantire Permutation Invariance:
+  // WHEA 17, WHEA 18, WHEA 19, WHEA 47, KP41, Disk 7, Disk 11, Disk 51, NTFS 55, NTFS 98, Display 4101
+
+  // A. WHEA 17 (PCIe Corrected)
+  const whea17Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase().includes('whea') && e.eventId === 17
+  );
+  if (whea17Events.length > 0) {
+    const count = whea17Events.length;
+    const isRepeated = count >= WHEA_17_ATTENTION_THRESHOLD;
+    findings.push({
+      id: isRepeated ? 'event-whea-17-repeated' : 'event-whea-17-isolated',
+      severity: isRepeated ? 'ATTENTION' : 'INFO',
+      area: 'system',
+      title: isRepeated ? 'Segnali Ripetuti Corretti Bus PCIe (WHEA 17)' : 'Segnali Corretti Bus PCIe (WHEA 17)',
+      evidence: formatEvidence(count, 'WHEA 17: correzione errori trasmissione bus PCIe'),
+      explanation: isRepeated
+        ? 'Rilevati frequenti segnali di correzione automatica sul bus PCIe (policy PC Tracker: 5 o più eventi). Suggerisce la verifica del corretto alloggiamento delle schede di espansione o dei supporti M.2.'
+        : 'Rilevati segnali di correzione automatica sul bus PCIe. L\'architettura hardware e Windows hanno gestito e corretto l\'anomalia in modo trasparente senza perdita di dati.',
+      confidence: 'HIGH',
+      metadata: { eventId: 17, count, isTruncated },
+    });
+  }
+
+  // B. WHEA 18 (Uncorrected Hardware MCE)
+  const whea18Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase().includes('whea') && e.eventId === 18
+  );
+  if (whea18Events.length > 0) {
+    const count = whea18Events.length;
+    const isRepeated = count >= WHEA_18_CRITICAL_THRESHOLD;
+    findings.push({
+      id: isRepeated ? 'event-whea-18-repeated' : 'event-whea-18-single',
+      severity: isRepeated ? 'CRITICAL' : 'WARNING',
+      area: 'cpu',
+      title: isRepeated
+        ? 'Eccezioni Hardware MCE Non Corrette Ricorrenti (WHEA 18)'
+        : 'Eccezione Hardware MCE Non Corretta (WHEA 18)',
+      evidence: formatEvidence(count, 'WHEA 18: eccezione hardware irreversibile non corretta dal processore'),
+      explanation: isRepeated
+        ? 'Rilevate molteplici eccezioni hardware MCE irreversibili (policy PC Tracker: 2 o più eventi). Il processore segnala instabilità di calcolo o tensione che richiede la verifica dei profili operativi.'
+        : 'Rilevata eccezione hardware Machine Check Exception (MCE) non corretta segnalata dal processore a Windows. Indica instabilità temporanea di calcolo o tensione, senza presupporre un danno permanente al silicio.',
+      confidence: 'HIGH',
+      metadata: { eventId: 18, count, isTruncated },
+    });
+  }
+
+  // C. WHEA 19 (Corrected Hardware MCE)
+  const whea19Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase().includes('whea') && e.eventId === 19
+  );
+  if (whea19Events.length > 0) {
+    const count = whea19Events.length;
+    const isRepeated = count >= WHEA_19_WARNING_THRESHOLD;
+    findings.push({
+      id: isRepeated ? 'event-whea-19-repeated' : 'event-whea-19-isolated',
+      severity: isRepeated ? 'WARNING' : 'ATTENTION',
+      area: 'cpu',
+      title: isRepeated
+        ? 'Frequenti Segnali MCE Corretti dall\'Hardware (WHEA 19)'
+        : 'Segnali MCE Corretti dall\'Hardware (WHEA 19)',
+      evidence: formatEvidence(count, 'WHEA 19: correzione interna errori MCE dal processore'),
+      explanation: isRepeated
+        ? 'Rilevate frequenti correzioni hardware MCE dal processore (policy PC Tracker: 3 o più eventi). Segnala instabilità di margine nei calcoli interni della CPU.'
+        : 'Rilevati errori hardware Machine Check Exception (MCE) corretti autonomamente dal processore prima di generare un blocco. Indica un\'anomalia gestita senza interruzione del sistema operativo.',
+      confidence: 'HIGH',
+      metadata: { eventId: 19, count, isTruncated },
+    });
+  }
+
+  // D. WHEA 47 (Corrected Memory)
+  const whea47Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase().includes('whea') && e.eventId === 47
+  );
+  if (whea47Events.length > 0) {
+    const count = whea47Events.length;
+    const isRepeated = count >= WHEA_47_WARNING_THRESHOLD;
+    findings.push({
+      id: isRepeated ? 'event-whea-47-repeated' : 'event-whea-47-isolated',
+      severity: isRepeated ? 'WARNING' : 'ATTENTION',
+      area: 'ram',
+      title: isRepeated
+        ? 'Frequenti Correzioni Memoria Rilevate (WHEA 47)'
+        : 'Segnali di Correzione Memoria (WHEA 47)',
+      evidence: formatEvidence(count, 'WHEA 47: correzione errore memoria RAM/controller'),
+      explanation: isRepeated
+        ? 'Rilevate frequenti correzioni di memoria (policy PC Tracker: 3 o più eventi). Segnala potenziale instabilità nei banchi RAM o nei profili di memoria.'
+        : 'Rilevato errore di memoria corretto dal controller o dal meccanismo di parità. L\'integrità dei dati in esecuzione è stata preservata.',
+      confidence: 'HIGH',
+      metadata: { eventId: 47, count, isTruncated },
+    });
+  }
+
+  // E. Kernel-Power 41 (Unclean Reboot / Bugcheck)
+  const kp41Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase().includes('kernel-power') && e.eventId === 41
+  );
+  if (kp41Events.length > 0) {
+    const bugcheckEvents = kp41Events.filter(
+      (e) => e.payload?.type === 'kernelPower' && e.payload.bugcheckCode !== 0
+    );
+    const nonBugcheckEvents = kp41Events.filter(
+      (e) => !e.payload || e.payload.type !== 'kernelPower' || e.payload.bugcheckCode === 0
+    );
+
+    if (nonBugcheckEvents.length > 0) {
+      const count = nonBugcheckEvents.length;
+      findings.push({
+        id: 'event-kp41-unclean-reboot',
+        severity: 'ATTENTION',
+        area: 'system',
+        title: 'Riavvio Imprevisto di Sistema (Kernel-Power 41)',
+        evidence: formatEvidence(count, 'Kernel-Power 41: arresto anomalo senza codice bugcheck (0x0)'),
+        explanation: 'Il computer si è arrestato o riavviato senza completare la consueta procedura di spegnimento (es. interruzione di corrente, pressione del tasto reset o blocco improvviso). Non indica necessariamente un guasto dell\'alimentatore o della scheda madre.',
+        confidence: 'HIGH',
+        metadata: { eventId: 41, bugcheckCode: 0, count, isTruncated },
+      });
+    }
+
+    if (bugcheckEvents.length > 0) {
+      const count = bugcheckEvents.length;
+      const sampleBugcheck = (bugcheckEvents[0].payload as { type: 'kernelPower'; bugcheckCode: number }).bugcheckCode;
+      const hexCode = `0x${sampleBugcheck.toString(16).toUpperCase()}`;
+      findings.push({
+        id: 'event-kp41-bugcheck',
+        severity: 'WARNING',
+        area: 'system',
+        title: 'Riavvio Imprevisto con Codice Bugcheck (Kernel-Power 41)',
+        evidence: formatEvidence(count, `Kernel-Power 41: arresto anomalo con codice bugcheck kernel ${hexCode}`),
+        explanation: `Il sistema ha registrato un arresto anomalo del kernel con codice bugcheck ${hexCode}. Indica un crash di sistema gestito dal kernel senza implicare un guasto fisico accertato dell'alimentatore o della scheda madre.`,
+        confidence: 'HIGH',
+        metadata: { eventId: 41, bugcheckCode: sampleBugcheck, count, isTruncated },
+      });
+    }
+  }
+
+  // F. Disk 7 (Bad Block)
+  const disk7Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase() === 'disk' && e.eventId === 7
+  );
+  if (disk7Events.length > 0) {
+    const count = disk7Events.length;
+    const hasCorroboratedSmart = (facts.smartDisks || []).some(
+      (d) => d.readErrorsTotal > 0 || d.writeErrorsTotal > 0
+    );
+    const hasCorroboratedDevFault = (facts.diagnostics?.deviceProblems?.devicesWithProblems || []).some(
+      (d) => (d.severity === 'critical' || d.severity === 'warning') && d.deviceId.toLowerCase().includes('disk')
+    );
+    const isRepeatedOrCorroborated = count >= DISK_7_REPEATED_THRESHOLD || hasCorroboratedSmart || hasCorroboratedDevFault;
+    const target = disk7Events[0].targetContext || 'dispositivo di archiviazione';
+
+    findings.push({
+      id: isRepeatedOrCorroborated ? 'event-disk-7-repeated' : 'event-disk-7-isolated',
+      severity: isRepeatedOrCorroborated ? 'WARNING' : 'ATTENTION',
+      area: 'storage',
+      title: isRepeatedOrCorroborated
+        ? 'Blocchi Danneggiati Rilevati su Disco (Disk 7)'
+        : 'Segnalazione Blocco Danneggiato su Disco (Disk 7)',
+      evidence: formatEvidence(count, `disk 7: blocco con difficoltà di lettura su ${target}`),
+      explanation: isRepeatedOrCorroborated
+        ? 'Rilevati molteplici eventi di blocco danneggiato o confermati da anomalie nel comparto di archiviazione. È consigliata una scansione di coerenza e un controllo preventivo dei backup.'
+        : 'Il driver del disco ha segnalato un blocco con difficoltà di lettura. Può trattarsi di un settore riallocato o di un errore transitorio di I/O, senza implicare la rottura immediata del supporto.',
+      confidence: 'HIGH',
+      recommendedActionId: 'chkdsk-scan',
+      metadata: { eventId: 7, count, isTruncated },
+    });
+  }
+
+  // G. Disk 11 (Controller Communication Error)
+  const disk11Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase() === 'disk' && e.eventId === 11
+  );
+  if (disk11Events.length > 0) {
+    const count = disk11Events.length;
+    const target = disk11Events[0].targetContext || 'controller storage';
+    findings.push({
+      id: 'event-disk-11-communication',
+      severity: 'ATTENTION',
+      area: 'storage',
+      title: 'Segnali di Comunicazione Controller Storage (Disk 11)',
+      evidence: formatEvidence(count, `disk 11: difficoltà di comunicazione del controller su ${target}`),
+      explanation: 'Il driver di archiviazione ha rilevato un errore di comunicazione o timeout con il controller del disco. Può dipendere da contatti, cavi dati o gestione energetica dell\'interfaccia.',
+      confidence: 'MEDIUM',
+      metadata: { eventId: 11, count, isTruncated },
+    });
+  }
+
+  // H. Disk 51 (Paging Operation Error)
+  const disk51Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase() === 'disk' && e.eventId === 51
+  );
+  if (disk51Events.length > 0) {
+    const count = disk51Events.length;
+    const target = disk51Events[0].targetContext || 'file di paging';
+    findings.push({
+      id: 'event-disk-51-paging',
+      severity: 'ATTENTION',
+      area: 'storage',
+      title: 'Segnale di Errore I/O durante Paging su Disco (Disk 51)',
+      evidence: formatEvidence(count, `disk 51: errore durante operazione di paging su ${target}`),
+      explanation: 'Si è verificato un errore durante un\'operazione di paging su disco. Indica contesa I/O o latenza elevata durante la scrittura della memoria virtuale, trattandosi di un segnale di allerta temporaneo del sottosistema di archiviazione.',
+      confidence: 'MEDIUM',
+      metadata: { eventId: 51, count, isTruncated },
+    });
+  }
+
+  // I. NTFS 55 (Filesystem Structure Corrupted)
+  const ntfs55Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase() === 'ntfs' && e.eventId === 55
+  );
+  if (ntfs55Events.length > 0) {
+    const count = ntfs55Events.length;
+    const target = ntfs55Events[0].targetContext || 'volume NTFS';
+    findings.push({
+      id: 'event-ntfs-55-corruption',
+      severity: 'WARNING',
+      area: 'storage',
+      title: 'Struttura File System Danneggiata (NTFS 55)',
+      evidence: formatEvidence(count, `Ntfs 55: corruzione logica della struttura file system su ${target}`),
+      explanation: 'Il sottosistema NTFS ha riscontrato un danneggiamento nella struttura logica del file system su una partizione. È necessaria una verifica di integrità con l\'utility CHKDSK per prevenire incongruenze nei dati.',
+      confidence: 'HIGH',
+      recommendedActionId: 'chkdsk-scan',
+      metadata: { eventId: 55, count, isTruncated },
+    });
+  }
+
+  // J. NTFS 98 (Filesystem Check / Verification Signal)
+  const ntfs98Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase() === 'ntfs' && e.eventId === 98
+  );
+  if (ntfs98Events.length > 0) {
+    const count = ntfs98Events.length;
+    const target = ntfs98Events[0].targetContext || 'volume NTFS';
+    const isCheckRequired = ntfs98Events.some(
+      (e) =>
+        e.level === 3 ||
+        (e.payload?.type === 'ntfs' && e.payload.repairHint && /check|scan|repair|corrupt|chkdsk/i.test(e.payload.repairHint)) ||
+        (e.targetContext && /check|repair|scan|corrupt|required/i.test(e.targetContext))
+    );
+
+    if (isCheckRequired) {
+      findings.push({
+        id: 'event-ntfs-98-check-required',
+        severity: 'ATTENTION',
+        area: 'storage',
+        title: 'Verifica Integrità File System Richiesta (NTFS 98)',
+        evidence: formatEvidence(count, `Ntfs 98: richiesta di scansione o controllo di integrità per ${target}`),
+        explanation: 'Il file system NTFS ha notificato la necessità di una scansione di coerenza sul volume. È opportuno pianificare un controllo del volume con CHKDSK per assicurare la consistenza della tabella dei file.',
+        confidence: 'HIGH',
+        recommendedActionId: 'chkdsk-scan',
+        metadata: { eventId: 98, count, checkRequired: true, isTruncated },
+      });
+    } else {
+      findings.push({
+        id: 'event-ntfs-98-verified',
+        severity: 'INFO',
+        area: 'storage',
+        title: 'Notifica Verifica Integrità File System (NTFS 98)',
+        evidence: formatEvidence(count, `Ntfs 98: controllo di integrità registrato per ${target}`),
+        explanation: 'Il file system NTFS ha completato o registrato un controllo informativo di coerenza sul volume, senza evidenza di violazioni catastrofiche.',
+        confidence: 'HIGH',
+        metadata: { eventId: 98, count, checkRequired: false, isTruncated },
+      });
+    }
+  }
+
+  // K. Display 4101 (TDR Driver Reset)
+  const display4101Events = rawEvents.filter(
+    (e) => e.provider.toLowerCase() === 'display' && e.eventId === 4101
+  );
+  if (display4101Events.length > 0) {
+    const count = display4101Events.length;
+    const isFrequent = count >= DISPLAY_4101_FREQUENT_THRESHOLD;
+    const driverName =
+      (display4101Events[0].payload?.type === 'display' && display4101Events[0].payload.driverName) ||
+      display4101Events[0].targetContext ||
+      'driver video';
+
+    findings.push({
+      id: isFrequent ? 'event-display-tdr-frequent' : 'event-display-tdr-isolated',
+      severity: isFrequent ? 'WARNING' : 'ATTENTION',
+      area: 'gpu',
+      title: isFrequent
+        ? 'Frequenti Ripristini Driver Video TDR (Display 4101)'
+        : 'Ripristino Driver Video per Timeout TDR (Display 4101)',
+      evidence: formatEvidence(count, `Display 4101: timeout e ripristino del driver grafico (${driverName})`),
+      explanation: isFrequent
+        ? 'Rilevati molteplici eventi TDR di ripristino del driver video (policy PC Tracker: 3 o più eventi). Suggerisce instabilità dell\'ambiente grafico, incompatibilità driver o corruzione della shader cache.'
+        : 'Windows ha rilevato un blocco temporaneo del driver grafico e ne ha eseguito il ripristino automatico (Timeout Detection and Recovery). Indica un\'interruzione momentanea dell\'ambiente video ripristinata dal sistema operativo.',
+      confidence: 'HIGH',
+      recommendedActionId: 'clean-shader-cache',
+      metadata: { eventId: 4101, count, isTruncated },
+    });
+  }
+
+  return findings;
 }
 
 // ---------------------------------------------------------------------------
