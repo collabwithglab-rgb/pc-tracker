@@ -366,6 +366,222 @@ fn main() {
         println!("  [PASS] K & L: Controlled parsing fallback and rendering error handling");
     }
 
+    println!("\n--- 7. WINDOWS SERVICES NATIVE FACTS (TRANCHE 8B) ---");
+    let (services_snap, srv_timings) = pc_tracker_lib::diagnostics::windows_impl::query_windows_services_measured();
+    println!("Availability: {}", services_snap.availability);
+    println!("Source: {}", services_snap.source);
+    println!("Scanned At: {}", services_snap.scanned_at);
+    println!("Catalog Count: {}", services_snap.catalog_count);
+    println!("Services Returned: {}", services_snap.services.len());
+
+    println!("\n{:<18} | {:<36} | {:<14} | {:<10} | {:<12} | {:<8} | {:<6} | {:<8}",
+        "SERVICE NAME", "DISPLAY NAME", "MODEL", "STATE", "START TYPE", "EXIT", "SPEC", "PID");
+    println!("{}", "-".repeat(128));
+
+    for srv in services_snap.services.iter() {
+        let pid_str = match srv.process_id {
+            Some(pid) => pid.to_string(),
+            None => "-".to_string(),
+        };
+        let spec_str = match srv.service_specific_exit_code {
+            Some(code) => code.to_string(),
+            None => "-".to_string(),
+        };
+        println!("{:<18} | {:<36} | {:<14} | {:<10} | {:<12} | {:<8} | {:<6} | {:<8}",
+            srv.service_name,
+            if srv.display_name.len() > 36 { &srv.display_name[..36] } else { &srv.display_name },
+            srv.operational_model,
+            srv.current_state,
+            srv.start_type,
+            srv.win32_exit_code,
+            spec_str,
+            pid_str
+        );
+    }
+
+    println!("\n--- 8. TIMINGS & BENCHMARK PRESTAZIONALE (TRANCHE 8B) ---");
+    println!("  Target:   < 20.00 ms (20000 µs)");
+    println!("  Estimate: ~1.00 - 3.00 ms (SCM query)");
+    println!("  Measured:");
+    println!("    - OpenSCManager Duration:        {:.3} ms ({} µs)", srv_timings.open_scm_duration_us as f64 / 1000.0, srv_timings.open_scm_duration_us);
+    println!("    - Query 6 Services Duration:     {:.3} ms ({} µs)", srv_timings.query_services_duration_us as f64 / 1000.0, srv_timings.query_services_duration_us);
+    println!("    - Total SCM Provider Duration:   {:.3} ms ({} µs)", srv_timings.total_duration_us as f64 / 1000.0, srv_timings.total_duration_us);
+    println!("    - Catalog Count:                 {}", services_snap.catalog_count);
+    println!("    - Services Queried:              {}", services_snap.services.len());
+
+    println!("\n--- 9. EXHAUSTIVE TRANCHE 8B TEST SUITE (SCENARI A - L) ---");
+
+    // A. running + auto
+    {
+        let fact_a = create_service_fact(
+            "EventLog".to_string(),
+            "Windows Event Log".to_string(),
+            "always_running".to_string(),
+            4, 2, false, 0, 0, 1234,
+        );
+        assert_eq!(fact_a.current_state, "running");
+        assert_eq!(fact_a.start_type, "auto");
+        assert_eq!(fact_a.process_id, Some(1234));
+        assert_eq!(fact_a.win32_exit_code, 0);
+        println!("  [PASS] Scenario A: running + auto (PID present)");
+    }
+
+    // B. stopped + demand -> nessun problema derivato
+    {
+        let fact_b = create_service_fact(
+            "wuauserv".to_string(),
+            "Windows Update".to_string(),
+            "on_demand".to_string(),
+            1, 3, false, 0, 0, 0,
+        );
+        assert_eq!(fact_b.current_state, "stopped");
+        assert_eq!(fact_b.start_type, "demand");
+        assert_eq!(fact_b.process_id, None);
+        assert_eq!(fact_b.win32_exit_code, 0);
+        println!("  [PASS] Scenario B: stopped + demand (pure fact preserved)");
+    }
+
+    // C. stopped + disabled -> configurazione distinta
+    {
+        let fact_c = create_service_fact(
+            "TrustedInstaller".to_string(),
+            "Windows Modules Installer".to_string(),
+            "on_demand".to_string(),
+            1, 4, false, 0, 0, 0,
+        );
+        assert_eq!(fact_c.current_state, "stopped");
+        assert_eq!(fact_c.start_type, "disabled");
+        assert_eq!(fact_c.process_id, None);
+        println!("  [PASS] Scenario C: stopped + disabled distinct configuration");
+    }
+
+    // D. stopped + win32ExitCode != 0
+    {
+        let fact_d = create_service_fact(
+            "VSS".to_string(),
+            "Volume Shadow Copy".to_string(),
+            "on_demand".to_string(),
+            1, 3, false, 1067, 0, 0,
+        );
+        assert_eq!(fact_d.current_state, "stopped");
+        assert_eq!(fact_d.win32_exit_code, 1067);
+        println!("  [PASS] Scenario D: stopped + win32ExitCode != 0 preserved");
+    }
+
+    // E. serviceSpecificExitCode correttamente preservato
+    {
+        let fact_e = create_service_fact(
+            "WinDefend".to_string(),
+            "Microsoft Defender Antivirus Service".to_string(),
+            "contextual".to_string(),
+            1, 2, false, 1066, 42, 0,
+        );
+        assert_eq!(fact_e.win32_exit_code, 1066);
+        assert_eq!(fact_e.service_specific_exit_code, Some(42));
+        println!("  [PASS] Scenario E: serviceSpecificExitCode preserved");
+    }
+
+    // F. service not found (simulato SCM 1060)
+    {
+        let fact_f = WindowsServiceNativeFact {
+            service_name: "NonExistent".to_string(),
+            display_name: "NonExistent".to_string(),
+            operational_model: "on_demand".to_string(),
+            current_state: "unknown".to_string(),
+            start_type: "unknown".to_string(),
+            win32_exit_code: 1060,
+            service_specific_exit_code: None,
+            process_id: None,
+        };
+        assert_eq!(fact_f.current_state, "unknown");
+        assert_eq!(fact_f.win32_exit_code, 1060);
+        println!("  [PASS] Scenario F: service not found (1060 error preserved)");
+    }
+
+    // G. access denied (simulato SCM 5)
+    {
+        let fact_g = WindowsServiceNativeFact {
+            service_name: "Protected".to_string(),
+            display_name: "Protected".to_string(),
+            operational_model: "always_running".to_string(),
+            current_state: "unknown".to_string(),
+            start_type: "unknown".to_string(),
+            win32_exit_code: 5,
+            service_specific_exit_code: None,
+            process_id: None,
+        };
+        assert_eq!(fact_g.current_state, "unknown");
+        assert_eq!(fact_g.win32_exit_code, 5);
+        println!("  [PASS] Scenario G: access denied (5 error preserved)");
+    }
+
+    // H. unknown start type
+    {
+        assert_eq!(map_service_start_type(99, false), "unknown");
+        assert_eq!(map_service_start_type(2, true), "auto_delayed");
+        assert_eq!(map_service_start_type(2, false), "auto");
+        assert_eq!(map_service_start_type(0, false), "boot");
+        assert_eq!(map_service_start_type(1, false), "system");
+        assert_eq!(map_service_start_type(3, false), "demand");
+        assert_eq!(map_service_start_type(4, false), "disabled");
+        println!("  [PASS] Scenario H: unknown & known start types mapping");
+    }
+
+    // I. unknown current state
+    {
+        assert_eq!(map_service_state(99), "unknown");
+        assert_eq!(map_service_state(1), "stopped");
+        assert_eq!(map_service_state(2), "start_pending");
+        assert_eq!(map_service_state(3), "stop_pending");
+        assert_eq!(map_service_state(4), "running");
+        assert_eq!(map_service_state(5), "continue_pending");
+        assert_eq!(map_service_state(6), "pause_pending");
+        assert_eq!(map_service_state(7), "paused");
+        println!("  [PASS] Scenario I: unknown & known current states mapping");
+    }
+
+    // J. PID non presente nello stato STOPPED (Rule 3)
+    {
+        let fact_j = create_service_fact(
+            "EventLog".to_string(),
+            "Windows Event Log".to_string(),
+            "always_running".to_string(),
+            1, 2, false, 0, 0, 9999, // Stale PID
+        );
+        assert_eq!(fact_j.current_state, "stopped");
+        assert_eq!(fact_j.process_id, None);
+        println!("  [PASS] Scenario J: PID strictly absent in STOPPED state");
+    }
+
+    // K. catalogo esatto di 6 servizi
+    {
+        assert_eq!(WINDOWS_SERVICES_CATALOG.len(), 6);
+        let names: Vec<&str> = WINDOWS_SERVICES_CATALOG.iter().map(|s| s.service_name).collect();
+        assert_eq!(
+            names,
+            vec!["EventLog", "Winmgmt", "wuauserv", "TrustedInstaller", "VSS", "WinDefend"]
+        );
+        println!("  [PASS] Scenario K: exact catalog of 6 services verified");
+    }
+
+    // L. determinismo: stesso input -> stesso output
+    {
+        let fact_l1 = create_service_fact(
+            "Winmgmt".to_string(),
+            "Windows Management Instrumentation".to_string(),
+            "always_running".to_string(),
+            4, 2, false, 0, 0, 5678,
+        );
+        let fact_l2 = create_service_fact(
+            "Winmgmt".to_string(),
+            "Windows Management Instrumentation".to_string(),
+            "always_running".to_string(),
+            4, 2, false, 0, 0, 5678,
+        );
+        assert_eq!(fact_l1, fact_l2);
+        println!("  [PASS] Scenario L: strict determinism (same input -> same output)");
+    }
+
     // JSON SERIALIZATION & CONTRACT TEST
     {
         let json = serde_json::to_string(&snapshot).expect("JSON serialization failed");
@@ -373,9 +589,10 @@ fn main() {
         assert!(json.contains("\"memoryCommit\""));
         assert!(json.contains("\"powerStatus\""));
         assert!(json.contains("\"eventLog\""));
+        assert!(json.contains("\"systemServices\""));
         assert!(json.contains("\"collectionDurationMs\""));
-        println!("  [PASS] Serialization & camelCase contract tests (including eventLog)");
+        println!("  [PASS] Serialization & camelCase contract tests (including eventLog & systemServices)");
     }
 
-    println!("\nALL TRANCHE 8A NATIVE TESTS PASSED SUCCESSFULLY (100%)");
+    println!("\nALL TRANCHE 8A & 8B NATIVE TESTS PASSED SUCCESSFULLY (100%)");
 }

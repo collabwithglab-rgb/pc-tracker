@@ -3,11 +3,17 @@ import {
   mapProblemCode,
   evaluateCommitPressure,
   applyEventCapAndSentinel,
+  mapServiceState,
+  mapServiceStartType,
+  createServiceFact,
+  WINDOWS_SERVICES_CATALOG,
   MemoryCommitSnapshot,
   PowerStatusSnapshot,
   DeviceProblemsFact,
   EventLogNativeFact,
   EventLogDiagnosticsSnapshot,
+  WindowsServiceNativeFact,
+  WindowsServicesSnapshot,
   SystemDiagnosticsSnapshot,
 } from '../../types/diagnostics';
 import {
@@ -502,4 +508,221 @@ describe('Tranche 7A — Native Facts & Contracts Verification', () => {
       expect(snapWithSingleValid.events).toHaveLength(1);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // TRANCHE 8B — NATIVE WINDOWS SERVICE FACTS & CONTRACTS
+  // -------------------------------------------------------------------------
+  describe('Tranche 8B — Native Windows Service Facts & Contracts', () => {
+    it('Scenario A: Running + Auto maps to running state and preserves PID', () => {
+      const fact = createServiceFact({
+        serviceName: 'EventLog',
+        displayName: 'Windows Event Log',
+        operationalModel: 'always_running',
+        rawState: 4, // SERVICE_RUNNING
+        rawStartType: 2, // SERVICE_AUTO_START
+        isDelayed: false,
+        win32ExitCode: 0,
+        rawProcessId: 1234,
+      });
+
+      expect(fact.serviceName).toBe('EventLog');
+      expect(fact.displayName).toBe('Windows Event Log');
+      expect(fact.operationalModel).toBe('always_running');
+      expect(fact.currentState).toBe('running');
+      expect(fact.startType).toBe('auto');
+      expect(fact.win32ExitCode).toBe(0);
+      expect(fact.serviceSpecificExitCode).toBeNull();
+      expect(fact.processId).toBe(1234);
+    });
+
+    it('Scenario B: Stopped + Demand is a pure fact without derived problem', () => {
+      const fact = createServiceFact({
+        serviceName: 'wuauserv',
+        displayName: 'Windows Update',
+        operationalModel: 'on_demand',
+        rawState: 1, // SERVICE_STOPPED
+        rawStartType: 3, // SERVICE_DEMAND_START
+        win32ExitCode: 0,
+        rawProcessId: 0,
+      });
+
+      expect(fact.serviceName).toBe('wuauserv');
+      expect(fact.currentState).toBe('stopped');
+      expect(fact.startType).toBe('demand');
+      expect(fact.processId).toBeNull();
+      expect(fact.win32ExitCode).toBe(0);
+    });
+
+    it('Scenario C: Stopped + Disabled is a distinct configuration', () => {
+      const fact = createServiceFact({
+        serviceName: 'TrustedInstaller',
+        displayName: 'Windows Modules Installer',
+        operationalModel: 'on_demand',
+        rawState: 1, // SERVICE_STOPPED
+        rawStartType: 4, // SERVICE_DISABLED
+        win32ExitCode: 0,
+      });
+
+      expect(fact.currentState).toBe('stopped');
+      expect(fact.startType).toBe('disabled');
+      expect(fact.processId).toBeNull();
+    });
+
+    it('Scenario D: Stopped + Non-zero Win32 Exit Code is preserved', () => {
+      const fact = createServiceFact({
+        serviceName: 'VSS',
+        displayName: 'Volume Shadow Copy',
+        operationalModel: 'on_demand',
+        rawState: 1, // SERVICE_STOPPED
+        rawStartType: 3, // SERVICE_DEMAND_START
+        win32ExitCode: 1067, // ERROR_PROCESS_ABORTED
+      });
+
+      expect(fact.currentState).toBe('stopped');
+      expect(fact.win32ExitCode).toBe(1067);
+      expect(fact.processId).toBeNull();
+    });
+
+    it('Scenario E: Service Specific Exit Code is preserved when exitCode is 1066 or specific != 0', () => {
+      const fact = createServiceFact({
+        serviceName: 'WinDefend',
+        displayName: 'Microsoft Defender Antivirus Service',
+        operationalModel: 'contextual',
+        rawState: 1,
+        rawStartType: 2,
+        win32ExitCode: 1066, // ERROR_SERVICE_SPECIFIC_ERROR
+        rawSpecificExitCode: 42,
+      });
+
+      expect(fact.win32ExitCode).toBe(1066);
+      expect(fact.serviceSpecificExitCode).toBe(42);
+    });
+
+    it('Scenario F: Service not found (1060) creates controlled unknown fact', () => {
+      const fact: WindowsServiceNativeFact = {
+        serviceName: 'NonExistentService',
+        displayName: 'NonExistentService',
+        operationalModel: 'on_demand',
+        currentState: 'unknown',
+        startType: 'unknown',
+        win32ExitCode: 1060, // ERROR_SERVICE_DOES_NOT_EXIST
+        serviceSpecificExitCode: null,
+        processId: null,
+      };
+
+      expect(fact.currentState).toBe('unknown');
+      expect(fact.startType).toBe('unknown');
+      expect(fact.win32ExitCode).toBe(1060);
+      expect(fact.processId).toBeNull();
+    });
+
+    it('Scenario G: Access denied (5) creates controlled unknown fact', () => {
+      const fact: WindowsServiceNativeFact = {
+        serviceName: 'ProtectedService',
+        displayName: 'ProtectedService',
+        operationalModel: 'always_running',
+        currentState: 'unknown',
+        startType: 'unknown',
+        win32ExitCode: 5, // ERROR_ACCESS_DENIED
+        serviceSpecificExitCode: null,
+        processId: null,
+      };
+
+      expect(fact.currentState).toBe('unknown');
+      expect(fact.startType).toBe('unknown');
+      expect(fact.win32ExitCode).toBe(5);
+      expect(fact.processId).toBeNull();
+    });
+
+    it('Scenario H: Correctly maps start types including delayed auto and unknown', () => {
+      expect(mapServiceStartType(0)).toBe('boot');
+      expect(mapServiceStartType(1)).toBe('system');
+      expect(mapServiceStartType(2, false)).toBe('auto');
+      expect(mapServiceStartType(2, true)).toBe('auto_delayed');
+      expect(mapServiceStartType(3)).toBe('demand');
+      expect(mapServiceStartType(4)).toBe('disabled');
+      expect(mapServiceStartType(99)).toBe('unknown');
+    });
+
+    it('Scenario I: Correctly maps service states including unknown', () => {
+      expect(mapServiceState(1)).toBe('stopped');
+      expect(mapServiceState(2)).toBe('start_pending');
+      expect(mapServiceState(3)).toBe('stop_pending');
+      expect(mapServiceState(4)).toBe('running');
+      expect(mapServiceState(5)).toBe('continue_pending');
+      expect(mapServiceState(6)).toBe('pause_pending');
+      expect(mapServiceState(7)).toBe('paused');
+      expect(mapServiceState(99)).toBe('unknown');
+    });
+
+    it('Scenario J: Rule 3 & Test J - Stopped service MUST NEVER report a PID', () => {
+      const fact = createServiceFact({
+        serviceName: 'EventLog',
+        displayName: 'Windows Event Log',
+        operationalModel: 'always_running',
+        rawState: 1, // SERVICE_STOPPED
+        rawStartType: 2,
+        win32ExitCode: 0,
+        rawProcessId: 9999, // Stale PID in raw memory
+      });
+
+      expect(fact.currentState).toBe('stopped');
+      expect(fact.processId).toBeNull();
+    });
+
+    it('Scenario K: Exact catalog of 6 services with proper operational models', () => {
+      expect(WINDOWS_SERVICES_CATALOG).toHaveLength(6);
+      const names = WINDOWS_SERVICES_CATALOG.map((s) => s.serviceName);
+      expect(names).toEqual([
+        'EventLog',
+        'Winmgmt',
+        'wuauserv',
+        'TrustedInstaller',
+        'VSS',
+        'WinDefend',
+      ]);
+
+      const models = WINDOWS_SERVICES_CATALOG.map((s) => s.operationalModel);
+      expect(models).toEqual([
+        'always_running',
+        'always_running',
+        'on_demand',
+        'on_demand',
+        'on_demand',
+        'contextual',
+      ]);
+    });
+
+    it('Scenario L: Determinism - identical input produces identical output', () => {
+      const input = {
+        serviceName: 'Winmgmt',
+        displayName: 'Windows Management Instrumentation',
+        operationalModel: 'always_running' as const,
+        rawState: 4,
+        rawStartType: 2,
+        isDelayed: false,
+        win32ExitCode: 0,
+        rawSpecificExitCode: 0,
+        rawProcessId: 5678,
+      };
+
+      const fact1 = createServiceFact(input);
+      const fact2 = createServiceFact(input);
+      expect(fact1).toEqual(fact2);
+    });
+
+    it('SystemDiagnostics integration includes systemServices snapshot in web fallback and error state', async () => {
+      expect(UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT.systemServices).toBeDefined();
+      expect(UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT.systemServices?.availability).toBe('unsupported');
+      expect(UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT.systemServices?.catalogCount).toBe(6);
+      expect(UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT.systemServices?.services).toHaveLength(0);
+
+      const snap: SystemDiagnosticsSnapshot = await getSystemDiagnosticsSnapshot();
+      expect(snap.systemServices).toBeDefined();
+      const servicesSnap: WindowsServicesSnapshot = snap.systemServices!;
+      expect(servicesSnap.catalogCount).toBe(6);
+      expect(servicesSnap.source).toBe('Advapi32_SCM');
+    });
+  });
 });
+

@@ -59,6 +59,14 @@ export const UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT: SystemDiagnosticsSnapshot = {
     events: [],
     errorDetails: 'Event Log diagnostics require Windows desktop application environment.',
   },
+  systemServices: {
+    availability: 'unsupported',
+    source: 'Advapi32_SCM',
+    scannedAt: new Date().toISOString(),
+    catalogCount: 6,
+    services: [],
+    errorDetails: 'Windows Services diagnostics require Windows desktop application environment.',
+  },
   collectionDurationMs: 0,
 };
 
@@ -68,6 +76,7 @@ export const UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT: SystemDiagnosticsSnapshot = {
  * 2. Memory Commit & Physical RAM (GetPerformanceInfo)
  * 3. Power Architecture & Battery State (GetSystemPowerStatus)
  * 4. Native Event Log Facts (Wevtapi_SystemLog)
+ * 5. Native Windows Services Facts (Advapi32_SCM)
  */
 export async function getSystemDiagnosticsSnapshot(): Promise<SystemDiagnosticsSnapshot> {
   if (isDesktopApp()) {
@@ -106,6 +115,14 @@ export async function getSystemDiagnosticsSnapshot(): Promise<SystemDiagnosticsS
           returnedEventCount: 0,
           truncated: false,
           events: [],
+          errorDetails: (err as Error)?.message || 'Tauri invoke failed',
+        },
+        systemServices: {
+          availability: 'error',
+          source: 'Advapi32_SCM',
+          scannedAt: new Date().toISOString(),
+          catalogCount: 6,
+          services: [],
           errorDetails: (err as Error)?.message || 'Tauri invoke failed',
         },
       };

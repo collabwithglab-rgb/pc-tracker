@@ -134,6 +134,34 @@ pub struct EventLogDiagnosticsSnapshot {
     pub error_details: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// CONTRATTI DATI (FACTS NATIVI TRANCHE 8B — WINDOWS SERVICES)
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowsServiceNativeFact {
+    pub service_name: String,
+    pub display_name: String,
+    pub operational_model: String, // "always_running" | "on_demand" | "contextual"
+    pub current_state: String,    // "running" | "stopped" | "paused" | "start_pending" | "stop_pending" | "unknown"
+    pub start_type: String,       // "auto" | "auto_delayed" | "demand" | "disabled" | "boot" | "system" | "unknown"
+    pub win32_exit_code: u32,
+    pub service_specific_exit_code: Option<u32>,
+    pub process_id: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowsServicesSnapshot {
+    pub availability: String, // "available" | "unavailable" | "unsupported" | "error"
+    pub source: String,       // "Advapi32_SCM"
+    pub scanned_at: String,
+    pub catalog_count: usize,
+    pub services: Vec<WindowsServiceNativeFact>,
+    pub error_details: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemDiagnosticsSnapshot {
@@ -143,6 +171,7 @@ pub struct SystemDiagnosticsSnapshot {
     pub memory_commit: MemoryCommitSnapshot,
     pub power_status: PowerStatusSnapshot,
     pub event_log: EventLogDiagnosticsSnapshot,
+    pub system_services: WindowsServicesSnapshot,
     pub collection_duration_ms: u64,
 }
 
@@ -656,6 +685,165 @@ pub fn build_event_log_xpath_query(time_window_hours: u32) -> String {
         ) and TimeCreated[timediff(@SystemTime) <= {}]]]",
         window_ms
     )
+}
+
+// ---------------------------------------------------------------------------
+// CATALOGO E FUNZIONI PURE WINDOWS SERVICES (TRANCHE 8B)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy)]
+pub struct CatalogServiceDef {
+    pub service_name: &'static str,
+    pub fallback_display_name: &'static str,
+    pub operational_model: &'static str,
+}
+
+pub const WINDOWS_SERVICES_CATALOG: [CatalogServiceDef; 6] = [
+    CatalogServiceDef {
+        service_name: "EventLog",
+        fallback_display_name: "Windows Event Log",
+        operational_model: "always_running",
+    },
+    CatalogServiceDef {
+        service_name: "Winmgmt",
+        fallback_display_name: "Windows Management Instrumentation",
+        operational_model: "always_running",
+    },
+    CatalogServiceDef {
+        service_name: "wuauserv",
+        fallback_display_name: "Windows Update",
+        operational_model: "on_demand",
+    },
+    CatalogServiceDef {
+        service_name: "TrustedInstaller",
+        fallback_display_name: "Windows Modules Installer",
+        operational_model: "on_demand",
+    },
+    CatalogServiceDef {
+        service_name: "VSS",
+        fallback_display_name: "Volume Shadow Copy",
+        operational_model: "on_demand",
+    },
+    CatalogServiceDef {
+        service_name: "WinDefend",
+        fallback_display_name: "Microsoft Defender Antivirus Service",
+        operational_model: "contextual",
+    },
+];
+
+pub fn map_service_state(state: u32) -> &'static str {
+    match state {
+        1 => "stopped",
+        2 => "start_pending",
+        3 => "stop_pending",
+        4 => "running",
+        5 => "continue_pending",
+        6 => "pause_pending",
+        7 => "paused",
+        _ => "unknown",
+    }
+}
+
+pub fn map_service_start_type(start_type: u32, is_delayed: bool) -> &'static str {
+    match start_type {
+        0 => "boot",
+        1 => "system",
+        2 => {
+            if is_delayed {
+                "auto_delayed"
+            } else {
+                "auto"
+            }
+        }
+        3 => "demand",
+        4 => "disabled",
+        _ => "unknown",
+    }
+}
+
+pub fn create_service_fact(
+    service_name: String,
+    display_name: String,
+    operational_model: String,
+    raw_state: u32,
+    raw_start_type: u32,
+    is_delayed: bool,
+    win32_exit_code: u32,
+    raw_specific_exit_code: u32,
+    raw_process_id: u32,
+) -> WindowsServiceNativeFact {
+    let current_state = map_service_state(raw_state).to_string();
+    let start_type = map_service_start_type(raw_start_type, is_delayed).to_string();
+
+    // RULE 3 & Test J: PID valido SOLO se lo stato è "running" (4) e il PID > 0
+    let process_id = if raw_state == 4 && raw_process_id > 0 {
+        Some(raw_process_id)
+    } else {
+        None
+    };
+
+    let service_specific_exit_code = if win32_exit_code == 1066 || raw_specific_exit_code != 0 {
+        Some(raw_specific_exit_code)
+    } else {
+        None
+    };
+
+    WindowsServiceNativeFact {
+        service_name,
+        display_name,
+        operational_model,
+        current_state,
+        start_type,
+        win32_exit_code,
+        service_specific_exit_code,
+        process_id,
+    }
+}
+
+pub struct ChronoMockIso(pub String);
+
+impl From<std::time::SystemTime> for ChronoMockIso {
+    fn from(time: std::time::SystemTime) -> Self {
+        let duration = time.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+        let secs = duration.as_secs();
+        // Semplice formattazione ISO-like senza dipendenze chrono pesanti
+        let days = secs / 86400;
+        let day_secs = secs % 86400;
+        let hours = day_secs / 3600;
+        let minutes = (day_secs % 3600) / 60;
+        let seconds = day_secs % 60;
+
+        // Calcolo anno/mese/giorno approssimato partendo da 1970-01-01
+        let mut year = 1970;
+        let mut d = days;
+        loop {
+            let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+            let days_in_year = if leap { 366 } else { 365 };
+            if d >= days_in_year {
+                d -= days_in_year;
+                year += 1;
+            } else {
+                break;
+            }
+        }
+        let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+        let days_in_months = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let mut month = 1;
+        for dim in days_in_months.iter() {
+            if d >= *dim {
+                d -= *dim;
+                month += 1;
+            } else {
+                break;
+            }
+        }
+        let day = d + 1;
+
+        ChronoMockIso(format!(
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+            year, month, day, hours, minutes, seconds
+        ))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1270,6 +1458,276 @@ pub mod windows_impl {
     pub fn query_event_log(time_window_hours: u32, max_cap: u32) -> EventLogDiagnosticsSnapshot {
         query_event_log_measured(time_window_hours, max_cap).0
     }
+
+    #[derive(Debug, Clone, Copy, Default)]
+    pub struct WindowsServicesTimings {
+        pub open_scm_duration_us: u64,
+        pub query_services_duration_us: u64,
+        pub total_duration_us: u64,
+    }
+
+    type ScHandle = *mut c_void;
+    type OpenSCManagerWFn = unsafe extern "system" fn(*const u16, *const u16, u32) -> ScHandle;
+    type OpenServiceWFn = unsafe extern "system" fn(ScHandle, *const u16, u32) -> ScHandle;
+    type QueryServiceStatusExFn = unsafe extern "system" fn(ScHandle, u32, *mut u8, u32, *mut u32) -> i32;
+    type QueryServiceConfigWFn = unsafe extern "system" fn(ScHandle, *mut u8, u32, *mut u32) -> i32;
+    type QueryServiceConfig2WFn = unsafe extern "system" fn(ScHandle, u32, *mut u8, u32, *mut u32) -> i32;
+    type CloseServiceHandleFn = unsafe extern "system" fn(ScHandle) -> i32;
+
+    #[repr(C)]
+    #[derive(Default, Copy, Clone)]
+    struct ServiceStatusProcess {
+        dw_service_type: u32,
+        dw_current_state: u32,
+        dw_controls_accepted: u32,
+        dw_win32_exit_code: u32,
+        dw_service_specific_exit_code: u32,
+        dw_check_point: u32,
+        dw_wait_hint: u32,
+        dw_process_id: u32,
+        dw_service_flags: u32,
+    }
+
+    #[repr(C)]
+    struct QueryServiceConfigWStruct {
+        dw_service_type: u32,
+        dw_start_type: u32,
+        dw_error_control: u32,
+        lp_binary_path_name: *mut u16,
+        lp_load_order_group: *mut u16,
+        dw_tag_id: u32,
+        lp_dependencies: *mut u16,
+        lp_service_start_name: *mut u16,
+        lp_display_name: *mut u16,
+    }
+
+    #[repr(C)]
+    struct ServiceDelayedAutoStartInfo {
+        f_delayed_autostart: i32,
+    }
+
+    fn get_last_win32_error() -> u32 {
+        std::io::Error::last_os_error().raw_os_error().unwrap_or(0) as u32
+    }
+
+    pub fn query_windows_services_measured() -> (WindowsServicesSnapshot, WindowsServicesTimings) {
+        let total_start = Instant::now();
+        let mut timings = WindowsServicesTimings::default();
+
+        unsafe {
+            let advapi32 = LoadLibraryA(b"advapi32.dll\0".as_ptr() as *const i8);
+            if advapi32.is_null() {
+                timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+                return (
+                    WindowsServicesSnapshot {
+                        availability: "unsupported".to_string(),
+                        source: "Advapi32_SCM".to_string(),
+                        scanned_at: ChronoMockIso::from(std::time::SystemTime::now()).0,
+                        catalog_count: WINDOWS_SERVICES_CATALOG.len(),
+                        services: Vec::new(),
+                        error_details: Some("Caricamento di advapi32.dll fallito".to_string()),
+                    },
+                    timings,
+                );
+            }
+
+            let p_open_scm = GetProcAddress(advapi32, b"OpenSCManagerW\0".as_ptr() as *const i8);
+            let p_open_svc = GetProcAddress(advapi32, b"OpenServiceW\0".as_ptr() as *const i8);
+            let p_query_stat = GetProcAddress(advapi32, b"QueryServiceStatusEx\0".as_ptr() as *const i8);
+            let p_query_cfg = GetProcAddress(advapi32, b"QueryServiceConfigW\0".as_ptr() as *const i8);
+            let p_query_cfg2 = GetProcAddress(advapi32, b"QueryServiceConfig2W\0".as_ptr() as *const i8);
+            let p_close = GetProcAddress(advapi32, b"CloseServiceHandle\0".as_ptr() as *const i8);
+
+            if p_open_scm.is_null()
+                || p_open_svc.is_null()
+                || p_query_stat.is_null()
+                || p_query_cfg.is_null()
+                || p_close.is_null()
+            {
+                FreeLibrary(advapi32);
+                timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+                return (
+                    WindowsServicesSnapshot {
+                        availability: "unsupported".to_string(),
+                        source: "Advapi32_SCM".to_string(),
+                        scanned_at: ChronoMockIso::from(std::time::SystemTime::now()).0,
+                        catalog_count: WINDOWS_SERVICES_CATALOG.len(),
+                        services: Vec::new(),
+                        error_details: Some("Punti di ingresso essenziali di advapi32.dll non trovati".to_string()),
+                    },
+                    timings,
+                );
+            }
+
+            let fn_open_scm: OpenSCManagerWFn = std::mem::transmute(p_open_scm);
+            let fn_open_svc: OpenServiceWFn = std::mem::transmute(p_open_svc);
+            let fn_query_stat: QueryServiceStatusExFn = std::mem::transmute(p_query_stat);
+            let fn_query_cfg: QueryServiceConfigWFn = std::mem::transmute(p_query_cfg);
+            let fn_query_cfg2: Option<QueryServiceConfig2WFn> = if !p_query_cfg2.is_null() {
+                Some(std::mem::transmute(p_query_cfg2))
+            } else {
+                None
+            };
+            let fn_close: CloseServiceHandleFn = std::mem::transmute(p_close);
+
+            let scm_start = Instant::now();
+            // SC_MANAGER_CONNECT = 0x0001 (nessun privilegio elevato / no UAC)
+            let h_scm = fn_open_scm(std::ptr::null(), std::ptr::null(), 0x0001);
+            timings.open_scm_duration_us = scm_start.elapsed().as_micros() as u64;
+
+            if h_scm.is_null() {
+                let err_code = get_last_win32_error();
+                FreeLibrary(advapi32);
+                timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+                let availability = if err_code == 5 { "unavailable" } else { "error" };
+                return (
+                    WindowsServicesSnapshot {
+                        availability: availability.to_string(),
+                        source: "Advapi32_SCM".to_string(),
+                        scanned_at: ChronoMockIso::from(std::time::SystemTime::now()).0,
+                        catalog_count: WINDOWS_SERVICES_CATALOG.len(),
+                        services: Vec::new(),
+                        error_details: Some(format!("OpenSCManagerW fallito con codice Win32: {}", err_code)),
+                    },
+                    timings,
+                );
+            }
+
+            let query_start = Instant::now();
+            let mut facts: Vec<WindowsServiceNativeFact> = Vec::with_capacity(WINDOWS_SERVICES_CATALOG.len());
+
+            for def in WINDOWS_SERVICES_CATALOG.iter() {
+                let mut name_w: Vec<u16> = def.service_name.encode_utf16().collect();
+                name_w.push(0);
+
+                // SERVICE_QUERY_STATUS (0x0004) | SERVICE_QUERY_CONFIG (0x0001) = 0x0005
+                let h_svc = fn_open_svc(h_scm, name_w.as_ptr(), 0x0005);
+                if h_svc.is_null() {
+                    let err_code = get_last_win32_error();
+                    facts.push(WindowsServiceNativeFact {
+                        service_name: def.service_name.to_string(),
+                        display_name: def.fallback_display_name.to_string(),
+                        operational_model: def.operational_model.to_string(),
+                        current_state: "unknown".to_string(),
+                        start_type: "unknown".to_string(),
+                        win32_exit_code: err_code,
+                        service_specific_exit_code: None,
+                        process_id: None,
+                    });
+                    continue;
+                }
+
+                // 1. QueryServiceStatusEx
+                let mut status = ServiceStatusProcess::default();
+                let mut bytes_needed = 0u32;
+                let status_ok = fn_query_stat(
+                    h_svc,
+                    0, // SC_STATUS_PROCESS_INFO
+                    &mut status as *mut ServiceStatusProcess as *mut u8,
+                    std::mem::size_of::<ServiceStatusProcess>() as u32,
+                    &mut bytes_needed,
+                );
+
+                let (raw_state, win32_exit, specific_exit, raw_pid) = if status_ok != 0 {
+                    (
+                        status.dw_current_state,
+                        status.dw_win32_exit_code,
+                        status.dw_service_specific_exit_code,
+                        status.dw_process_id,
+                    )
+                } else {
+                    let err_code = get_last_win32_error();
+                    (0, err_code, 0, 0)
+                };
+
+                // 2. QueryServiceConfigW
+                let mut cfg_needed = 0u32;
+                fn_query_cfg(h_svc, std::ptr::null_mut(), 0, &mut cfg_needed);
+                let mut cfg_buf = vec![0u8; cfg_needed as usize];
+                let cfg_ok = if cfg_needed > 0 {
+                    fn_query_cfg(h_svc, cfg_buf.as_mut_ptr(), cfg_needed, &mut cfg_needed)
+                } else {
+                    0
+                };
+
+                let (raw_start_type, display_name) = if cfg_ok != 0 && cfg_buf.len() >= std::mem::size_of::<QueryServiceConfigWStruct>() {
+                    let p_cfg = cfg_buf.as_ptr() as *const QueryServiceConfigWStruct;
+                    let st = (*p_cfg).dw_start_type;
+                    let dn = if !(*p_cfg).lp_display_name.is_null() {
+                        let mut len = 0;
+                        while *(*p_cfg).lp_display_name.add(len) != 0 {
+                            len += 1;
+                        }
+                        let slice = std::slice::from_raw_parts((*p_cfg).lp_display_name, len);
+                        let s = String::from_utf16_lossy(slice).trim().to_string();
+                        if !s.is_empty() { s } else { def.fallback_display_name.to_string() }
+                    } else {
+                        def.fallback_display_name.to_string()
+                    };
+                    (st, dn)
+                } else {
+                    (255, def.fallback_display_name.to_string())
+                };
+
+                // 3. QueryServiceConfig2W (Delayed Auto-Start) se raw_start_type == 2 (SERVICE_AUTO_START)
+                let is_delayed = if raw_start_type == 2 {
+                    if let Some(fn_cfg2) = fn_query_cfg2 {
+                        let mut delayed_info = ServiceDelayedAutoStartInfo { f_delayed_autostart: 0 };
+                        let mut d_needed = 0u32;
+                        let d_ok = fn_cfg2(
+                            h_svc,
+                            3, // SERVICE_CONFIG_DELAYED_AUTO_START_INFO
+                            &mut delayed_info as *mut ServiceDelayedAutoStartInfo as *mut u8,
+                            std::mem::size_of::<ServiceDelayedAutoStartInfo>() as u32,
+                            &mut d_needed,
+                        );
+                        d_ok != 0 && delayed_info.f_delayed_autostart != 0
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+
+                fn_close(h_svc);
+
+                let fact = create_service_fact(
+                    def.service_name.to_string(),
+                    display_name,
+                    def.operational_model.to_string(),
+                    raw_state,
+                    raw_start_type,
+                    is_delayed,
+                    win32_exit,
+                    specific_exit,
+                    raw_pid,
+                );
+                facts.push(fact);
+            }
+
+            fn_close(h_scm);
+            FreeLibrary(advapi32);
+
+            timings.query_services_duration_us = query_start.elapsed().as_micros() as u64;
+            timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+
+            (
+                WindowsServicesSnapshot {
+                    availability: "available".to_string(),
+                    source: "Advapi32_SCM".to_string(),
+                    scanned_at: ChronoMockIso::from(std::time::SystemTime::now()).0,
+                    catalog_count: WINDOWS_SERVICES_CATALOG.len(),
+                    services: facts,
+                    error_details: None,
+                },
+                timings,
+            )
+        }
+    }
+
+    pub fn query_windows_services() -> WindowsServicesSnapshot {
+        query_windows_services_measured().0
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1339,6 +1797,17 @@ pub mod non_windows_impl {
             error_details: Some("Event Log diagnostics require Windows desktop OS".to_string()),
         }
     }
+
+    pub fn query_windows_services() -> WindowsServicesSnapshot {
+        WindowsServicesSnapshot {
+            availability: "unsupported".to_string(),
+            source: "Advapi32_SCM".to_string(),
+            scanned_at: "1970-01-01T00:00:00Z".to_string(),
+            catalog_count: WINDOWS_SERVICES_CATALOG.len(),
+            services: Vec::new(),
+            error_details: Some("Windows Services diagnostics require Windows desktop OS".to_string()),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1350,19 +1819,21 @@ pub fn get_system_diagnostics_snapshot() -> SystemDiagnosticsSnapshot {
     let start = Instant::now();
 
     #[cfg(target_os = "windows")]
-    let (dev, mem, pwr, evt) = (
+    let (dev, mem, pwr, evt, srv) = (
         windows_impl::query_device_problems(),
         windows_impl::query_memory_commit(),
         windows_impl::query_power_status(),
         windows_impl::query_event_log(168, 50),
+        windows_impl::query_windows_services(),
     );
 
     #[cfg(not(target_os = "windows"))]
-    let (dev, mem, pwr, evt) = (
+    let (dev, mem, pwr, evt, srv) = (
         non_windows_impl::query_device_problems(),
         non_windows_impl::query_memory_commit(),
         non_windows_impl::query_power_status(),
         non_windows_impl::query_event_log(168, 50),
+        non_windows_impl::query_windows_services(),
     );
 
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -1370,12 +1841,14 @@ pub fn get_system_diagnostics_snapshot() -> SystemDiagnosticsSnapshot {
     let all_available = dev.availability == "available"
         && mem.availability == "available"
         && pwr.availability == "available"
-        && evt.availability == "available";
+        && evt.availability == "available"
+        && srv.availability == "available";
 
     let any_available = dev.availability == "available"
         || mem.availability == "available"
         || pwr.availability == "available"
-        || evt.availability == "available";
+        || evt.availability == "available"
+        || srv.availability == "available";
 
     let status = if all_available {
         "success".to_string()
@@ -1400,53 +1873,8 @@ pub fn get_system_diagnostics_snapshot() -> SystemDiagnosticsSnapshot {
         memory_commit: mem,
         power_status: pwr,
         event_log: evt,
+        system_services: srv,
         collection_duration_ms: duration_ms,
-    }
-}
-
-struct ChronoMockIso(String);
-
-impl From<std::time::SystemTime> for ChronoMockIso {
-    fn from(time: std::time::SystemTime) -> Self {
-        let duration = time.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-        let secs = duration.as_secs();
-        // Semplice formattazione ISO-like senza dipendenze chrono pesanti
-        let days = secs / 86400;
-        let day_secs = secs % 86400;
-        let hours = day_secs / 3600;
-        let minutes = (day_secs % 3600) / 60;
-        let seconds = day_secs % 60;
-
-        // Calcolo anno/mese/giorno approssimato partendo da 1970-01-01
-        let mut year = 1970;
-        let mut d = days;
-        loop {
-            let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-            let days_in_year = if leap { 366 } else { 365 };
-            if d >= days_in_year {
-                d -= days_in_year;
-                year += 1;
-            } else {
-                break;
-            }
-        }
-        let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        let days_in_months = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        let mut month = 1;
-        for dim in days_in_months.iter() {
-            if d >= *dim {
-                d -= *dim;
-                month += 1;
-            } else {
-                break;
-            }
-        }
-        let day = d + 1;
-
-        ChronoMockIso(format!(
-            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-            year, month, day, hours, minutes, seconds
-        ))
     }
 }
 
@@ -1758,5 +2186,242 @@ mod tests {
         assert!(query.contains("Ntfs"));
         assert!(query.contains("Display"));
         assert!(query.contains("604800000")); // 168 * 3600 * 1000
+    }
+
+    // -----------------------------------------------------------------------
+    // TRANCHE 8B — NATIVE WINDOWS SERVICE TESTS (SCENARI A - L)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_service_scenario_a_running_auto() {
+        // A. running + auto
+        let fact = create_service_fact(
+            "EventLog".to_string(),
+            "Windows Event Log".to_string(),
+            "always_running".to_string(),
+            4, // SERVICE_RUNNING
+            2, // SERVICE_AUTO_START
+            false,
+            0,
+            0,
+            1234, // PID
+        );
+        assert_eq!(fact.service_name, "EventLog");
+        assert_eq!(fact.current_state, "running");
+        assert_eq!(fact.start_type, "auto");
+        assert_eq!(fact.win32_exit_code, 0);
+        assert_eq!(fact.service_specific_exit_code, None);
+        assert_eq!(fact.process_id, Some(1234));
+    }
+
+    #[test]
+    fn test_service_scenario_b_stopped_demand() {
+        // B. stopped + demand -> nessun problema derivato, fatto puro
+        let fact = create_service_fact(
+            "wuauserv".to_string(),
+            "Windows Update".to_string(),
+            "on_demand".to_string(),
+            1, // SERVICE_STOPPED
+            3, // SERVICE_DEMAND_START
+            false,
+            0,
+            0,
+            0,
+        );
+        assert_eq!(fact.service_name, "wuauserv");
+        assert_eq!(fact.current_state, "stopped");
+        assert_eq!(fact.start_type, "demand");
+        assert_eq!(fact.win32_exit_code, 0);
+        assert_eq!(fact.process_id, None);
+    }
+
+    #[test]
+    fn test_service_scenario_c_stopped_disabled() {
+        // C. stopped + disabled -> configurazione distinta
+        let fact = create_service_fact(
+            "TrustedInstaller".to_string(),
+            "Windows Modules Installer".to_string(),
+            "on_demand".to_string(),
+            1, // SERVICE_STOPPED
+            4, // SERVICE_DISABLED
+            false,
+            0,
+            0,
+            0,
+        );
+        assert_eq!(fact.current_state, "stopped");
+        assert_eq!(fact.start_type, "disabled");
+        assert_eq!(fact.win32_exit_code, 0);
+        assert_eq!(fact.process_id, None);
+    }
+
+    #[test]
+    fn test_service_scenario_d_stopped_win32_exit_code() {
+        // D. stopped + win32ExitCode != 0
+        let fact = create_service_fact(
+            "VSS".to_string(),
+            "Volume Shadow Copy".to_string(),
+            "on_demand".to_string(),
+            1, // SERVICE_STOPPED
+            3, // SERVICE_DEMAND_START
+            false,
+            1067, // ERROR_PROCESS_ABORTED
+            0,
+            0,
+        );
+        assert_eq!(fact.current_state, "stopped");
+        assert_eq!(fact.win32_exit_code, 1067);
+        assert_eq!(fact.process_id, None);
+    }
+
+    #[test]
+    fn test_service_scenario_e_service_specific_exit_code() {
+        // E. serviceSpecificExitCode correttamente preservato
+        let fact = create_service_fact(
+            "WinDefend".to_string(),
+            "Microsoft Defender Antivirus Service".to_string(),
+            "contextual".to_string(),
+            1, // SERVICE_STOPPED
+            2, // SERVICE_AUTO_START
+            false,
+            1066, // ERROR_SERVICE_SPECIFIC_ERROR
+            42,   // specific exit code
+            0,
+        );
+        assert_eq!(fact.win32_exit_code, 1066);
+        assert_eq!(fact.service_specific_exit_code, Some(42));
+    }
+
+    #[test]
+    fn test_service_scenario_f_service_not_found() {
+        // F. service not found (simulato errore SCM OpenServiceW con 1060)
+        let fact = WindowsServiceNativeFact {
+            service_name: "NonExistentService".to_string(),
+            display_name: "NonExistentService".to_string(),
+            operational_model: "on_demand".to_string(),
+            current_state: "unknown".to_string(),
+            start_type: "unknown".to_string(),
+            win32_exit_code: 1060, // ERROR_SERVICE_DOES_NOT_EXIST
+            service_specific_exit_code: None,
+            process_id: None,
+        };
+        assert_eq!(fact.current_state, "unknown");
+        assert_eq!(fact.start_type, "unknown");
+        assert_eq!(fact.win32_exit_code, 1060);
+        assert_eq!(fact.process_id, None);
+    }
+
+    #[test]
+    fn test_service_scenario_g_access_denied() {
+        // G. access denied (simulato errore SCM OpenServiceW con 5)
+        let fact = WindowsServiceNativeFact {
+            service_name: "ProtectedService".to_string(),
+            display_name: "ProtectedService".to_string(),
+            operational_model: "always_running".to_string(),
+            current_state: "unknown".to_string(),
+            start_type: "unknown".to_string(),
+            win32_exit_code: 5, // ERROR_ACCESS_DENIED
+            service_specific_exit_code: None,
+            process_id: None,
+        };
+        assert_eq!(fact.current_state, "unknown");
+        assert_eq!(fact.start_type, "unknown");
+        assert_eq!(fact.win32_exit_code, 5);
+        assert_eq!(fact.process_id, None);
+    }
+
+    #[test]
+    fn test_service_scenario_h_unknown_start_type() {
+        // H. unknown start type
+        assert_eq!(map_service_start_type(99, false), "unknown");
+        assert_eq!(map_service_start_type(2, true), "auto_delayed");
+        assert_eq!(map_service_start_type(2, false), "auto");
+        assert_eq!(map_service_start_type(0, false), "boot");
+        assert_eq!(map_service_start_type(1, false), "system");
+        assert_eq!(map_service_start_type(3, false), "demand");
+        assert_eq!(map_service_start_type(4, false), "disabled");
+    }
+
+    #[test]
+    fn test_service_scenario_i_unknown_current_state() {
+        // I. unknown current state
+        assert_eq!(map_service_state(99), "unknown");
+        assert_eq!(map_service_state(1), "stopped");
+        assert_eq!(map_service_state(2), "start_pending");
+        assert_eq!(map_service_state(3), "stop_pending");
+        assert_eq!(map_service_state(4), "running");
+        assert_eq!(map_service_state(5), "continue_pending");
+        assert_eq!(map_service_state(6), "pause_pending");
+        assert_eq!(map_service_state(7), "paused");
+    }
+
+    #[test]
+    fn test_service_scenario_j_stopped_has_no_pid() {
+        // J. PID non presente nello stato STOPPED anche se dwProcessId nel buffer grezzo contiene un residuo
+        let fact = create_service_fact(
+            "EventLog".to_string(),
+            "Windows Event Log".to_string(),
+            "always_running".to_string(),
+            1, // SERVICE_STOPPED
+            2, // SERVICE_AUTO_START
+            false,
+            0,
+            0,
+            9999, // Stale PID che deve essere ignorato!
+        );
+        assert_eq!(fact.current_state, "stopped");
+        assert_eq!(fact.process_id, None);
+    }
+
+    #[test]
+    fn test_service_scenario_k_exact_catalog_6_services() {
+        // K. catalogo esatto di 6 servizi
+        assert_eq!(WINDOWS_SERVICES_CATALOG.len(), 6);
+        let names: Vec<&str> = WINDOWS_SERVICES_CATALOG.iter().map(|s| s.service_name).collect();
+        assert_eq!(
+            names,
+            vec!["EventLog", "Winmgmt", "wuauserv", "TrustedInstaller", "VSS", "WinDefend"]
+        );
+
+        let models: Vec<&str> = WINDOWS_SERVICES_CATALOG.iter().map(|s| s.operational_model).collect();
+        assert_eq!(
+            models,
+            vec![
+                "always_running",
+                "always_running",
+                "on_demand",
+                "on_demand",
+                "on_demand",
+                "contextual"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_service_scenario_l_determinism() {
+        // L. determinismo: stesso input -> stesso output
+        let fact1 = create_service_fact(
+            "Winmgmt".to_string(),
+            "Windows Management Instrumentation".to_string(),
+            "always_running".to_string(),
+            4,
+            2,
+            false,
+            0,
+            0,
+            5678,
+        );
+        let fact2 = create_service_fact(
+            "Winmgmt".to_string(),
+            "Windows Management Instrumentation".to_string(),
+            "always_running".to_string(),
+            4,
+            2,
+            false,
+            0,
+            0,
+            5678,
+        );
+        assert_eq!(fact1, fact2);
     }
 }

@@ -130,6 +130,54 @@ export interface EventLogDiagnosticsSnapshot {
   errorDetails?: string | null;
 }
 
+/**
+ * Tipi e contratti per Native Windows Service Facts (Tranche 8B)
+ * - Interrogazione FFI mirata su SCM via advapi32.dll
+ * - Catalogo esatto di 6 servizi: EventLog, Winmgmt, wuauserv, TrustedInstaller, VSS, WinDefend
+ * - Fatti nativi puri senza interpretazione preventiva di health o anomalie
+ */
+
+export type WindowsServiceOperationalModel = 'always_running' | 'on_demand' | 'contextual';
+
+export type WindowsServiceState =
+  | 'running'
+  | 'stopped'
+  | 'paused'
+  | 'start_pending'
+  | 'stop_pending'
+  | 'continue_pending'
+  | 'pause_pending'
+  | 'unknown';
+
+export type WindowsServiceStartType =
+  | 'auto'
+  | 'auto_delayed'
+  | 'demand'
+  | 'disabled'
+  | 'boot'
+  | 'system'
+  | 'unknown';
+
+export interface WindowsServiceNativeFact {
+  serviceName: string;
+  displayName: string;
+  operationalModel: WindowsServiceOperationalModel;
+  currentState: WindowsServiceState;
+  startType: WindowsServiceStartType;
+  win32ExitCode: number;
+  serviceSpecificExitCode?: number | null;
+  processId?: number | null;
+}
+
+export interface WindowsServicesSnapshot {
+  availability: MetricAvailability;
+  source: string;                // "Advapi32_SCM"
+  scannedAt: string;             // ISO 8601
+  catalogCount: number;          // 6
+  services: WindowsServiceNativeFact[];
+  errorDetails?: string | null;
+}
+
 export type DiagnosticsSnapshotStatus = 'success' | 'partial' | 'unsupported' | 'error';
 
 export interface SystemDiagnosticsSnapshot {
@@ -139,6 +187,7 @@ export interface SystemDiagnosticsSnapshot {
   memoryCommit: MemoryCommitSnapshot;
   powerStatus: PowerStatusSnapshot;
   eventLog?: EventLogDiagnosticsSnapshot;
+  systemServices?: WindowsServicesSnapshot;
   collectionDurationMs: number;
 }
 
@@ -426,3 +475,132 @@ export function evaluateCommitPressure(
     details: `Utilizzo della memoria di commit nella norma (${avgCommit}% medio su ${valid.length} campioni).`,
   };
 }
+
+/**
+ * Catalogo mirato di 6 servizi Windows chiave per la salute di sistema (Tranche 8B)
+ */
+export interface WindowsServiceCatalogItem {
+  serviceName: string;
+  fallbackDisplayName: string;
+  operationalModel: WindowsServiceOperationalModel;
+}
+
+export const WINDOWS_SERVICES_CATALOG: readonly WindowsServiceCatalogItem[] = [
+  {
+    serviceName: 'EventLog',
+    fallbackDisplayName: 'Windows Event Log',
+    operationalModel: 'always_running',
+  },
+  {
+    serviceName: 'Winmgmt',
+    fallbackDisplayName: 'Windows Management Instrumentation',
+    operationalModel: 'always_running',
+  },
+  {
+    serviceName: 'wuauserv',
+    fallbackDisplayName: 'Windows Update',
+    operationalModel: 'on_demand',
+  },
+  {
+    serviceName: 'TrustedInstaller',
+    fallbackDisplayName: 'Windows Modules Installer',
+    operationalModel: 'on_demand',
+  },
+  {
+    serviceName: 'VSS',
+    fallbackDisplayName: 'Volume Shadow Copy',
+    operationalModel: 'on_demand',
+  },
+  {
+    serviceName: 'WinDefend',
+    fallbackDisplayName: 'Microsoft Defender Antivirus Service',
+    operationalModel: 'contextual',
+  },
+] as const;
+
+/**
+ * Mappatura pura dello stato del servizio Windows (SERVICE_STATUS.dwCurrentState)
+ */
+export function mapServiceState(stateCode: number): WindowsServiceState {
+  switch (stateCode) {
+    case 1:
+      return 'stopped';
+    case 2:
+      return 'start_pending';
+    case 3:
+      return 'stop_pending';
+    case 4:
+      return 'running';
+    case 5:
+      return 'continue_pending';
+    case 6:
+      return 'pause_pending';
+    case 7:
+      return 'paused';
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Mappatura pura del tipo di avvio (QUERY_SERVICE_CONFIG.dwStartType)
+ */
+export function mapServiceStartType(startTypeCode: number, isDelayed = false): WindowsServiceStartType {
+  switch (startTypeCode) {
+    case 0:
+      return 'boot';
+    case 1:
+      return 'system';
+    case 2:
+      return isDelayed ? 'auto_delayed' : 'auto';
+    case 3:
+      return 'demand';
+    case 4:
+      return 'disabled';
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Costruttore puro del Native Fact per un servizio Windows.
+ * Applica rigorosamente le regole:
+ * - processId è valorizzato SOLO se currentState === 'running' e rawProcessId > 0 (Rule 3 & Test J)
+ * - serviceSpecificExitCode è valorizzato se win32ExitCode === 1066 o se rawSpecificExitCode !== 0
+ */
+export function createServiceFact(params: {
+  serviceName: string;
+  displayName: string;
+  operationalModel: WindowsServiceOperationalModel;
+  rawState: number;
+  rawStartType: number;
+  isDelayed?: boolean;
+  win32ExitCode: number;
+  rawSpecificExitCode?: number;
+  rawProcessId?: number;
+}): WindowsServiceNativeFact {
+  const currentState = mapServiceState(params.rawState);
+  const startType = mapServiceStartType(params.rawStartType, params.isDelayed ?? false);
+
+  const processId =
+    currentState === 'running' && (params.rawProcessId ?? 0) > 0
+      ? params.rawProcessId!
+      : null;
+
+  const serviceSpecificExitCode =
+    params.win32ExitCode === 1066 || (params.rawSpecificExitCode ?? 0) !== 0
+      ? (params.rawSpecificExitCode ?? null)
+      : null;
+
+  return {
+    serviceName: params.serviceName,
+    displayName: params.displayName,
+    operationalModel: params.operationalModel,
+    currentState,
+    startType,
+    win32ExitCode: params.win32ExitCode,
+    serviceSpecificExitCode,
+    processId,
+  };
+}
+
