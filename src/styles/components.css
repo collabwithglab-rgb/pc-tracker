@@ -354,6 +354,75 @@
   border: 1px solid rgba(148, 163, 184, 0.28);
 }
 
+/* Badge Semantici di Stato e Segnalazione */
+.badge-cyan {
+  background-color: var(--accent-cyan-subtle);
+  color: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan-border);
+}
+
+.badge-emerald {
+  background-color: var(--accent-emerald-subtle);
+  color: var(--accent-emerald);
+  border: 1px solid var(--accent-emerald-border);
+}
+
+.badge-amber {
+  background-color: var(--accent-amber-subtle);
+  color: var(--accent-amber);
+  border: 1px solid var(--accent-amber-border);
+}
+
+.badge-ruby {
+  background-color: var(--accent-ruby-subtle);
+  color: var(--accent-ruby);
+  border: 1px solid var(--accent-ruby-border);
+}
+
+.badge-purple {
+  background-color: var(--accent-indigo-subtle);
+  color: var(--accent-indigo);
+  border: 1px solid var(--accent-indigo-border);
+}
+
+.badge-subtle {
+  background-color: rgba(148, 163, 184, 0.1);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Care Reminders - Smart Maintenance Scheduler (Tranche 3) */
+.care-reminders-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.care-reminder-card {
+  position: relative;
+  transition: transform var(--transition-apple-normal),
+              border-color var(--transition-apple-normal),
+              background-color var(--transition-apple-normal),
+              box-shadow var(--transition-apple-normal);
+}
+
+.care-reminder-card:hover {
+  border-color: var(--border-default);
+  background-color: var(--bg-surface-elevated);
+}
+
+.care-reminders-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 /* Chip Categoria Compatto con Icona e Senza Spezzamento Parole */
 .category-chip {
   display: inline-flex;

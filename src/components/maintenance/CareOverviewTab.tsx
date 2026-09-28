@@ -14,6 +14,8 @@ import {
   History,
   Trash2,
   Clock,
+  Calendar,
+  Wrench,
 } from 'lucide-react';
 import {
   SystemFactsInput,
@@ -27,7 +29,11 @@ import {
   ActionAvailability,
   OptimizationExecutionRecord,
   OptimizationOutcome,
+  MaintenanceReminder,
+  ReminderType,
+  ReminderUrgency,
 } from '../../types';
+import { formatDate } from '../../utils';
 import {
   evaluateSystemHealth,
 } from '../../domain/healthEngine';
@@ -68,6 +74,10 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
     recordOptimizationExecution,
     deleteOptimizationExecution,
     clearOptimizationHistory,
+    maintenanceReminders: storeReminders,
+    computeMaintenanceReminders,
+    setReminderSnooze,
+    settings,
   } = usePCStore();
 
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
@@ -76,6 +86,8 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<OptimizationExecutionRecord | null>(null);
   const [historyFilter, setHistoryFilter] = useState<OptimizationOutcome | 'ALL'>('ALL');
   const [recViewFilter, setRecViewFilter] = useState<'actionable' | 'resolved'>('actionable');
+  const [showAllReminders, setShowAllReminders] = useState(false);
+  const [expandedReminderId, setExpandedReminderId] = useState<string | null>(null);
 
   // Valutazione pura e deterministica della salute
   const healthReport: SystemHealthReport = useMemo(() => {
@@ -87,9 +99,169 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
     return generateOptimizationRecommendations(facts, healthReport, optimizationHistory);
   }, [facts, healthReport, optimizationHistory]);
 
+  // Raccomandazioni complessive (attive + risolte/in cooldown) per calcolo deterministico dello scheduler
+  const allRecommendations = useMemo(() => [
+    ...(optReport.recommendations || []),
+    ...(optReport.resolvedOrCooldownRecommendations || []),
+  ], [optReport]);
+
+  // Promemoria derivati direttamente dallo Scheduler Engine tramite PCContext
+  const maintenanceReminders = useMemo(() => {
+    if (typeof computeMaintenanceReminders === 'function' && (allRecommendations.length > 0 || facts)) {
+      const computed = computeMaintenanceReminders(allRecommendations, facts);
+      if (computed.length > 0 || !storeReminders?.length) {
+        return computed;
+      }
+    }
+    return storeReminders || [];
+  }, [computeMaintenanceReminders, allRecommendations, facts, storeReminders]);
+
+  // Visualizzazione sobria con tetto a massimo 3 elementi preservando l'ordine del motore
+  const displayedReminders = useMemo(() => {
+    return showAllReminders ? maintenanceReminders : maintenanceReminders.slice(0, 3);
+  }, [showAllReminders, maintenanceReminders]);
 
   const notify = (type: 'success' | 'warning' | 'error' | 'info', msg: string) => {
     onShowNotification?.(type === 'success' ? 'success' : 'error', msg);
+  };
+
+  // Click su azione del promemoria: delega al target rec (con confirmation flow se necessario), a history o al registro
+  const handleReminderAction = (reminder: MaintenanceReminder) => {
+    if (reminder.recommendationId) {
+      const targetRec = allRecommendations.find((r) => r.id === reminder.recommendationId);
+      if (targetRec) {
+        handleActionClick(targetRec);
+        return;
+      }
+    }
+
+    if (reminder.type === 'VERIFICATION_REMINDER') {
+      if (reminder.executionRecordId) {
+        const histRecord = optimizationHistory.find((r) => r.id === reminder.executionRecordId);
+        if (histRecord) {
+          setSelectedHistoryRecord(histRecord);
+          return;
+        }
+      }
+      onSwitchTab?.('registro');
+      return;
+    }
+
+    if (reminder.type === 'MAINTENANCE_REMINDER') {
+      onSwitchTab?.('registro');
+      return;
+    }
+  };
+
+  const getReminderActionLabel = (reminder: MaintenanceReminder): string | null => {
+    if (reminder.type === 'VERIFICATION_REMINDER') {
+      return 'Verifica';
+    }
+    if (reminder.type === 'MAINTENANCE_REMINDER') {
+      return 'Apri Registro';
+    }
+    if (reminder.recommendationId) {
+      const targetRec = allRecommendations.find((r) => r.id === reminder.recommendationId);
+      if (targetRec) {
+        if (targetRec.actionAvailability === 'MANUAL' || targetRec.actionAvailability === 'MANUAL_GUIDED') {
+          return 'Apri Guida';
+        }
+        if (reminder.type === 'CONDITION_RECHECK') {
+          return 'Rivedi';
+        }
+        return 'Esegui ora';
+      }
+      return 'Esegui ora';
+    }
+    return null;
+  };
+
+  // Snooze discreto di 7 giorni: delega al PCContext, persistito su IndexedDB e ricalcolato dal domain engine
+  const handleSnooze = async (reminder: MaintenanceReminder, days: number = 7) => {
+    try {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + days);
+      const snoozedUntil = targetDate.toISOString().slice(0, 10);
+      await setReminderSnooze(reminder.id, snoozedUntil);
+      notify('success', 'Promemoria posticipato di 7 giorni.');
+    } catch (err) {
+      console.error('Errore durante lo snooze del promemoria:', err);
+      notify('error', 'Impossibile posticipare il promemoria.');
+    }
+  };
+
+  const getReminderUrgencyBadge = (urgency: ReminderUrgency) => {
+    switch (urgency) {
+      case 'overdue':
+        return <span className="badge badge-ruby">Scaduto</span>;
+      case 'condition_active':
+        return <span className="badge badge-amber">Anomalia Attiva</span>;
+      case 'verification_pending':
+        return <span className="badge badge-cyan">Verifica in Sospeso</span>;
+      case 'action_required':
+        return <span className="badge badge-cyan">Consigliato Ora</span>;
+      case 'due_soon':
+        return <span className="badge badge-subtle" style={{ color: 'var(--accent-amber)' }}>Imminente</span>;
+      case 'upcoming':
+      default:
+        return <span className="badge badge-subtle">Programmato</span>;
+    }
+  };
+
+  const getReminderAccentBorder = (urgency: ReminderUrgency) => {
+    switch (urgency) {
+      case 'overdue':
+        return '3px solid var(--accent-ruby)';
+      case 'condition_active':
+        return '3px solid var(--accent-amber)';
+      case 'verification_pending':
+        return '3px solid var(--accent-cyan)';
+      case 'action_required':
+        return '3px solid var(--accent-cyan)';
+      case 'due_soon':
+        return '3px solid var(--accent-amber)';
+      case 'upcoming':
+      default:
+        return '3px solid var(--border-subtle)';
+    }
+  };
+
+  const getReminderIcon = (type: ReminderType) => {
+    switch (type) {
+      case 'PERIODIC_REMINDER':
+        return <Clock size={16} color="var(--accent-cyan)" />;
+      case 'MAINTENANCE_REMINDER':
+        return <Wrench size={16} color="var(--accent-amber)" />;
+      case 'VERIFICATION_REMINDER':
+        return <CheckCircle2 size={16} color="var(--accent-cyan)" />;
+      case 'CONDITION_RECHECK':
+        return <AlertTriangle size={16} color="var(--accent-amber)" />;
+      default:
+        return <Clock size={16} color="var(--text-muted)" />;
+    }
+  };
+
+  const getReminderTemporalText = (reminder: MaintenanceReminder) => {
+    if (reminder.daysRemaining !== undefined) {
+      if (reminder.daysRemaining < 0) {
+        const overdueDays = Math.abs(reminder.daysRemaining);
+        return `Scaduto da ${overdueDays} ${overdueDays === 1 ? 'giorno' : 'giorni'}`;
+      }
+      if (reminder.daysRemaining === 0) {
+        return 'Scadenza oggi';
+      }
+      return `Tra ${reminder.daysRemaining} ${reminder.daysRemaining === 1 ? 'giorno' : 'giorni'}`;
+    }
+    if (reminder.dueDate) {
+      return `Scadenza: ${formatDate(reminder.dueDate, settings.dateFormat)}`;
+    }
+    if (reminder.type === 'VERIFICATION_REMINDER') {
+      return 'Verifica in sospeso';
+    }
+    if (reminder.type === 'CONDITION_RECHECK') {
+      return 'Persistente dopo intervento';
+    }
+    return 'In programma';
   };
 
   // Click su azione consigliata: se mutante (USER_CONFIRMED), richiede conferma esplicita
@@ -451,6 +623,216 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ottimali</div>
           </div>
         </div>
+      </div>
+
+      {/* 2.5 PROSSIMI PROMEMORIA (SMART MAINTENANCE SCHEDULER) */}
+      <div className="care-reminders-container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+            <Calendar size={18} color="var(--accent-cyan)" />
+            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600 }}>
+              Prossimi Promemoria {maintenanceReminders.length > 0 && `(${maintenanceReminders.length})`}
+            </h3>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Scheduler intelligente attivo
+          </span>
+        </div>
+
+        {maintenanceReminders.length === 0 ? (
+          <div className="care-reminders-empty">
+            <CheckCircle2 size={16} color="var(--accent-emerald)" />
+            <span>Nessun promemoria di manutenzione imminente</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+            {displayedReminders.map((reminder) => {
+              const targetRec = reminder.recommendationId
+                ? allRecommendations.find((r) => r.id === reminder.recommendationId)
+                : undefined;
+              const histRecord = reminder.executionRecordId
+                ? optimizationHistory.find((r) => r.id === reminder.executionRecordId)
+                : undefined;
+              const actionLabel = getReminderActionLabel(reminder);
+              const isExpanded = expandedReminderId === reminder.id;
+              const isActionExecuting = targetRec && executingActionId === targetRec.id;
+
+              return (
+                <div
+                  key={reminder.id}
+                  className="card care-reminder-card"
+                  style={{
+                    padding: 'var(--space-md)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--space-xs)',
+                    borderLeft: getReminderAccentBorder(reminder.urgency),
+                  }}
+                >
+                  {/* Riga Superiore: Titolo, Icona, Urgenza, Target, Scadenza */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: 'var(--radius-sm)',
+                          backgroundColor: 'var(--bg-input)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {getReminderIcon(reminder.type)}
+                      </div>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {reminder.title}
+                      </h4>
+                      {getReminderUrgencyBadge(reminder.urgency)}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {reminder.target && (
+                        <span className="category-chip" style={{ fontSize: '0.72rem', padding: '1px 6px' }}>
+                          {reminder.target}
+                        </span>
+                      )}
+                      <span>· {getReminderTemporalText(reminder)}</span>
+                    </div>
+                  </div>
+
+                  {/* Descrizione / Spiegazione */}
+                  <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                    {reminder.explanation || reminder.description}
+                  </p>
+
+                  {/* Riga Inferiore: Dettagli (sx) e Azioni/Snooze (dx) */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-xs)', marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border-subtle)' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => setExpandedReminderId((prev) => (prev === reminder.id ? null : reminder.id))}
+                      aria-expanded={isExpanded}
+                      style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px' }}
+                    >
+                      <span>{isExpanded ? 'Nascondi dettagli' : 'Dettagli'}</span>
+                      {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        onClick={() => handleSnooze(reminder, 7)}
+                        title="Posticipa questo promemoria di 7 giorni"
+                        style={{ fontSize: '0.75rem', color: 'var(--text-muted)', padding: '2px 8px' }}
+                      >
+                        Posticipa (7gg)
+                      </button>
+
+                      {actionLabel && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-xs"
+                          onClick={() => handleReminderAction(reminder)}
+                          disabled={isActionExecuting}
+                          style={{
+                            fontSize: '0.75rem',
+                            padding: '3px 10px',
+                            fontWeight: 600,
+                            borderColor: 'var(--accent-primary-border)',
+                            color: 'var(--accent-primary)',
+                          }}
+                        >
+                          {isActionExecuting ? 'In esecuzione...' : actionLabel}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Pannello Dettaglio Espandibile */}
+                  {isExpanded && (
+                    <div
+                      style={{
+                        marginTop: 'var(--space-2xs)',
+                        padding: 'var(--space-sm)',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        fontSize: '0.78rem',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      <div>
+                        <strong style={{ color: 'var(--text-primary)' }}>Perché: </strong>
+                        <span>{reminder.explanation}</span>
+                      </div>
+                      {targetRec?.evidence && (
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)' }}>Evidenza rilevata: </strong>
+                          <span>{targetRec.evidence}</span>
+                        </div>
+                      )}
+                      {reminder.dueDate && (
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)' }}>Scadenza: </strong>
+                          <span style={{ fontFamily: 'var(--font-mono)' }}>{formatDate(reminder.dueDate, settings.dateFormat)}</span>
+                        </div>
+                      )}
+                      {(targetRec?.lastExecution || histRecord) && (
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)' }}>Ultima esecuzione: </strong>
+                          <span>
+                            {(targetRec?.lastExecution || histRecord)?.timestampCompleted
+                              ? formatDate((targetRec?.lastExecution || histRecord)!.timestampCompleted!.slice(0, 10), settings.dateFormat)
+                              : 'Recente'}{' '}
+                            ({(targetRec?.lastExecution || histRecord)?.outcome === 'success' ? 'Completata con successo' : 'Esito registrato'})
+                          </span>
+                        </div>
+                      )}
+                      {targetRec?.actionDescription && (
+                        <div>
+                          <strong style={{ color: 'var(--accent-cyan)' }}>Azione di sistema: </strong>
+                          <span>{targetRec.actionDescription}</span>
+                        </div>
+                      )}
+                      {(targetRec?.verificationMethod || histRecord?.verificationMethod) && (
+                        <div>
+                          <strong style={{ color: 'var(--text-muted)' }}>Verifica di efficacia: </strong>
+                          <span style={{ fontStyle: 'italic' }}>{targetRec?.verificationMethod || histRecord?.verificationMethod}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {maintenanceReminders.length > 3 && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => setShowAllReminders(!showAllReminders)}
+                style={{
+                  alignSelf: 'flex-start',
+                  color: 'var(--accent-cyan)',
+                  fontSize: '0.78rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                }}
+              >
+                <span>{showAllReminders ? 'Mostra meno' : `Mostra tutti (${maintenanceReminders.length})`}</span>
+                {showAllReminders ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 3. RACCOMANDAZIONI MOTIVATE DI OTTIMIZZAZIONE */}
