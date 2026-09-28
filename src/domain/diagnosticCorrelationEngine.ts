@@ -284,7 +284,12 @@ function getDriverVendor(driverOrTarget?: string | null): HardwareVendor {
 }
 
 /**
- * Valuta la corrispondenza tecnica tra un guasto dispositivo e un evento Display 4101
+ * Valuta la corrispondenza tecnica tra un guasto dispositivo e un evento Display 4101.
+ * Regola Tranche 8C.1:
+ * DIRECT_MATCH richiede una vera identità hardware condivisa (es. targetContext o payload
+ * contiene il deviceId, device instance path o identificatore hardware univoco).
+ * La sola compatibilità di vendor o nome driver (es. NVIDIA + nvlddmkm, AMD + amdkmdag)
+ * NON è sufficiente per DIRECT_MATCH e produce esclusivamente RELATED_SIGNAL.
  */
 function evaluateGpuMatch(
   dev: DeviceProblemFact,
@@ -299,21 +304,34 @@ function evaluateGpuMatch(
     return { matches: false, isDirectMatch: false };
   }
 
-  // Se entrambi i vendor coincidono (es. NVIDIA dev + nvlddmkm) -> DIRECT_MATCH
-  if (devVendor !== 'unknown' && evVendor !== 'unknown' && devVendor === evVendor) {
-    return { matches: true, isDirectMatch: true };
-  }
-
-  // Riscontro diretto sul targetContext o deviceId
+  // Verifica se esiste una VERA identità hardware condivisa (DIRECT_MATCH)
   if (targetContext) {
     const tLower = targetContext.toLowerCase();
-    if (dev.deviceId.toLowerCase().includes(tLower) || (dev.friendlyName && dev.friendlyName.toLowerCase().includes(tLower))) {
+    const idLower = dev.deviceId.toLowerCase();
+    const nameLower = (dev.friendlyName || '').toLowerCase();
+
+    // Match se targetContext contiene l'identificatore hardware specifico PCI/VEN/DEV
+    if (
+      (tLower.includes('pci\\') || tLower.includes('ven_') || tLower.includes('dev_')) &&
+      (idLower.includes(tLower) || tLower.includes(idLower))
+    ) {
+      return { matches: true, isDirectMatch: true };
+    }
+
+    // Match se targetContext contiene il nome specifico del modello (escludendo generici nomi driver)
+    const genericDrivers = ['nvlddmkm', 'amdkmdag', 'atikmdag', 'igfx', 'display', 'graphics'];
+    if (!genericDrivers.includes(tLower) && nameLower.length > 5 && (tLower.includes(nameLower) || nameLower.includes(tLower))) {
       return { matches: true, isDirectMatch: true };
     }
   }
 
-  // Dispositivo GPU ma senza identificatore driver o contesto specifico per validare lo stesso hardware
-  return { matches: true, isDirectMatch: false };
+  // Compatibilità generica di vendor/driver (es. NVIDIA dev + nvlddmkm) -> solo RELATED_SIGNAL (Regola 8C.1)
+  if (devVendor !== 'unknown' && evVendor !== 'unknown' && devVendor === evVendor) {
+    return { matches: true, isDirectMatch: false };
+  }
+
+  // Dispositivo GPU senza mapping vendor o contesto noto
+  return { matches: false, isDirectMatch: false };
 }
 
 function isStorageDevice(dev: DeviceProblemFact): boolean {
@@ -779,7 +797,7 @@ export function computeDiagnosticCorrelations(
           isTruncated,
           `WHEA ${group.eventId}: ${wheaTypeDesc}`
         ),
-        explanation: `Coincidenza temporale tra eventi hardware WHEA del processore e la presenza di un profilo di undervolt/ottimizzazione della CPU nello stesso sottosistema. Trattasi di evidenze convergenti che suggeriscono una verifica della stabilità delle tensioni, senza presupporre causalità univoca o difetti irreversibili dell'hardware.`,
+        explanation: `Profilo di undervolt presente nel contesto di analisi in coesistenza con eventi hardware WHEA del processore nello stesso sottosistema. Trattasi di evidenze convergenti che suggeriscono una verifica della stabilità delle tensioni, senza presupporre causalità univoca o difetti irreversibili dell'hardware.`,
       });
     } else {
       // Evento WHEA in assenza di profilo di undervolt registrato
@@ -842,46 +860,16 @@ export function computeDiagnosticCorrelations(
         ),
         explanation: `Rilevata evidenza di arresto imprevisto con codice bugcheck ${hexCode} registrato dal kernel. Costituisce evidenza tecnica nativa sul riavvio anomalo senza presupporre una diagnosi di rottura hardware o guasto dell'alimentatore.`,
       });
-    } else if (input.powerStatus?.powerArchitecture === 'desktop_like') {
-      // Architettura desktop fissa (senza batteria ausiliaria)
-      const id = `correlation:system:kernel_power_desktop_context:unclean_shutdown`;
-
-      correlationsMap.set(id, {
-        id,
-        strength: 'WEAK_CONTEXT',
-        affectedArea: 'system',
-        title: 'Riavvio Imprevisto in Architettura Desktop (Kernel-Power 41)',
-        hardwareEvidence: `Architettura di alimentazione desktop (alimentazione da rete, assenza di batteria ausiliaria)`,
-        eventEvidence: formatEventEvidence(
-          group.occurrenceCount,
-          isTruncated,
-          'Kernel-Power 41: arresto anomalo o interruzione alimentazione (bugcheck 0x0)'
-        ),
-        explanation: `Contesto compatibile tra la natura dell'architettura desktop (priva di alimentazione ausiliaria a batteria) e l'evento di arresto improvviso registrato. Trattasi di contesto operativo compatibile e non di una diagnosi di malfunzionamento dell'alimentatore o della scheda madre.`,
-      });
-    } else {
-      // Riavvio imprevisto generico (bugcheck 0)
-      const id = `correlation:system:kernel_power_unclean:general`;
-
-      correlationsMap.set(id, {
-        id,
-        strength: 'WEAK_CONTEXT',
-        affectedArea: 'system',
-        title: 'Registrazione Riavvio Imprevisto di Sistema (Kernel-Power 41)',
-        hardwareEvidence: `Stato operativo di sistema dopo spegnimento non pianificato`,
-        eventEvidence: formatEventEvidence(
-          group.occurrenceCount,
-          isTruncated,
-          'Kernel-Power 41: riavvio improvviso (bugcheck 0x0)'
-        ),
-        explanation: `Evidenza di riavvio non pulito registrata dal kernel Windows. Il dato documenta l'avvenuta interruzione senza attribuire causalità a specifici componenti hardware o all'alimentazione.`,
-      });
     }
+    // Regola Tranche 8C.1: Se bugcheckCode === 0, default operativo è NESSUNA correlazione
+    // (rimossa la generazione automatica di WEAK_CONTEXT per KP41 + desktop_like)
   }
 
   // -------------------------------------------------------------------------
-  // REGOLA 5: WINDOWS SERVICES (EventLog, crash, on_demand)
-  // Nessun problema segnalato per on_demand stopped (es. wuauserv)
+  // REGOLA 5: WINDOWS SERVICES (crash, exit errors, catalog)
+  // Nessun problema segnalato per on_demand stopped (es. wuauserv).
+  // Regola Tranche 8C.1: EventLog stopped + unavailability conseguente NON genera
+  // correlazione circolare DIRECT_MATCH (evitata correlazione tautologica).
   // -------------------------------------------------------------------------
   for (const s of serviceFacts) {
     const isAlwaysRunning = s.operationalModel === 'always_running';
@@ -892,28 +880,7 @@ export function computeDiagnosticCorrelations(
       continue;
     }
 
-    // Caso A: Servizio EventLog non in esecuzione con indisponibilità della diagnostica eventi
-    if (s.serviceName.toLowerCase() === 'eventlog' && s.currentState !== 'running') {
-      const isEventLogUnavailable =
-        input.eventLog?.availability !== 'available' ||
-        Boolean(input.eventLog?.errorDetails);
-
-      if (isEventLogUnavailable) {
-        const id = 'correlation:system:service_eventlog_unavailable:eventlog';
-
-        correlationsMap.set(id, {
-          id,
-          strength: 'DIRECT_MATCH',
-          affectedArea: 'system',
-          title: 'Indisponibilità Servizio Registro Eventi di Windows',
-          hardwareEvidence: `Servizio Windows EventLog in stato ${s.currentState} (tipo avvio: ${s.startType})`,
-          eventEvidence: `Raccolta diagnostica EventLog non disponibile: ${input.eventLog?.errorDetails || 'servizio arrestato'}`,
-          explanation: `Evidenze convergenti sullo stesso sottosistema: riscontro diretto tra l'interruzione del servizio Windows EventLog e l'impossibilità di raccogliere fatti diagnostici dal registro eventi.`,
-        });
-      }
-    }
-
-    // Caso B: Crash o codice di uscita anomalo (win32ExitCode !== 0) su servizio del catalogo
+    // Servizio del catalogo con codice di uscita anomalo o crash (win32ExitCode !== 0)
     if (s.win32ExitCode !== 0) {
       const isCatalog = WINDOWS_SERVICES_CATALOG.some(
         (c) => c.serviceName.toLowerCase() === s.serviceName.toLowerCase()

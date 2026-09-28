@@ -22,9 +22,9 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
   const REF_DATE = '2026-09-28T12:00:00.000Z';
 
   // -------------------------------------------------------------------------
-  // TEST 1: GPU Code 43 + Display 4101 stesso device -> DIRECT_MATCH
+  // TEST 1: GPU Code 43 + Display 4101 vero identity match -> DIRECT_MATCH
   // -------------------------------------------------------------------------
-  it('1. GPU Code 43 + Display 4101 stesso device -> DIRECT_MATCH', () => {
+  it('1. GPU Code 43 + Display 4101 vero identity match -> DIRECT_MATCH', () => {
     const gpuFault: DeviceProblemFact = {
       deviceId: 'PCI\\VEN_10DE&DEV_2684&SUBSYS_169910DE',
       friendlyName: 'NVIDIA GeForce RTX 4090',
@@ -42,7 +42,7 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
       level: 3,
       timestamp: '2026-09-28T10:00:00.000Z',
       recordId: 101,
-      targetContext: 'nvlddmkm',
+      targetContext: 'PCI\\VEN_10DE&DEV_2684&SUBSYS_169910DE',
       payload: {
         type: 'display',
         driverName: 'nvlddmkm',
@@ -65,7 +65,6 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
     expect(directMatch?.hardwareEvidence).toContain('RTX 4090');
     expect(directMatch?.eventEvidence).toContain('Display 4101');
     expect(directMatch?.explanation).toContain('Evidenze convergenti');
-    expect(directMatch?.explanation).toContain('nvlddmkm');
     expect(directMatch?.recommendedActionId).toBe('reinstall-gpu-driver');
   });
 
@@ -244,10 +243,10 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
     expect(wheaCorr?.title).toContain('WHEA-18');
     expect(wheaCorr?.hardwareEvidence).toContain('Daily Undervolt Curve -25');
 
-    // Verifica tassativa: NESSUN linguaggio causale ammesso
+    // Verifica tassativa: NESSUN linguaggio causale ammesso e no falsa coincidenza temporale
     const explanation = wheaCorr!.explanation;
-    expect(explanation).toContain('Coincidenza temporale');
-    expect(explanation).toContain('senza presupporre causalità univoca');
+    expect(explanation).toContain('Profilo di undervolt presente nel contesto di analisi');
+    expect(explanation).not.toContain('coincidenza temporale');
     expect(explanation).not.toContain('ha causato');
     expect(explanation).not.toContain('rotto');
     expect(explanation).not.toContain('guasto');
@@ -289,17 +288,8 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
 
     const correlations = computeDiagnosticCorrelations(input, REF_DATE);
 
-    const kpCorr = correlations.find((c) => c.affectedArea === 'system');
-    expect(kpCorr).toBeDefined();
-    expect(kpCorr?.strength).toBe('WEAK_CONTEXT');
-    expect(kpCorr?.title).toContain('Architettura Desktop');
-
-    // Verifica tassativa: NON deve dire che il PSU è guasto o rotto
-    const text = `${kpCorr?.hardwareEvidence} ${kpCorr?.explanation}`;
-    expect(text).not.toContain('PSU guasto');
-    expect(text).not.toContain('alimentatore guasto');
-    expect(text).not.toContain('alimentatore difettoso');
-    expect(text).toContain('non di una diagnosi di malfunzionamento dell\'alimentatore');
+    // Regola Tranche 8C.1: Nessuna correlazione generata per KP41 + desktop_like con bugcheck 0
+    expect(correlations).toEqual([]);
   });
 
   // -------------------------------------------------------------------------
@@ -368,7 +358,7 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
       operationalModel: 'always_running',
       currentState: 'stopped',
       startType: 'auto',
-      win32ExitCode: 1066,
+      win32ExitCode: 0,
     };
 
     const input: DiagnosticCorrelationInput = {
@@ -387,14 +377,8 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
 
     const correlations = computeDiagnosticCorrelations(input, REF_DATE);
 
-    const eventLogCorr = correlations.find(
-      (c) => c.id === 'correlation:system:service_eventlog_unavailable:eventlog'
-    );
-    expect(eventLogCorr).toBeDefined();
-    expect(eventLogCorr?.strength).toBe('DIRECT_MATCH');
-    expect(eventLogCorr?.affectedArea).toBe('system');
-    expect(eventLogCorr?.hardwareEvidence).toContain('EventLog');
-    expect(eventLogCorr?.eventEvidence).toContain('RPC server unavailable');
+    // Regola Tranche 8C.1: Nessuna correlazione circolare generata
+    expect(correlations).toEqual([]);
   });
 
   // -------------------------------------------------------------------------
@@ -872,6 +856,268 @@ describe('Tranche 8C — Pure Diagnostic Correlation Engine', () => {
       expect(sanitizeEvidenceKey('PCI\\VEN_10DE&DEV_2684')).toBe('pci_ven_10de_dev_2684');
       expect(sanitizeEvidenceKey(null)).toBe('general');
       expect(sanitizeEvidenceKey('')).toBe('general');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // TRANCHE 8C.1 — HARDENING PRECISION TESTS (6 TEST RICHIESTI)
+  // -------------------------------------------------------------------------
+  describe('Tranche 8C.1 — Hardening Precision Tests', () => {
+    // 1. GPU stesso vendor/driver ma device identity diversa -> NON DIRECT_MATCH (RELATED_SIGNAL)
+    it('8C.1-1. GPU stesso vendor/driver ma device identity diversa -> NON DIRECT_MATCH', () => {
+      const gpuFault: DeviceProblemFact = {
+        deviceId: 'PCI\\VEN_10DE&DEV_2684&SUBSYS_169910DE',
+        friendlyName: 'NVIDIA GeForce RTX 4090',
+        problemCode: 43,
+        problemLabel: 'CM_PROB_FAILED_POST',
+        problemDescription: 'Guasto post GPU',
+        statusFlags: 0x400,
+        severity: 'critical',
+      };
+
+      // Driver nvidia generico (nvlddmkm) senza identificatore hardware univoco
+      const displayEvent: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Display',
+        eventId: 4101,
+        level: 3,
+        timestamp: '2026-09-28T10:00:00.000Z',
+        recordId: 101,
+        targetContext: 'nvlddmkm',
+        payload: {
+          type: 'display',
+          driverName: 'nvlddmkm',
+        },
+      };
+
+      const out = computeDiagnosticCorrelations(
+        { deviceFaults: [gpuFault], events: [displayEvent] },
+        REF_DATE
+      );
+
+      // NON deve essere DIRECT_MATCH
+      const direct = out.find((c) => c.strength === 'DIRECT_MATCH');
+      expect(direct).toBeUndefined();
+
+      // Deve essere solo RELATED_SIGNAL (compatibilità vendor/driver)
+      const related = out.find((c) => c.strength === 'RELATED_SIGNAL');
+      expect(related).toBeDefined();
+      expect(related?.affectedArea).toBe('gpu');
+      expect(related?.explanation).toContain('senza riscontro certo dello stesso identificatore driver');
+    });
+
+    // 2. GPU vera identity match -> DIRECT_MATCH
+    it('8C.1-2. GPU vera identity match -> DIRECT_MATCH', () => {
+      const gpuFault: DeviceProblemFact = {
+        deviceId: 'PCI\\VEN_10DE&DEV_2684&SUBSYS_169910DE',
+        friendlyName: 'NVIDIA GeForce RTX 4090',
+        problemCode: 43,
+        problemLabel: 'CM_PROB_FAILED_POST',
+        problemDescription: 'Guasto post GPU',
+        statusFlags: 0x400,
+        severity: 'critical',
+      };
+
+      // Evento con identificatore hardware condiviso nel targetContext
+      const displayEvent: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Display',
+        eventId: 4101,
+        level: 3,
+        timestamp: '2026-09-28T10:00:00.000Z',
+        recordId: 102,
+        targetContext: 'PCI\\VEN_10DE&DEV_2684&SUBSYS_169910DE',
+        payload: {
+          type: 'display',
+          driverName: 'nvlddmkm',
+        },
+      };
+
+      const out = computeDiagnosticCorrelations(
+        { deviceFaults: [gpuFault], events: [displayEvent] },
+        REF_DATE
+      );
+
+      const direct = out.find((c) => c.strength === 'DIRECT_MATCH');
+      expect(direct).toBeDefined();
+      expect(direct?.affectedArea).toBe('gpu');
+      expect(direct?.id).toContain('correlation:gpu:device_driver_match:');
+    });
+
+    // 3. Undervolt profile senza activation timestamp + WHEA storico -> nessuna falsa "coincidenza temporale"
+    it('8C.1-3. Undervolt profile senza activation timestamp + WHEA storico -> nessuna falsa "coincidenza temporale"', () => {
+      const undervoltProfile: TuningProfile = {
+        id: 'tune-profile-1',
+        name: 'Daily UV Curve -30',
+        category: 'cpu',
+        date: '2026-09-15', // Profilo creato giorni prima
+        type: 'cpu_undervolt',
+        parameters: { offsetMv: -30 },
+        stability: 'daily',
+        createdAt: '2026-09-15T12:00:00Z',
+        updatedAt: '2026-09-15T12:00:00Z',
+      };
+
+      const wheaEvent: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Microsoft-Windows-WHEA-Logger',
+        eventId: 18,
+        level: 1,
+        timestamp: '2026-09-28T08:00:00.000Z',
+        recordId: 501,
+      };
+
+      const out = computeDiagnosticCorrelations(
+        { tuningProfiles: [undervoltProfile], events: [wheaEvent] },
+        REF_DATE
+      );
+
+      const corr = out.find((c) => c.affectedArea === 'cpu');
+      expect(corr).toBeDefined();
+      expect(corr?.strength).toBe('RELATED_SIGNAL');
+
+      // Verifica formale: non deve affermare falsa "coincidenza temporale"
+      expect(corr?.explanation).toContain('Profilo di undervolt presente nel contesto di analisi');
+      expect(corr?.explanation).not.toContain('coincidenza temporale');
+      expect(corr?.explanation).not.toContain('ha causato');
+    });
+
+    // 4. Kernel-Power 41 + desktop_like -> nessuna correlation
+    it('8C.1-4. Kernel-Power 41 + desktop_like -> nessuna correlation', () => {
+      const kpEvent: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Microsoft-Windows-Kernel-Power',
+        eventId: 41,
+        level: 1,
+        timestamp: '2026-09-28T09:00:00.000Z',
+        recordId: 601,
+        payload: {
+          type: 'kernelPower',
+          bugcheckCode: 0,
+          powerButtonTimestamp: 0,
+        },
+      };
+
+      const out = computeDiagnosticCorrelations(
+        {
+          events: [kpEvent],
+          powerStatus: {
+            availability: 'available',
+            source: 'GetSystemPowerStatus',
+            acLineStatus: 1,
+            batteryFlag: 128,
+            batteryLifePercent: null,
+            batterySaverActive: false,
+            hasSystemBattery: false,
+            isOnAC: true,
+            isOnBattery: false,
+            powerArchitecture: 'desktop_like',
+          },
+        },
+        REF_DATE
+      );
+
+      // Default: NESSUNA correlazione prodotta
+      expect(out).toEqual([]);
+    });
+
+    // 5. EventLog stopped + unavailable conseguente -> no circular DIRECT_MATCH
+    it('8C.1-5. EventLog stopped + unavailable conseguente -> no circular DIRECT_MATCH', () => {
+      const eventLogService: WindowsServiceNativeFact = {
+        serviceName: 'EventLog',
+        displayName: 'Windows Event Log',
+        operationalModel: 'always_running',
+        currentState: 'stopped',
+        startType: 'auto',
+        win32ExitCode: 0,
+      };
+
+      const out = computeDiagnosticCorrelations(
+        {
+          serviceFacts: [eventLogService],
+          eventLog: {
+            availability: 'unavailable',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 0,
+            truncated: false,
+            events: [],
+            errorDetails: 'Service is stopped',
+          },
+        },
+        REF_DATE
+      );
+
+      // Regola: nessuna correlazione circolare generata
+      expect(out).toEqual([]);
+    });
+
+    // 6. Nessun regression test sulle correlation già valide
+    it('8C.1-6. Nessun regression test sulle correlation già valide (multi-segnale)', () => {
+      const storageFault: DeviceProblemFact = {
+        deviceId: 'SCSI\\Disk&Ven_Samsung&Prod_SSD_990_PRO_Harddisk0',
+        friendlyName: 'Samsung SSD 990 PRO 2TB (Harddisk0)',
+        problemCode: 10,
+        problemLabel: 'CM_PROB_FAILED_START',
+        problemDescription: 'Errore controller',
+        statusFlags: 0x200,
+        severity: 'warning',
+      };
+
+      const disk7: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'disk',
+        eventId: 7,
+        level: 2,
+        timestamp: '2026-09-28T09:30:00.000Z',
+        recordId: 701,
+        targetContext: '\\Device\\Harddisk0\\DR0',
+      };
+
+      const kpCrash: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Microsoft-Windows-Kernel-Power',
+        eventId: 41,
+        level: 1,
+        timestamp: '2026-09-28T07:00:00.000Z',
+        recordId: 702,
+        payload: {
+          type: 'kernelPower',
+          bugcheckCode: 0x00000124,
+          powerButtonTimestamp: 0,
+        },
+      };
+
+      const serviceCrash: WindowsServiceNativeFact = {
+        serviceName: 'Winmgmt',
+        displayName: 'WMI Service',
+        operationalModel: 'always_running',
+        currentState: 'stopped',
+        startType: 'auto',
+        win32ExitCode: 1067,
+      };
+
+      const out = computeDiagnosticCorrelations(
+        {
+          deviceFaults: [storageFault],
+          events: [disk7, kpCrash],
+          serviceFacts: [serviceCrash],
+        },
+        REF_DATE
+      );
+
+      expect(out.length).toBe(3);
+
+      const storageCorr = out.find((c) => c.affectedArea === 'storage');
+      expect(storageCorr?.strength).toBe('DIRECT_MATCH');
+
+      const serviceCorr = out.find((c) => c.id.includes('service_exit_error'));
+      expect(serviceCorr?.strength).toBe('DIRECT_MATCH');
+
+      const kpCorr = out.find((c) => c.id.includes('kernel_power_bugcheck'));
+      expect(kpCorr?.strength).toBe('RELATED_SIGNAL');
+      expect(kpCorr?.hardwareEvidence).toContain('0x124');
     });
   });
 });
