@@ -2,9 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   mapProblemCode,
   evaluateCommitPressure,
+  applyEventCapAndSentinel,
   MemoryCommitSnapshot,
   PowerStatusSnapshot,
   DeviceProblemsFact,
+  EventLogNativeFact,
+  EventLogDiagnosticsSnapshot,
   SystemDiagnosticsSnapshot,
 } from '../../types/diagnostics';
 import {
@@ -232,7 +235,271 @@ describe('Tranche 7A — Native Facts & Contracts Verification', () => {
       expect(snapshot.deviceProblems.availability).toBe('unsupported');
       expect(snapshot.memoryCommit.availability).toBe('unsupported');
       expect(snapshot.powerStatus.availability).toBe('unsupported');
+      expect(snapshot.eventLog?.availability).toBe('unsupported');
+      expect(snapshot.eventLog?.source).toBe('Wevtapi_SystemLog');
+      expect(snapshot.eventLog?.queryTimeWindowHours).toBe(168);
+      expect(snapshot.eventLog?.maxEventsCap).toBe(50);
+      expect(snapshot.eventLog?.returnedEventCount).toBe(0);
+      expect(snapshot.eventLog?.truncated).toBe(false);
+      expect(snapshot.eventLog?.events).toHaveLength(0);
       expect(UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT.powerStatus.powerArchitecture).toBe('unknown');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // E. NATIVE EVENT LOG FACTS (TRANCHE 8A)
+  // -------------------------------------------------------------------------
+  describe('E. Native Event Log Facts & Capping (Tranche 8A)', () => {
+    it('A. 0 events produces returnedEventCount=0 and truncated=false', () => {
+      const result = applyEventCapAndSentinel([], false, 50);
+      expect(result.returnedEventCount).toBe(0);
+      expect(result.truncated).toBe(false);
+      expect(result.events).toHaveLength(0);
+    });
+
+    it('B. 49 events produces returnedEventCount=49 and truncated=false', () => {
+      const mockEvents = Array.from({ length: 49 }, (_, i) => ({ id: i }));
+      const result = applyEventCapAndSentinel(mockEvents, false, 50);
+      expect(result.returnedEventCount).toBe(49);
+      expect(result.truncated).toBe(false);
+      expect(result.events).toHaveLength(49);
+    });
+
+    it('C. Exactly 50 events without sentinel produces returnedEventCount=50 and truncated=false', () => {
+      const mockEvents = Array.from({ length: 50 }, (_, i) => ({ id: i }));
+      const result = applyEventCapAndSentinel(mockEvents, false, 50);
+      expect(result.returnedEventCount).toBe(50);
+      expect(result.truncated).toBe(false);
+      expect(result.events).toHaveLength(50);
+    });
+
+    it('D. 50 events with positive sentinel probe (51+ in log) produces returnedEventCount=50 and truncated=true', () => {
+      const mockEvents = Array.from({ length: 50 }, (_, i) => ({ id: i }));
+      const result = applyEventCapAndSentinel(mockEvents, true, 50);
+      expect(result.returnedEventCount).toBe(50);
+      expect(result.truncated).toBe(true);
+      expect(result.events).toHaveLength(50);
+    });
+
+    it('E. 55 events collected with sentinel caps to 50 and truncated=true', () => {
+      const mockEvents = Array.from({ length: 55 }, (_, i) => ({ id: i }));
+      const result = applyEventCapAndSentinel(mockEvents, true, 50);
+      expect(result.returnedEventCount).toBe(50);
+      expect(result.truncated).toBe(true);
+      expect(result.events).toHaveLength(50);
+    });
+
+    it('F. disk 7 and disk 51 are preserved as distinct events without collapsing', () => {
+      const fact7: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'disk',
+        eventId: 7,
+        level: 2,
+        timestamp: '2026-09-20T10:00:00Z',
+        recordId: 100,
+        targetContext: '\\Device\\Harddisk0\\DR0',
+        payload: {
+          type: 'disk',
+          deviceName: '\\Device\\Harddisk0\\DR0',
+          ioStatus: '0xC000000E',
+        },
+      };
+
+      const fact51: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'disk',
+        eventId: 51,
+        level: 3,
+        timestamp: '2026-09-20T10:05:00Z',
+        recordId: 101,
+        targetContext: '\\Device\\Harddisk0\\DR0',
+        payload: {
+          type: 'disk',
+          deviceName: '\\Device\\Harddisk0\\DR0',
+          ioStatus: '0xC000009C',
+        },
+      };
+
+      expect(fact7.eventId).toBe(7);
+      expect(fact51.eventId).toBe(51);
+      expect(fact7.eventId).not.toBe(fact51.eventId);
+      expect(fact7.targetContext).toBe(fact51.targetContext);
+    });
+
+    it('G. disk 11 preserves controller error context without assuming disk failure', () => {
+      const fact11: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'disk',
+        eventId: 11,
+        level: 2,
+        timestamp: '2026-09-21T08:00:00Z',
+        recordId: 102,
+        targetContext: '\\Device\\Harddisk1\\DR1',
+        payload: {
+          type: 'disk',
+          deviceName: '\\Device\\Harddisk1\\DR1',
+          ioStatus: '0xC000000E',
+        },
+      };
+
+      expect(fact11.eventId).toBe(11);
+      expect(fact11.targetContext).toBe('\\Device\\Harddisk1\\DR1');
+      expect((fact11 as any).severity).toBeUndefined();
+      expect((fact11 as any).classificationCategory).toBeUndefined();
+      expect(fact11.payload?.type).toBe('disk');
+    });
+
+    it('H. NTFS 55 and 98 are preserved as distinct native facts', () => {
+      const fact55: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Ntfs',
+        eventId: 55,
+        level: 2,
+        timestamp: '2026-09-22T09:00:00Z',
+        recordId: 103,
+        targetContext: 'C:',
+        payload: {
+          type: 'ntfs',
+          volumeName: 'C:',
+          repairHint: 'Corruption',
+        },
+      };
+
+      const fact98: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Ntfs',
+        eventId: 98,
+        level: 3,
+        timestamp: '2026-09-22T09:30:00Z',
+        recordId: 104,
+        targetContext: 'D:',
+        payload: {
+          type: 'ntfs',
+          volumeName: 'D:',
+          repairHint: 'Online spot fix required',
+        },
+      };
+
+      expect(fact55.eventId).toBe(55);
+      expect(fact98.eventId).toBe(98);
+      expect(fact55.eventId).not.toBe(fact98.eventId);
+      expect(fact55.targetContext).toBe('C:');
+      expect(fact98.targetContext).toBe('D:');
+    });
+
+    it('I. Kernel-Power 41 preserves BugcheckCode and PowerButtonTimestamp when present', () => {
+      const fact41: EventLogNativeFact = {
+        channel: 'System',
+        provider: 'Microsoft-Windows-Kernel-Power',
+        eventId: 41,
+        level: 1,
+        timestamp: '2026-09-23T11:00:00Z',
+        recordId: 105,
+        payload: {
+          type: 'kernelPower',
+          bugcheckCode: 159,
+          bugcheckParameter1: '0x3',
+          powerButtonTimestamp: 13370000000,
+          sleepInProgress: 0,
+          connectedStandbyInProgress: false,
+        },
+      };
+
+      expect(fact41.eventId).toBe(41);
+      expect(fact41.payload?.type).toBe('kernelPower');
+      if (fact41.payload?.type === 'kernelPower') {
+        expect(fact41.payload.bugcheckCode).toBe(159);
+        expect(fact41.payload.powerButtonTimestamp).toBe(13370000000);
+        expect(fact41.payload.connectedStandbyInProgress).toBe(false);
+      }
+    });
+
+    it('J. WHEA 17/18/19/47 are distinguished by Event ID and structured data', () => {
+      const wheaEvents: EventLogNativeFact[] = [
+        {
+          channel: 'System',
+          provider: 'Microsoft-Windows-WHEA-Logger',
+          eventId: 17,
+          level: 3,
+          timestamp: '2026-09-24T12:00:00Z',
+          recordId: 106,
+          payload: { type: 'whea', errorSource: 4 },
+        },
+        {
+          channel: 'System',
+          provider: 'Microsoft-Windows-WHEA-Logger',
+          eventId: 18,
+          level: 1,
+          timestamp: '2026-09-24T12:10:00Z',
+          recordId: 107,
+          payload: { type: 'whea', errorSource: 3, mcaBank: 2 },
+        },
+        {
+          channel: 'System',
+          provider: 'Microsoft-Windows-WHEA-Logger',
+          eventId: 19,
+          level: 3,
+          timestamp: '2026-09-24T12:20:00Z',
+          recordId: 108,
+          payload: { type: 'whea', errorSource: 3, mcaBank: 0 },
+        },
+        {
+          channel: 'System',
+          provider: 'Microsoft-Windows-WHEA-Logger',
+          eventId: 47,
+          level: 3,
+          timestamp: '2026-09-24T12:30:00Z',
+          recordId: 109,
+          payload: { type: 'whea', errorSource: 5 },
+        },
+      ];
+
+      const ids = wheaEvents.map((e) => e.eventId);
+      expect(ids).toEqual([17, 18, 19, 47]);
+      expect(wheaEvents[1].level).toBe(1); // Uncorrected MCE is Level 1 (Critical)
+      expect(wheaEvents[0].level).toBe(3); // Corrected PCIe is Level 3 (Warning)
+    });
+
+    it('K. Fallback availability handles channel unavailable or unsupported', () => {
+      const unavailableSnap: EventLogDiagnosticsSnapshot = {
+        availability: 'unavailable',
+        source: 'Wevtapi_SystemLog',
+        queryTimeWindowHours: 168,
+        maxEventsCap: 50,
+        returnedEventCount: 0,
+        truncated: false,
+        events: [],
+        errorDetails: 'Accesso negato al registro eventi System',
+      };
+
+      expect(unavailableSnap.availability).toBe('unavailable');
+      expect(unavailableSnap.returnedEventCount).toBe(0);
+      expect(unavailableSnap.errorDetails).toContain('negato');
+    });
+
+    it('L. Rendering failure on one event does not crash snapshot', () => {
+      const snapWithSingleValid: EventLogDiagnosticsSnapshot = {
+        availability: 'available',
+        source: 'Wevtapi_SystemLog',
+        queryTimeWindowHours: 168,
+        maxEventsCap: 50,
+        returnedEventCount: 1,
+        truncated: false,
+        events: [
+          {
+            channel: 'System',
+            provider: 'disk',
+            eventId: 7,
+            level: 2,
+            timestamp: '2026-09-25T14:00:00Z',
+            recordId: 200,
+            targetContext: '\\Device\\Harddisk0\\DR0',
+          },
+        ],
+      };
+
+      expect(snapWithSingleValid.availability).toBe('available');
+      expect(snapWithSingleValid.events).toHaveLength(1);
     });
   });
 });

@@ -49,6 +49,16 @@ export const UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT: SystemDiagnosticsSnapshot = {
     powerArchitecture: 'unknown',
     errorDetails: 'Power status architecture facts require Windows desktop application environment.',
   },
+  eventLog: {
+    availability: 'unsupported',
+    source: 'Wevtapi_SystemLog',
+    queryTimeWindowHours: 168,
+    maxEventsCap: 50,
+    returnedEventCount: 0,
+    truncated: false,
+    events: [],
+    errorDetails: 'Event Log diagnostics require Windows desktop application environment.',
+  },
   collectionDurationMs: 0,
 };
 
@@ -57,6 +67,7 @@ export const UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT: SystemDiagnosticsSnapshot = {
  * 1. Device & Driver Problem Status (CM_Get_DevNode_Status)
  * 2. Memory Commit & Physical RAM (GetPerformanceInfo)
  * 3. Power Architecture & Battery State (GetSystemPowerStatus)
+ * 4. Native Event Log Facts (Wevtapi_SystemLog)
  */
 export async function getSystemDiagnosticsSnapshot(): Promise<SystemDiagnosticsSnapshot> {
   if (isDesktopApp()) {
@@ -85,6 +96,16 @@ export async function getSystemDiagnosticsSnapshot(): Promise<SystemDiagnosticsS
         powerStatus: {
           ...UNSUPPORTED_WEB_DIAGNOSTICS_SNAPSHOT.powerStatus,
           availability: 'error',
+          errorDetails: (err as Error)?.message || 'Tauri invoke failed',
+        },
+        eventLog: {
+          availability: 'error',
+          source: 'Wevtapi_SystemLog',
+          queryTimeWindowHours: 168,
+          maxEventsCap: 50,
+          returnedEventCount: 0,
+          truncated: false,
+          events: [],
           errorDetails: (err as Error)?.message || 'Tauri invoke failed',
         },
       };

@@ -64,6 +64,76 @@ pub struct PowerStatusSnapshot {
     pub error_details: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// CONTRATTI DATI (FACTS NATIVI TRANCHE 8A — EVENT LOG)
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum EventPayload {
+    #[serde(rename = "kernelPower")]
+    KernelPower {
+        bugcheck_code: u64,
+        bugcheck_parameter1: Option<String>,
+        power_button_timestamp: u64,
+        sleep_in_progress: Option<u32>,
+        connected_standby_in_progress: Option<bool>,
+    },
+    #[serde(rename = "whea")]
+    Whea {
+        error_source: Option<u32>,
+        mca_bank: Option<u32>,
+        mca_status: Option<String>,
+        error_type: Option<u32>,
+        raw_data_length: Option<usize>,
+    },
+    #[serde(rename = "disk")]
+    Disk {
+        device_name: Option<String>,
+        io_status: Option<String>,
+    },
+    #[serde(rename = "ntfs")]
+    Ntfs {
+        volume_id: Option<String>,
+        volume_name: Option<String>,
+        repair_hint: Option<String>,
+    },
+    #[serde(rename = "display")]
+    Display {
+        driver_name: Option<String>,
+    },
+    #[serde(rename = "generic")]
+    Generic {
+        data_summary: Option<String>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EventLogNativeFact {
+    pub channel: String,
+    pub provider: String,
+    pub event_id: u32,
+    pub level: u32,
+    pub timestamp: String,
+    pub record_id: u64,
+    pub target_context: Option<String>,
+    pub payload: Option<EventPayload>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EventLogDiagnosticsSnapshot {
+    pub availability: String, // "available" | "unavailable" | "unsupported" | "error"
+    pub source: String,       // "Wevtapi_SystemLog"
+    pub query_time_window_hours: u32,
+    pub max_events_cap: u32,
+    pub returned_event_count: u32,
+    pub truncated: bool,
+    pub events: Vec<EventLogNativeFact>,
+    pub error_details: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemDiagnosticsSnapshot {
@@ -72,6 +142,7 @@ pub struct SystemDiagnosticsSnapshot {
     pub device_problems: DeviceProblemsFact,
     pub memory_commit: MemoryCommitSnapshot,
     pub power_status: PowerStatusSnapshot,
+    pub event_log: EventLogDiagnosticsSnapshot,
     pub collection_duration_ms: u64,
 }
 
@@ -336,11 +407,263 @@ pub fn calculate_power_status(
 }
 
 // ---------------------------------------------------------------------------
+// FUNZIONI PURE DI PARSING & CAPPING EVENT LOG (TRANCHE 8A)
+// ---------------------------------------------------------------------------
+
+pub fn extract_xml_tag(xml: &str, tag: &str) -> Option<String> {
+    let start_pat1 = format!("<{}>", tag);
+    let start_pat2 = format!("<{} ", tag);
+    let end_pat = format!("</{}>", tag);
+
+    let val_start = if let Some(p) = xml.find(&start_pat1) {
+        p + start_pat1.len()
+    } else if let Some(p) = xml.find(&start_pat2) {
+        let rest = &xml[p + start_pat2.len()..];
+        let close_angle = rest.find('>')?;
+        p + start_pat2.len() + close_angle + 1
+    } else {
+        return None;
+    };
+
+    let val_end = xml[val_start..].find(&end_pat)? + val_start;
+    Some(xml[val_start..val_end].trim().to_string())
+}
+
+pub fn extract_xml_attr(xml: &str, tag: &str, attr: &str) -> Option<String> {
+    let tag_pat = format!("<{}", tag);
+    let tag_pos = xml.find(&tag_pat)?;
+    let tag_rest = &xml[tag_pos..];
+    let tag_end = tag_rest.find('>')?;
+    let header = &tag_rest[..tag_end];
+
+    let attr_double = format!("{}=\"", attr);
+    let attr_single = format!("{}='", attr);
+
+    if let Some(p) = header.find(&attr_double) {
+        let val_start = p + attr_double.len();
+        let val_end = header[val_start..].find('"')? + val_start;
+        Some(header[val_start..val_end].trim().to_string())
+    } else if let Some(p) = header.find(&attr_single) {
+        let val_start = p + attr_single.len();
+        let val_end = header[val_start..].find('\'')? + val_start;
+        Some(header[val_start..val_end].trim().to_string())
+    } else {
+        None
+    }
+}
+
+pub fn extract_data_named(xml: &str, name: &str) -> Option<String> {
+    let pat_double = format!("Name=\"{}\"", name);
+    let pat_single = format!("Name='{}'", name);
+
+    let name_pos = if let Some(p) = xml.find(&pat_double) {
+        p + pat_double.len()
+    } else if let Some(p) = xml.find(&pat_single) {
+        p + pat_single.len()
+    } else {
+        return None;
+    };
+
+    let rest = &xml[name_pos..];
+    let angle_pos = rest.find('>')?;
+    let val_start = name_pos + angle_pos + 1;
+    let end_pat = "</Data>";
+    let end_pos = xml[val_start..].find(end_pat)? + val_start;
+    Some(xml[val_start..end_pos].trim().to_string())
+}
+
+pub fn extract_first_data(xml: &str) -> Option<String> {
+    let start_pat = "<Data";
+    let start_pos = xml.find(start_pat)?;
+    let rest = &xml[start_pos..];
+    let angle_pos = rest.find('>')?;
+    let val_start = start_pos + angle_pos + 1;
+    let end_pat = "</Data>";
+    let end_pos = xml[val_start..].find(end_pat)? + val_start;
+    let val = xml[val_start..end_pos].trim().to_string();
+    if val.is_empty() {
+        None
+    } else {
+        Some(val)
+    }
+}
+
+pub fn parse_event_payload(
+    provider: &str,
+    event_id: u32,
+    xml: &str,
+) -> (Option<String>, Option<EventPayload>) {
+    if provider == "Microsoft-Windows-Kernel-Power" && event_id == 41 {
+        let bugcheck_code_str = extract_data_named(xml, "BugcheckCode").unwrap_or_default();
+        let bugcheck_code = if bugcheck_code_str.starts_with("0x") || bugcheck_code_str.starts_with("0X") {
+            u64::from_str_radix(&bugcheck_code_str[2..], 16).unwrap_or(0)
+        } else {
+            bugcheck_code_str.parse::<u64>().unwrap_or(0)
+        };
+
+        let bugcheck_parameter1 = extract_data_named(xml, "BugcheckParameter1");
+        let power_button_timestamp = extract_data_named(xml, "PowerButtonTimestamp")
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+        let sleep_in_progress = extract_data_named(xml, "SleepInProgress")
+            .and_then(|s| s.parse::<u32>().ok());
+        let connected_standby_in_progress = extract_data_named(xml, "ConnectedStandbyInProgress")
+            .map(|s| s.eq_ignore_ascii_case("true") || s == "1");
+
+        (
+            None,
+            Some(EventPayload::KernelPower {
+                bugcheck_code,
+                bugcheck_parameter1,
+                power_button_timestamp,
+                sleep_in_progress,
+                connected_standby_in_progress,
+            }),
+        )
+    } else if provider == "Microsoft-Windows-WHEA-Logger" {
+        let error_source = extract_data_named(xml, "ErrorSource")
+            .and_then(|s| s.parse::<u32>().ok());
+        let mca_bank = extract_data_named(xml, "MCABank")
+            .and_then(|s| s.parse::<u32>().ok());
+        let mca_status = extract_data_named(xml, "MCAStatus")
+            .or_else(|| extract_data_named(xml, "Status"));
+        let error_type = extract_data_named(xml, "ErrorType")
+            .and_then(|s| s.parse::<u32>().ok());
+        let raw_data_length = extract_data_named(xml, "RawData").map(|s| s.len());
+
+        let target_context = extract_data_named(xml, "Device")
+            .or_else(|| extract_data_named(xml, "DeviceName"));
+
+        (
+            target_context,
+            Some(EventPayload::Whea {
+                error_source,
+                mca_bank,
+                mca_status,
+                error_type,
+                raw_data_length,
+            }),
+        )
+    } else if provider == "disk" {
+        // disk 7 = bad block, disk 11 = controller error, disk 51 = paging / IO error
+        let device_name = extract_data_named(xml, "Device")
+            .or_else(|| extract_data_named(xml, "DeviceName"))
+            .or_else(|| extract_data_named(xml, "DeviceObject"))
+            .or_else(|| extract_first_data(xml));
+
+        let io_status = extract_data_named(xml, "Status")
+            .or_else(|| extract_data_named(xml, "IOStatus"));
+
+        let target_context = device_name.clone();
+
+        (
+            target_context,
+            Some(EventPayload::Disk {
+                device_name,
+                io_status,
+            }),
+        )
+    } else if provider == "Ntfs" {
+        // Ntfs 55 = corruption offline repair, Ntfs 98 = online spot fix
+        let volume_id = extract_data_named(xml, "VolumeId")
+            .or_else(|| extract_data_named(xml, "VolumeGuid"));
+        let volume_name = extract_data_named(xml, "VolumeName")
+            .or_else(|| extract_data_named(xml, "DriveName"));
+        let repair_hint = extract_data_named(xml, "RepairHint")
+            .or_else(|| extract_data_named(xml, "Description"));
+
+        let target_context = volume_name.clone().or_else(|| volume_id.clone());
+
+        (
+            target_context,
+            Some(EventPayload::Ntfs {
+                volume_id,
+                volume_name,
+                repair_hint,
+            }),
+        )
+    } else if provider == "Display" {
+        // Display 4101 = display driver stopped responding
+        let driver_name = extract_data_named(xml, "Driver")
+            .or_else(|| extract_data_named(xml, "DriverName"))
+            .or_else(|| extract_first_data(xml));
+
+        let target_context = driver_name.clone();
+
+        (
+            target_context,
+            Some(EventPayload::Display { driver_name }),
+        )
+    } else {
+        (None, None)
+    }
+}
+
+pub fn parse_event_xml(xml: &str) -> Option<EventLogNativeFact> {
+    let provider = extract_xml_attr(xml, "Provider", "Name")
+        .or_else(|| extract_xml_tag(xml, "Provider"))?;
+    let event_id_str = extract_xml_tag(xml, "EventID")?;
+    let event_id: u32 = event_id_str.parse().ok()?;
+    let level: u32 = extract_xml_tag(xml, "Level").and_then(|s| s.parse().ok()).unwrap_or(4);
+    let timestamp = extract_xml_attr(xml, "TimeCreated", "SystemTime")
+        .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string());
+    let record_id: u64 = extract_xml_tag(xml, "EventRecordID")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    let channel = extract_xml_tag(xml, "Channel").unwrap_or_else(|| "System".to_string());
+
+    let (target_context, payload) = parse_event_payload(&provider, event_id, xml);
+
+    Some(EventLogNativeFact {
+        channel,
+        provider,
+        event_id,
+        level,
+        timestamp,
+        record_id,
+        target_context,
+        payload,
+    })
+}
+
+pub fn apply_event_cap_and_sentinel<T>(
+    mut collected: Vec<T>,
+    has_sentinel: bool,
+    max_cap: usize,
+) -> (Vec<T>, u32, bool) {
+    if collected.len() > max_cap {
+        collected.truncate(max_cap);
+        let count = collected.len() as u32;
+        (collected, count, true)
+    } else if collected.len() == max_cap && has_sentinel {
+        let count = collected.len() as u32;
+        (collected, count, true)
+    } else {
+        let count = collected.len() as u32;
+        (collected, count, false)
+    }
+}
+
+pub fn build_event_log_xpath_query(time_window_hours: u32) -> String {
+    let window_ms = (time_window_hours as u64).saturating_mul(3600 * 1000);
+    format!(
+        "*[System[(\
+            (Provider[@Name='Microsoft-Windows-WHEA-Logger'] and (EventID=17 or EventID=18 or EventID=19 or EventID=47)) or \
+            (Provider[@Name='Microsoft-Windows-Kernel-Power'] and (EventID=41)) or \
+            (Provider[@Name='disk'] and (EventID=7 or EventID=11 or EventID=51)) or \
+            (Provider[@Name='Ntfs'] and (EventID=55 or EventID=98)) or \
+            (Provider[@Name='Display'] and (EventID=4101))\
+        ) and TimeCreated[timediff(@SystemTime) <= {}]]]",
+        window_ms
+    )
+}
+
+// ---------------------------------------------------------------------------
 // IMPLEMENTAZIONE WINDOWS NATIVA
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]
-mod windows_impl {
+pub mod windows_impl {
     use super::*;
     use std::collections::HashSet;
     use std::ffi::c_void;
@@ -747,6 +1070,206 @@ mod windows_impl {
             }
         }
     }
+
+    #[derive(Debug, Clone, Copy, Default)]
+    pub struct EventLogTimings {
+        pub query_duration_us: u64,
+        pub parse_duration_us: u64,
+        pub total_duration_us: u64,
+    }
+
+    pub fn query_event_log_measured(
+        time_window_hours: u32,
+        max_cap: u32,
+    ) -> (EventLogDiagnosticsSnapshot, EventLogTimings) {
+        type EvtHandle = *mut c_void;
+        type EvtQueryFn = unsafe extern "system" fn(EvtHandle, *const u16, *const u16, u32) -> EvtHandle;
+        type EvtNextFn = unsafe extern "system" fn(EvtHandle, u32, *mut EvtHandle, u32, u32, *mut u32) -> i32;
+        type EvtRenderFn = unsafe extern "system" fn(EvtHandle, EvtHandle, u32, u32, *mut c_void, *mut u32, *mut u32) -> i32;
+        type EvtCloseFn = unsafe extern "system" fn(EvtHandle) -> i32;
+
+        let total_start = Instant::now();
+        let mut timings = EventLogTimings::default();
+
+        unsafe {
+            let wevtapi = LoadLibraryA(b"wevtapi.dll\0".as_ptr() as *const i8);
+            if wevtapi.is_null() {
+                timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+                return (
+                    EventLogDiagnosticsSnapshot {
+                        availability: "unsupported".to_string(),
+                        source: "Wevtapi_SystemLog".to_string(),
+                        query_time_window_hours: time_window_hours,
+                        max_events_cap: max_cap,
+                        returned_event_count: 0,
+                        truncated: false,
+                        events: Vec::new(),
+                        error_details: Some("Caricamento di wevtapi.dll fallito".to_string()),
+                    },
+                    timings,
+                );
+            }
+
+            let p_query = GetProcAddress(wevtapi, b"EvtQuery\0".as_ptr() as *const i8);
+            let p_next = GetProcAddress(wevtapi, b"EvtNext\0".as_ptr() as *const i8);
+            let p_render = GetProcAddress(wevtapi, b"EvtRender\0".as_ptr() as *const i8);
+            let p_close = GetProcAddress(wevtapi, b"EvtClose\0".as_ptr() as *const i8);
+
+            if p_query.is_null() || p_next.is_null() || p_render.is_null() || p_close.is_null() {
+                FreeLibrary(wevtapi);
+                timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+                return (
+                    EventLogDiagnosticsSnapshot {
+                        availability: "unsupported".to_string(),
+                        source: "Wevtapi_SystemLog".to_string(),
+                        query_time_window_hours: time_window_hours,
+                        max_events_cap: max_cap,
+                        returned_event_count: 0,
+                        truncated: false,
+                        events: Vec::new(),
+                        error_details: Some("Punti di ingresso wevtapi.dll essenziali mancanti".to_string()),
+                    },
+                    timings,
+                );
+            }
+
+            let fn_query: EvtQueryFn = std::mem::transmute(p_query);
+            let fn_next: EvtNextFn = std::mem::transmute(p_next);
+            let fn_render: EvtRenderFn = std::mem::transmute(p_render);
+            let fn_close: EvtCloseFn = std::mem::transmute(p_close);
+
+            let channel_w: Vec<u16> = "System\0".encode_utf16().collect();
+            let xpath_str = build_event_log_xpath_query(time_window_hours);
+            let mut xpath_w: Vec<u16> = xpath_str.encode_utf16().collect();
+            xpath_w.push(0);
+
+            let query_start = Instant::now();
+            // EvtQueryChannelPath (0x1) | EvtQueryReverseDirection (0x200)
+            let flags = 0x0001 | 0x0200;
+            let h_query = fn_query(null_mut(), channel_w.as_ptr(), xpath_w.as_ptr(), flags);
+
+            if h_query.is_null() {
+                FreeLibrary(wevtapi);
+                timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+                return (
+                    EventLogDiagnosticsSnapshot {
+                        availability: "unavailable".to_string(),
+                        source: "Wevtapi_SystemLog".to_string(),
+                        query_time_window_hours: time_window_hours,
+                        max_events_cap: max_cap,
+                        returned_event_count: 0,
+                        truncated: false,
+                        events: Vec::new(),
+                        error_details: Some("EvtQuery ha restituito handle nullo per il canale System".to_string()),
+                    },
+                    timings,
+                );
+            }
+
+            let cap = max_cap as usize;
+            let mut handles: Vec<EvtHandle> = vec![null_mut(); cap];
+            let mut returned_count: u32 = 0;
+
+            let next_ok = fn_next(h_query, max_cap, handles.as_mut_ptr(), 1000, 0, &mut returned_count);
+            let actual_returned = if next_ok != 0 { returned_count as usize } else { 0 };
+
+            // Sentinel probe se sono stati restituiti esattamente max_cap eventi
+            let has_sentinel = if actual_returned == cap {
+                let mut sentinel_h: EvtHandle = null_mut();
+                let mut sentinel_ret: u32 = 0;
+                let s_ok = fn_next(h_query, 1, &mut sentinel_h, 0, 0, &mut sentinel_ret);
+                if s_ok != 0 && sentinel_ret > 0 && !sentinel_h.is_null() {
+                    fn_close(sentinel_h);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            timings.query_duration_us = query_start.elapsed().as_micros() as u64;
+
+            let parse_start = Instant::now();
+            let mut events: Vec<EventLogNativeFact> = Vec::with_capacity(actual_returned);
+            let mut render_buf: Vec<u16> = vec![0u16; 4096];
+
+            for i in 0..actual_returned {
+                let h_event = handles[i];
+                if h_event.is_null() {
+                    continue;
+                }
+
+                let mut buffer_used = 0u32;
+                let mut prop_count = 0u32;
+                let mut ok = fn_render(
+                    null_mut(),
+                    h_event,
+                    1, // EvtRenderEventXml
+                    (render_buf.len() * 2) as u32,
+                    render_buf.as_mut_ptr() as *mut c_void,
+                    &mut buffer_used,
+                    &mut prop_count,
+                );
+
+                if ok == 0 && buffer_used > (render_buf.len() * 2) as u32 {
+                    let needed_words = ((buffer_used as usize) / 2) + 2;
+                    render_buf.resize(needed_words, 0);
+                    ok = fn_render(
+                        null_mut(),
+                        h_event,
+                        1,
+                        (render_buf.len() * 2) as u32,
+                        render_buf.as_mut_ptr() as *mut c_void,
+                        &mut buffer_used,
+                        &mut prop_count,
+                    );
+                }
+
+                if ok != 0 && buffer_used > 1 {
+                    let words = (buffer_used as usize) / 2;
+                    let slice = if words > 0 && render_buf[words - 1] == 0 {
+                        &render_buf[..words - 1]
+                    } else {
+                        &render_buf[..words]
+                    };
+                    let xml = String::from_utf16_lossy(slice);
+                    if let Some(fact) = parse_event_xml(&xml) {
+                        events.push(fact);
+                    }
+                }
+
+                fn_close(h_event);
+            }
+
+            fn_close(h_query);
+            FreeLibrary(wevtapi);
+
+            timings.parse_duration_us = parse_start.elapsed().as_micros() as u64;
+            timings.total_duration_us = total_start.elapsed().as_micros() as u64;
+
+            let (capped_events, final_count, truncated) =
+                apply_event_cap_and_sentinel(events, has_sentinel, cap);
+
+            (
+                EventLogDiagnosticsSnapshot {
+                    availability: "available".to_string(),
+                    source: "Wevtapi_SystemLog".to_string(),
+                    query_time_window_hours: time_window_hours,
+                    max_events_cap: max_cap,
+                    returned_event_count: final_count,
+                    truncated,
+                    events: capped_events,
+                    error_details: None,
+                },
+                timings,
+            )
+        }
+    }
+
+    pub fn query_event_log(time_window_hours: u32, max_cap: u32) -> EventLogDiagnosticsSnapshot {
+        query_event_log_measured(time_window_hours, max_cap).0
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -754,7 +1277,7 @@ mod windows_impl {
 // ---------------------------------------------------------------------------
 
 #[cfg(not(target_os = "windows"))]
-mod non_windows_impl {
+pub mod non_windows_impl {
     use super::*;
 
     pub fn query_power_status() -> PowerStatusSnapshot {
@@ -803,6 +1326,19 @@ mod non_windows_impl {
             error_details: Some("Device fault diagnostics require Windows Configuration Manager".to_string()),
         }
     }
+
+    pub fn query_event_log(time_window_hours: u32, max_cap: u32) -> EventLogDiagnosticsSnapshot {
+        EventLogDiagnosticsSnapshot {
+            availability: "unsupported".to_string(),
+            source: "Wevtapi_SystemLog".to_string(),
+            query_time_window_hours: time_window_hours,
+            max_events_cap: max_cap,
+            returned_event_count: 0,
+            truncated: false,
+            events: Vec::new(),
+            error_details: Some("Event Log diagnostics require Windows desktop OS".to_string()),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -814,28 +1350,32 @@ pub fn get_system_diagnostics_snapshot() -> SystemDiagnosticsSnapshot {
     let start = Instant::now();
 
     #[cfg(target_os = "windows")]
-    let (dev, mem, pwr) = (
+    let (dev, mem, pwr, evt) = (
         windows_impl::query_device_problems(),
         windows_impl::query_memory_commit(),
         windows_impl::query_power_status(),
+        windows_impl::query_event_log(168, 50),
     );
 
     #[cfg(not(target_os = "windows"))]
-    let (dev, mem, pwr) = (
+    let (dev, mem, pwr, evt) = (
         non_windows_impl::query_device_problems(),
         non_windows_impl::query_memory_commit(),
         non_windows_impl::query_power_status(),
+        non_windows_impl::query_event_log(168, 50),
     );
 
     let duration_ms = start.elapsed().as_millis() as u64;
 
     let all_available = dev.availability == "available"
         && mem.availability == "available"
-        && pwr.availability == "available";
+        && pwr.availability == "available"
+        && evt.availability == "available";
 
     let any_available = dev.availability == "available"
         || mem.availability == "available"
-        || pwr.availability == "available";
+        || pwr.availability == "available"
+        || evt.availability == "available";
 
     let status = if all_available {
         "success".to_string()
@@ -859,6 +1399,7 @@ pub fn get_system_diagnostics_snapshot() -> SystemDiagnosticsSnapshot {
         device_problems: dev,
         memory_commit: mem,
         power_status: pwr,
+        event_log: evt,
         collection_duration_ms: duration_ms,
     }
 }
@@ -1046,5 +1587,176 @@ mod tests {
         let problem_code = 0u32;
         let should_include = has_problem || problem_code != 0;
         assert_eq!(should_include, false);
+    }
+
+    // -----------------------------------------------------------------------
+    // TEST UNITARI RUST TRANCHE 8A — EVENT LOG FACTS & CAPPING
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_cap_and_sentinel_scenarios_a_to_e() {
+        // A. 0 eventi -> returnedEventCount=0, truncated=false
+        let (events_a, count_a, trunc_a) = apply_event_cap_and_sentinel(Vec::<u32>::new(), false, 50);
+        assert_eq!(count_a, 0);
+        assert_eq!(trunc_a, false);
+        assert_eq!(events_a.len(), 0);
+
+        // B. 49 eventi -> 49 / false
+        let (events_b, count_b, trunc_b) = apply_event_cap_and_sentinel((0..49).collect(), false, 50);
+        assert_eq!(count_b, 49);
+        assert_eq!(trunc_b, false);
+        assert_eq!(events_b.len(), 49);
+
+        // C. 50 eventi esatti senza sentinel -> 50 / false
+        let (events_c, count_c, trunc_c) = apply_event_cap_and_sentinel((0..50).collect(), false, 50);
+        assert_eq!(count_c, 50);
+        assert_eq!(trunc_c, false);
+        assert_eq!(events_c.len(), 50);
+
+        // D. 50 eventi con sentinel positivo (51+ nel log) -> 50 / true (sentinel scartato)
+        let (events_d, count_d, trunc_d) = apply_event_cap_and_sentinel((0..50).collect(), true, 50);
+        assert_eq!(count_d, 50);
+        assert_eq!(trunc_d, true);
+        assert_eq!(events_d.len(), 50);
+
+        // E. 55 eventi collezionati con sentinel -> cap a 50 / true
+        let (events_e, count_e, trunc_e) = apply_event_cap_and_sentinel((0..55).collect(), true, 50);
+        assert_eq!(count_e, 50);
+        assert_eq!(trunc_e, true);
+        assert_eq!(events_e.len(), 50);
+    }
+
+    #[test]
+    fn test_parsing_disk_7_vs_disk_51() {
+        // F. disk 7 != disk 51
+        let xml7 = "<Event><System><Provider Name='disk'/><EventID>7</EventID><Level>2</Level><TimeCreated SystemTime='2026-09-20T10:00:00Z'/><EventRecordID>100</EventRecordID><Channel>System</Channel></System><EventData><Data Name='Device'>\\Device\\Harddisk0\\DR0</Data></EventData></Event>";
+        let xml51 = "<Event><System><Provider Name='disk'/><EventID>51</EventID><Level>3</Level><TimeCreated SystemTime='2026-09-20T10:05:00Z'/><EventRecordID>101</EventRecordID><Channel>System</Channel></System><EventData><Data Name='Device'>\\Device\\Harddisk0\\DR0</Data></EventData></Event>";
+
+        let fact7 = parse_event_xml(xml7).expect("parse disk 7 failed");
+        let fact51 = parse_event_xml(xml51).expect("parse disk 51 failed");
+
+        assert_eq!(fact7.event_id, 7);
+        assert_eq!(fact51.event_id, 51);
+        assert_ne!(fact7.event_id, fact51.event_id);
+        assert_eq!(fact7.target_context.as_deref(), Some("\\Device\\Harddisk0\\DR0"));
+        assert_eq!(fact51.target_context.as_deref(), Some("\\Device\\Harddisk0\\DR0"));
+    }
+
+    #[test]
+    fn test_parsing_disk_11_controller_error() {
+        // G. disk 11 preserva il contesto controller error senza trasformarlo in disk failure
+        let xml11 = "<Event><System><Provider Name='disk'/><EventID>11</EventID><Level>2</Level><TimeCreated SystemTime='2026-09-21T08:00:00Z'/><EventRecordID>102</EventRecordID><Channel>System</Channel></System><EventData><Data Name='Device'>\\Device\\Harddisk1\\DR1</Data><Data Name='Status'>0xC000000E</Data></EventData></Event>";
+
+        let fact11 = parse_event_xml(xml11).expect("parse disk 11 failed");
+        assert_eq!(fact11.event_id, 11);
+        assert_eq!(fact11.target_context.as_deref(), Some("\\Device\\Harddisk1\\DR1"));
+        if let Some(EventPayload::Disk { device_name, io_status }) = fact11.payload {
+            assert_eq!(device_name.as_deref(), Some("\\Device\\Harddisk1\\DR1"));
+            assert_eq!(io_status.as_deref(), Some("0xC000000E"));
+        } else {
+            panic!("Expected EventPayload::Disk");
+        }
+    }
+
+    #[test]
+    fn test_parsing_ntfs_55_vs_98() {
+        // H. NTFS 55 / 98 vengono conservati come fatti nativi distinti
+        let xml55 = "<Event><System><Provider Name='Ntfs'/><EventID>55</EventID><Level>2</Level><TimeCreated SystemTime='2026-09-22T09:00:00Z'/><EventRecordID>103</EventRecordID><Channel>System</Channel></System><EventData><Data Name='DriveName'>C:</Data><Data Name='Description'>Corruption</Data></EventData></Event>";
+        let xml98 = "<Event><System><Provider Name='Ntfs'/><EventID>98</EventID><Level>3</Level><TimeCreated SystemTime='2026-09-22T09:30:00Z'/><EventRecordID>104</EventRecordID><Channel>System</Channel></System><EventData><Data Name='VolumeName'>D:</Data><Data Name='RepairHint'>Online spot fix required</Data></EventData></Event>";
+
+        let fact55 = parse_event_xml(xml55).expect("parse ntfs 55 failed");
+        let fact98 = parse_event_xml(xml98).expect("parse ntfs 98 failed");
+
+        assert_eq!(fact55.event_id, 55);
+        assert_eq!(fact98.event_id, 98);
+        assert_ne!(fact55.event_id, fact98.event_id);
+        assert_eq!(fact55.target_context.as_deref(), Some("C:"));
+        assert_eq!(fact98.target_context.as_deref(), Some("D:"));
+
+        if let Some(EventPayload::Ntfs { volume_name, repair_hint, .. }) = fact98.payload {
+            assert_eq!(volume_name.as_deref(), Some("D:"));
+            assert_eq!(repair_hint.as_deref(), Some("Online spot fix required"));
+        } else {
+            panic!("Expected EventPayload::Ntfs for event 98");
+        }
+    }
+
+    #[test]
+    fn test_parsing_kernel_power_41() {
+        // I. Kernel-Power 41 conserva BugcheckCode / PowerButtonTimestamp quando presenti
+        let xml41 = "<Event><System><Provider Name='Microsoft-Windows-Kernel-Power'/><EventID>41</EventID><Level>1</Level><TimeCreated SystemTime='2026-09-23T11:00:00Z'/><EventRecordID>105</EventRecordID><Channel>System</Channel></System><EventData><Data Name='BugcheckCode'>159</Data><Data Name='BugcheckParameter1'>0x3</Data><Data Name='PowerButtonTimestamp'>13370000000</Data><Data Name='SleepInProgress'>0</Data><Data Name='ConnectedStandbyInProgress'>false</Data></EventData></Event>";
+
+        let fact41 = parse_event_xml(xml41).expect("parse kp 41 failed");
+        assert_eq!(fact41.event_id, 41);
+        assert_eq!(fact41.level, 1);
+        if let Some(EventPayload::KernelPower { bugcheck_code, bugcheck_parameter1, power_button_timestamp, sleep_in_progress, connected_standby_in_progress }) = fact41.payload {
+            assert_eq!(bugcheck_code, 159);
+            assert_eq!(bugcheck_parameter1.as_deref(), Some("0x3"));
+            assert_eq!(power_button_timestamp, 13370000000);
+            assert_eq!(sleep_in_progress, Some(0));
+            assert_eq!(connected_standby_in_progress, Some(false));
+        } else {
+            panic!("Expected EventPayload::KernelPower");
+        }
+    }
+
+    #[test]
+    fn test_parsing_whea_events_17_18_19_47() {
+        // J. WHEA 17/18/19/47 vengono distinti per Event ID e structured data
+        let xml17 = "<Event><System><Provider Name='Microsoft-Windows-WHEA-Logger'/><EventID>17</EventID><Level>3</Level><TimeCreated SystemTime='2026-09-24T12:00:00Z'/><EventRecordID>106</EventRecordID><Channel>System</Channel></System><EventData><Data Name='ErrorSource'>4</Data></EventData></Event>";
+        let xml18 = "<Event><System><Provider Name='Microsoft-Windows-WHEA-Logger'/><EventID>18</EventID><Level>1</Level><TimeCreated SystemTime='2026-09-24T12:10:00Z'/><EventRecordID>107</EventRecordID><Channel>System</Channel></System><EventData><Data Name='ErrorSource'>3</Data><Data Name='MCABank'>2</Data></EventData></Event>";
+        let xml19 = "<Event><System><Provider Name='Microsoft-Windows-WHEA-Logger'/><EventID>19</EventID><Level>3</Level><TimeCreated SystemTime='2026-09-24T12:20:00Z'/><EventRecordID>108</EventRecordID><Channel>System</Channel></System><EventData><Data Name='ErrorSource'>3</Data><Data Name='MCABank'>0</Data></EventData></Event>";
+        let xml47 = "<Event><System><Provider Name='Microsoft-Windows-WHEA-Logger'/><EventID>47</EventID><Level>3</Level><TimeCreated SystemTime='2026-09-24T12:30:00Z'/><EventRecordID>109</EventRecordID><Channel>System</Channel></System><EventData><Data Name='ErrorSource'>5</Data></EventData></Event>";
+
+        let fact17 = parse_event_xml(xml17).expect("parse whea 17 failed");
+        let fact18 = parse_event_xml(xml18).expect("parse whea 18 failed");
+        let fact19 = parse_event_xml(xml19).expect("parse whea 19 failed");
+        let fact47 = parse_event_xml(xml47).expect("parse whea 47 failed");
+
+        assert_eq!(fact17.event_id, 17);
+        assert_eq!(fact18.event_id, 18);
+        assert_eq!(fact19.event_id, 19);
+        assert_eq!(fact47.event_id, 47);
+
+        if let Some(EventPayload::Whea { error_source, mca_bank, .. }) = fact18.payload {
+            assert_eq!(error_source, Some(3));
+            assert_eq!(mca_bank, Some(2));
+        } else {
+            panic!("Expected Whea payload for 18");
+        }
+    }
+
+    #[test]
+    fn test_parsing_display_4101() {
+        let xml_disp = "<Event><System><Provider Name='Display'/><EventID>4101</EventID><Level>3</Level><TimeCreated SystemTime='2026-09-25T14:00:00Z'/><EventRecordID>110</EventRecordID><Channel>System</Channel></System><EventData><Data>nvlddmkm</Data></EventData></Event>";
+        let fact_disp = parse_event_xml(xml_disp).expect("parse display 4101 failed");
+        assert_eq!(fact_disp.event_id, 4101);
+        assert_eq!(fact_disp.target_context.as_deref(), Some("nvlddmkm"));
+        if let Some(EventPayload::Display { driver_name }) = fact_disp.payload {
+            assert_eq!(driver_name.as_deref(), Some("nvlddmkm"));
+        } else {
+            panic!("Expected EventPayload::Display");
+        }
+    }
+
+    #[test]
+    fn test_error_and_malformed_xml_handling() {
+        // K & L: malformed XML o rendering fallito -> None controllato senza crash
+        let malformed = "<Event><Broken";
+        assert!(parse_event_xml(malformed).is_none());
+
+        let missing_event_id = "<Event><System><Provider Name='disk'/></System></Event>";
+        assert!(parse_event_xml(missing_event_id).is_none());
+    }
+
+    #[test]
+    fn test_xpath_query_builder() {
+        let query = build_event_log_xpath_query(168);
+        assert!(query.contains("Microsoft-Windows-WHEA-Logger"));
+        assert!(query.contains("Microsoft-Windows-Kernel-Power"));
+        assert!(query.contains("disk"));
+        assert!(query.contains("Ntfs"));
+        assert!(query.contains("Display"));
+        assert!(query.contains("604800000")); // 168 * 3600 * 1000
     }
 }

@@ -62,6 +62,74 @@ export interface PowerStatusSnapshot {
   errorDetails?: string | null;
 }
 
+/**
+ * Tipi e contratti per Native Event Log Facts (Tranche 8A)
+ * - Provider allowlist: Microsoft-Windows-WHEA-Logger, Microsoft-Windows-Kernel-Power, disk, Ntfs, Display
+ * - Query server-side con wevtapi.dll (System Channel, 168h default, cap 50 con sentinel probe)
+ * - Solo Native Facts minimizzati senza classificazione diagnostica/severity preventiva
+ */
+
+export type EventLogChannel = 'System' | 'Application';
+
+export type EventLogPayload =
+  | {
+      type: 'kernelPower';
+      bugcheckCode: number;
+      bugcheckParameter1?: string | null;
+      powerButtonTimestamp: number;
+      sleepInProgress?: number | null;
+      connectedStandbyInProgress?: boolean | null;
+    }
+  | {
+      type: 'whea';
+      errorSource?: number | null;
+      mcaBank?: number | null;
+      mcaStatus?: string | null;
+      errorType?: number | null;
+      rawDataLength?: number | null;
+    }
+  | {
+      type: 'disk';
+      deviceName?: string | null;
+      ioStatus?: string | null;
+    }
+  | {
+      type: 'ntfs';
+      volumeId?: string | null;
+      volumeName?: string | null;
+      repairHint?: string | null;
+    }
+  | {
+      type: 'display';
+      driverName?: string | null;
+    }
+  | {
+      type: 'generic';
+      dataSummary?: string | null;
+    };
+
+export interface EventLogNativeFact {
+  channel: string;
+  provider: string;
+  eventId: number;
+  level: number;                 // Livello nativo Windows (1=Crit, 2=Err, 3=Warn, 4=Info)
+  timestamp: string;             // ISO 8601
+  recordId: number;              // ID progressivo per deduplicazione
+  targetContext?: string | null; // Contesto minimizzato (dispositivo, volume, driver)
+  payload?: EventLogPayload | null;
+}
+
+export interface EventLogDiagnosticsSnapshot {
+  availability: MetricAvailability;
+  source: string;                // "Wevtapi_SystemLog"
+  queryTimeWindowHours: number;  // Default: 168 (7 giorni)
+  maxEventsCap: number;          // Default: 50
+  returnedEventCount: number;    // Numero effettivo eventi estratti
+  truncated: boolean;            // true = hit del cap con sentinel (campionamento parziale)
+  events: EventLogNativeFact[];
+  errorDetails?: string | null;
+}
+
 export type DiagnosticsSnapshotStatus = 'success' | 'partial' | 'unsupported' | 'error';
 
 export interface SystemDiagnosticsSnapshot {
@@ -70,7 +138,45 @@ export interface SystemDiagnosticsSnapshot {
   deviceProblems: DeviceProblemsFact;
   memoryCommit: MemoryCommitSnapshot;
   powerStatus: PowerStatusSnapshot;
+  eventLog?: EventLogDiagnosticsSnapshot;
   collectionDurationMs: number;
+}
+
+/**
+ * Logica di capping e sentinel probe per Event Log (Rule Tranche 8A.3).
+ * Se raccolti == maxCap e il sentinel esiste, truncated = true e il sentinel viene scartato.
+ */
+export function applyEventCapAndSentinel<T>(
+  collected: T[],
+  hasSentinel: boolean,
+  maxCap = 50
+): {
+  events: T[];
+  returnedEventCount: number;
+  truncated: boolean;
+} {
+  if (collected.length > maxCap) {
+    const events = collected.slice(0, maxCap);
+    return {
+      events,
+      returnedEventCount: events.length,
+      truncated: true,
+    };
+  }
+
+  if (collected.length === maxCap && hasSentinel) {
+    return {
+      events: collected,
+      returnedEventCount: collected.length,
+      truncated: true,
+    };
+  }
+
+  return {
+    events: collected,
+    returnedEventCount: collected.length,
+    truncated: false,
+  };
 }
 
 /**
