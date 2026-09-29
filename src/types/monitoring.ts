@@ -7,6 +7,7 @@ export type MetricAvailability =
   | 'unavailable'        // Sensore/fonte momentaneamente o permanentemente non disponibile
   | 'unsupported'        // Non supportato dall'OS/hardware senza privilegi speciali (es. CPU temp senza driver kernel)
   | 'permission_error'   // Richiede privilegi non concessi
+  | 'not_detected'       // Sensore o risorsa hardware non rilevata
   | 'error';             // Errore durante l'interrogazione
 
 /**

@@ -91,6 +91,7 @@ export type SmartAvailabilityStatus =
   | 'unavailable'
   | 'permission_required'
   | 'unsupported'
+  | 'not_detected'
   | 'error';
 
 export interface DiskSmartHealth {

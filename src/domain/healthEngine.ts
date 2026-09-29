@@ -123,7 +123,8 @@ function evaluateStorageHealth(facts: SystemFactsInput, findings: HealthFinding[
       if (
         disk.smartStatus === 'permission_required' ||
         disk.smartStatus === 'unsupported' ||
-        disk.smartStatus === 'unavailable'
+        disk.smartStatus === 'unavailable' ||
+        disk.smartStatus === 'not_detected'
       ) {
         // Registri SMART non accessibili o non supportati: non penalizzano lo Health Score.
         // Lo stato del canale è tracciato separatamente in computeDiagnosticCoverage.
@@ -1603,6 +1604,8 @@ export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCo
   if (facts.smartDisks && facts.smartDisks.length > 0) {
     const hasPermissionIssue = facts.smartDisks.some((d) => d.smartStatus === 'permission_required');
     const isAllUnsupported = facts.smartDisks.every((d) => d.smartStatus === 'unsupported');
+    const isAllNotDetected = facts.smartDisks.every((d) => d.smartStatus === 'not_detected');
+    const isAllUnavailable = facts.smartDisks.every((d) => d.smartStatus === 'unavailable');
     const hasError = facts.smartDisks.some((d) => d.smartStatus === 'error');
     if (hasPermissionIssue) {
       channels.push({
@@ -1619,6 +1622,22 @@ export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCo
         area: 'storage',
         status: 'unsupported',
         details: 'Contatori S.M.A.R.T. non supportati dai dispositivi di archiviazione attuali',
+      });
+    } else if (isAllNotDetected) {
+      channels.push({
+        id: 'storage_smart',
+        label: 'Affidabilità S.M.A.R.T. Dischi',
+        area: 'storage',
+        status: 'not_detected',
+        details: 'Nessun dispositivo di archiviazione compatibile con telemetria S.M.A.R.T. rilevato',
+      });
+    } else if (isAllUnavailable) {
+      channels.push({
+        id: 'storage_smart',
+        label: 'Affidabilità S.M.A.R.T. Dischi',
+        area: 'storage',
+        status: 'unavailable',
+        details: 'Dati S.M.A.R.T. non disponibili per i dispositivi attuali',
       });
     } else if (hasError) {
       channels.push({
@@ -1837,12 +1856,12 @@ export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCo
 
   // Distinzione semantica rigorosa tra Coverage Gap e Hardware Gap (Tranche 8D-2.1)
   // hasHardwareGaps riflette esclusivamente lacune reali nei sensori/telemetria hardware:
-  // - cpu_temp, cpu_power, gpu_telemetry, gpu_temp, storage_smart.
+  // - cpu_temp, cpu_power, gpu_telemetry, gpu_temp, storage_smart (incluso stato 'not_detected').
   // Canali OS, driver state e contatori virtuali (cpu_load, ram_usage, storage_volumes,
   // system_security, system_files, device_faults, memory_commit, power_architecture,
   // system_events, system_services) generano Coverage Gap ma NON impostano hasHardwareGaps.
   const hasHardwareGaps = channels.some(
-    (c) => HARDWARE_SENSOR_CHANNEL_IDS.has(c.id) && c.status !== 'available' && c.status !== 'not_detected'
+    (c) => HARDWARE_SENSOR_CHANNEL_IDS.has(c.id) && c.status !== 'available'
   );
 
   let level: DiagnosticCoverageLevel = 'full';

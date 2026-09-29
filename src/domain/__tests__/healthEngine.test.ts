@@ -2363,6 +2363,91 @@ describe('healthEngine', () => {
       facts.diagnostics!.powerStatus = { ...facts.diagnostics!.powerStatus, availability: 'unavailable' };
       expect(computeDiagnosticCoverage(facts).percentage).toBe(67);
     });
+
+    // Tranche 8D-2.1 — Final Semantic Fix: not_detected semantics
+    describe('Semantica not_detected per canali hardware vs non-hardware', () => {
+      // A. gpu_telemetry = not_detected → hasHardwareGaps === true
+      it('A. gpu_telemetry = not_detected → hasHardwareGaps === true', () => {
+        const facts = createFullFacts();
+        facts.monitoring!.gpus[0].utilizationPercent = {
+          value: null,
+          availability: 'not_detected',
+          source: 'NVML',
+        };
+        const cov = computeDiagnosticCoverage(facts);
+        const ch = cov.channels.find((c) => c.id === 'gpu_telemetry');
+        expect(ch?.status).toBe('not_detected');
+        expect(cov.hasHardwareGaps).toBe(true);
+      });
+
+      // B. gpu_temp = not_detected → hasHardwareGaps === true
+      it('B. gpu_temp = not_detected → hasHardwareGaps === true', () => {
+        const facts = createFullFacts();
+        facts.monitoring!.gpus[0].coreTemperatureCelsius = {
+          value: null,
+          availability: 'not_detected',
+          source: 'NVML',
+        };
+        const cov = computeDiagnosticCoverage(facts);
+        const ch = cov.channels.find((c) => c.id === 'gpu_temp');
+        expect(ch?.status).toBe('not_detected');
+        expect(cov.hasHardwareGaps).toBe(true);
+      });
+
+      // C. storage_smart = not_detected → hasHardwareGaps === true
+      it('C. storage_smart = not_detected → hasHardwareGaps === true', () => {
+        const facts = createFullFacts();
+        facts.smartDisks = [
+          {
+            deviceId: '0',
+            friendlyName: 'Virtual Disk',
+            mediaType: 'SSD',
+            healthStatus: 'Unknown',
+            readErrorsTotal: 0,
+            writeErrorsTotal: 0,
+            smartStatus: 'not_detected',
+          },
+        ];
+        const cov = computeDiagnosticCoverage(facts);
+        const ch = cov.channels.find((c) => c.id === 'storage_smart');
+        expect(ch?.status).toBe('not_detected');
+        expect(cov.hasHardwareGaps).toBe(true);
+      });
+
+      // D. system_events = not_detected → hasHardwareGaps === false
+      it('D. system_events = not_detected → hasHardwareGaps === false', () => {
+        const facts = createFullFacts();
+        facts.diagnostics!.eventLog = {
+          availability: 'not_detected',
+          source: 'Wevtapi',
+          queryTimeWindowHours: 168,
+          maxEventsCap: 50,
+          returnedEventCount: 0,
+          truncated: false,
+          events: [],
+        };
+        const cov = computeDiagnosticCoverage(facts);
+        const ch = cov.channels.find((c) => c.id === 'system_events');
+        expect(ch?.status).toBe('not_detected');
+        expect(cov.hasHardwareGaps).toBe(false);
+      });
+
+      // E. system_services = not_detected → hasHardwareGaps === false
+      it('E. system_services = not_detected → hasHardwareGaps === false', () => {
+        const facts = createFullFacts();
+        facts.diagnostics!.systemServices = {
+          availability: 'not_detected',
+          source: 'Advapi32_SCM',
+          scannedAt: REF_DATE,
+          catalogCount: 6,
+          services: [],
+        };
+        const cov = computeDiagnosticCoverage(facts);
+        const ch = cov.channels.find((c) => c.id === 'system_services');
+        expect(ch?.status).toBe('not_detected');
+        expect(cov.hasHardwareGaps).toBe(false);
+      });
+    });
   });
 });
 
