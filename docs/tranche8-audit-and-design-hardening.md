@@ -229,10 +229,88 @@ export interface DiagnosticCorrelation {
 
 ### 8D — Health & Optimization Integration
 - **Obiettivo:** Estensione della Diagnostic Coverage da 13 a 15 canali (`system_events`, `system_services`). Generazione finding trasparenti e raccomandazioni motivate.
-- **File coinvolti:** `src/domain/healthEngine.ts`, `src/domain/optimizationEngine.ts`, `src/types/health.ts`, test correlati.
-- **Criterio di Completamento:** Coverage 15 canali; score health isolato e non penalizzato se non supportato; commit locale Tranche 8D (senza push).
+- **Sotto-tranche:**
+  - `8D-1`: Event Log → Health Findings deterministici (WHEA, KP41, Disk, NTFS, Display TDR) [COMPLETATO].
+  - `8D-2`: Windows Services → Health Findings deterministici e Coverage a 15 canali [COMPLETATO].
+  - `8D-2.1`: Semantica Hardware Gap (5 canali fisici) vs Coverage/Telemetry Gap [COMPLETATO].
+  - `8D-3`: Correlation → Health Integration (Enrichment, Assorbimento e Anti-Double-Penalty) [DESIGN CONSOLIDATO].
+  - `8D-4`: Optimization & Recommendation Integration [DA AVVIARE].
+- **Criterio di Completamento:** 15 canali coperti; score health isolato e non penalizzato se non supportato; commit locale Tranche 8D (senza push).
 
 ### 8E — UI Presentation & Browser Verification
 - **Obiettivo:** Visualizzazione sobria e chiara dei fatti correlati in `CareOverviewTab.tsx` e `MaintenancePage.tsx` senza design ansiogeno.
 - **File coinvolti:** `src/components/maintenance/CareOverviewTab.tsx`, `src/pages/MaintenancePage.tsx`, test UI.
 - **Criterio di Completamento:** Verifica browser reale; Privacy Audit superato al 100%; consolidamento Livello 2 (`git push origin main`).
+
+---
+
+## 5. SPECIFICA FORMALE TRANCHE 8D-3 (CORRELATION → HEALTH INTEGRATION)
+
+### 5.1 Ruolo Architetturale di 8D-3
+8D-3 opera come **Enrichment & Consolidation Engine** puro a valle di 8C (`computeDiagnosticCorrelations`) e delle valutazioni primarie di salute (8D-1 / 8D-2):
+- **Input:** `primaryFindings: HealthFinding[]`, `correlations: DiagnosticCorrelation[]`.
+- **Output:** Nuovo array `HealthFinding[]` arricchito, deduplicato e privo di doppi conteggi.
+- **Natura pura:** Zero mutazioni, zero `Date.now()`, zero I/O, zero random/UUID.
+
+### 5.2 Regole Cardinali di 8D-3
+
+#### 1. Immutabilità della Severità dell'Anchor
+8D-3 è un *Enrichment Engine*, non un *Severity Engine*.
+- L'anchor finding mantiene la sua severità primaria stabilita dal dominio: $\text{enrichedAnchor.severity} \equiv \text{anchor.severity}$.
+- La correlazione non può mai aumentare o diminuire la severità dell'anchor.
+- Anche in caso di assorbimento `DIRECT_MATCH`, la severità dell'anchor non viene ricalcolata come massimo: se l'anchor è `WARNING` e il secondario assorbito era `CRITICAL`, l'anchor **rimane `WARNING`**.
+- La severità originale del secondario viene preservata integralmente nei metadati (`absorbedFinding.originalSeverity`).
+
+#### 2. Precedenza Semantica per la Selezione dell'Anchor
+L'anchor NON viene scelto tramite severità maggiore, bensì tramite precedenza semantica hardware-first:
+1. **Rank 1:** Kernel Device Node Faults (`device-fault-*` da `CM_Get_DevNode_Status`).
+2. **Rank 2:** Direct Hardware Telemetry & S.M.A.R.T. (`smart-*`, `gpu-temp-*`, `ram-available-*`).
+3. **Rank 3:** Operating System Event Log (`event-*`: Display 4101, Disk 7/11/51, WHEA, KP41, NTFS).
+4. **Rank 4:** Windows Services (`service-*`).
+5. **Rank 5:** Subsystem / Maintenance / OS Files (`maintenance-*`, `sysfiles-*`).
+
+*Regola di Sicurezza:* In caso di parità di Rank o ambiguità di associazione, **nessun assorbimento viene effettuato**: entrambi i finding restano indipendenti e vengono arricchiti con riferimenti contestuali (`RELATED_SIGNAL`).
+
+#### 3. Wording Neutro per Tuning / Undervolt
+- Vietato l'uso di formule categoriche temporali come *"profilo undervolt attivo"*, *"disattivato"* o *"coincidenza temporale"*.
+- Formula obbligatoria: *"profilo di tuning CPU presente nel contesto di analisi"* (o *"profilo undervolt presente nel contesto di analisi"*).
+- Assoluto rispetto dell'anti-causalità: *"Evidenze convergenti registrate nello stesso sottosistema, senza presupporre causalità univoca o instabilità irreversibile dell'hardware."*
+
+#### 4. Conservazione Strutturata dei Dati Assorbiti (Zero Data Loss)
+Quando un finding secondario viene assorbito da un `DIRECT_MATCH`, tutti i suoi dati semanticamente utili confluiscono nella struttura:
+```typescript
+export interface AbsorbedFindingEvidence {
+  subsumedFindingId: string;
+  originalSeverity: HealthSeverity;
+  area: HealthAffectedArea;
+  title: string;
+  evidence: string;
+  explanation: string;
+  recommendedActionId?: string;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface HealthFindingCorrelationEvidence {
+  correlationId: string;
+  strength: CorrelationStrength;
+  title: string;
+  hardwareEvidence: string;
+  eventEvidence: string;
+  explanation: string;
+  absorbedFinding?: AbsorbedFindingEvidence;
+}
+```
+Se l'anchor non possiede un proprio `recommendedActionId` e il secondario assorbito ne contiene uno valido, l'anchor lo eredita in fallback, salvaguardando l'azione per 8D-4 (Optimization).
+
+#### 5. Score Policy (Anti-Double-Penalty)
+- Health score penalty applicata **esclusivamente** dai `HealthFinding` primari rimasti nell'array finale.
+- `DiagnosticCorrelation` ha penalità intrinseca pari a **0**.
+- Il finding secondario assorbito viene escluso dall'array finale, azzerando la sua penalità ed evitando duplicazioni sullo score.
+- `RELATED_SIGNAL` e `WEAK_CONTEXT` producono esattamente **0 variazione** di punteggio.
+
+#### 6. Preservazione dell'Ordinamento Canonico
+- Viene preservato l'ordine naturale dei sottosistemi di `healthEngine`:
+  `Storage → RAM → Commit → Device Faults → GPU/Thermal → Maintenance → Security → Event Log → Services`.
+- L'anchor mantiene la propria posizione canonica originale; il secondario viene rimosso.
+- All'interno del singolo finding, `correlations[]` viene ordinato deterministicamente per forza (`DIRECT_MATCH` > `RELATED_SIGNAL` > `WEAK_CONTEXT`) e `correlationId` alfabetico.
+
