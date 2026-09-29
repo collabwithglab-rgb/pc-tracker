@@ -68,6 +68,63 @@ export const HARDWARE_SENSOR_CHANNEL_IDS = new Set<string>([
 ]);
 
 /**
+ * Determina in modo deterministico e puro se lo stato di un canale diagnostico
+ * rappresenta un reale "Hardware Gap" (assenza fisica o mancata rilevazione hardware)
+ * oppure un "Coverage / Telemetry Gap" (canale momentaneamente non accessibile,
+ * non supportato da driver/OS user-space, errore transitorio o permessi UAC).
+ *
+ * Canali hardware (5):
+ * - cpu_temp, cpu_power, gpu_telemetry, gpu_temp, storage_smart.
+ *
+ * Regole per canale e status:
+ * - 'available'           -> false (nessun gap)
+ * - 'not_detected'        -> true solo per i 5 canali hardware (hardware/sensore non presente)
+ * - 'unavailable'         -> false (telemetry gap transitorio / non caricato, non assenza hardware)
+ * - 'permission_required' -> false (telemetry gap per permessi UAC Windows)
+ * - 'error'               -> false (telemetry gap dovuto a eccezione di interrogazione)
+ * - 'unsupported'         -> false: per cpu_temp/power indica assenza di driver ring-0 in user-space;
+ *                            per gpu_telemetry indica driver/API proprietaria non esposta;
+ *                            per storage_smart indica protocollo di storage non compatibile SMART;
+ *                            in nessun caso equivale a guasto o assenza fisica dell'hardware.
+ *
+ * Canali OS / software (10):
+ * - cpu_load, ram_usage, storage_volumes, system_security, system_files, device_faults,
+ *   memory_commit, power_architecture, system_events, system_services
+ *   generano Coverage Gap ma NON impostano mai isHardwareGap = true.
+ */
+export function isHardwareGap(channelId: string, status: DiagnosticChannelStatus): boolean {
+  if (status === 'available') {
+    return false;
+  }
+
+  if (!HARDWARE_SENSOR_CHANNEL_IDS.has(channelId)) {
+    return false;
+  }
+
+  switch (channelId) {
+    case 'gpu_telemetry':
+    case 'gpu_temp':
+      // not_detected indica che nessuna scheda grafica è presente o rilevata nel sistema -> Hardware Gap
+      // unavailable, permission_required, error, unsupported sono lacune di telemetria -> no Hardware Gap
+      return status === 'not_detected';
+
+    case 'storage_smart':
+      // not_detected indica assenza di dischi fisici compatibili con telemetria SMART -> Hardware Gap
+      // unavailable, permission_required, error, unsupported sono lacune di telemetria -> no Hardware Gap
+      return status === 'not_detected';
+
+    case 'cpu_temp':
+    case 'cpu_power':
+      // not_detected indica sensore CPU non rilevato a livello hardware/firmware -> Hardware Gap
+      // unavailable, permission_required, error, unsupported (es. blocco ring-0 OS) sono lacune di telemetria -> no Hardware Gap
+      return status === 'not_detected';
+
+    default:
+      return false;
+  }
+}
+
+/**
  * Valuta obiettivamente i fatti di sistema e produce il report di salute completo.
  */
 export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthReport {
@@ -1855,14 +1912,12 @@ export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCo
   const percentage = Math.round((availableChannels / totalChannels) * 100);
 
   // Distinzione semantica rigorosa tra Coverage Gap e Hardware Gap (Tranche 8D-2.1)
-  // hasHardwareGaps riflette esclusivamente lacune reali nei sensori/telemetria hardware:
-  // - cpu_temp, cpu_power, gpu_telemetry, gpu_temp, storage_smart (incluso stato 'not_detected').
+  // hasHardwareGaps riflette esclusivamente lacune reali nei sensori/telemetria hardware (isHardwareGap).
   // Canali OS, driver state e contatori virtuali (cpu_load, ram_usage, storage_volumes,
   // system_security, system_files, device_faults, memory_commit, power_architecture,
-  // system_events, system_services) generano Coverage Gap ma NON impostano hasHardwareGaps.
-  const hasHardwareGaps = channels.some(
-    (c) => HARDWARE_SENSOR_CHANNEL_IDS.has(c.id) && c.status !== 'available'
-  );
+  // system_events, system_services), così come stati di telemetria/accesso (unavailable,
+  // permission_required, error, unsupported), generano Coverage Gap ma NON impostano hasHardwareGaps.
+  const hasHardwareGaps = channels.some((c) => isHardwareGap(c.id, c.status));
 
   let level: DiagnosticCoverageLevel = 'full';
   if (percentage < 60) {

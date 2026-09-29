@@ -6,6 +6,7 @@ import {
   computeDaysBetween,
   computeDiagnosticCoverage,
   HARDWARE_SENSOR_CHANNEL_IDS,
+  isHardwareGap,
 } from '../healthEngine';
 import { SystemFactsInput } from '../../types/health';
 import { EventLogNativeFact, WindowsServiceNativeFact } from '../../types/diagnostics';
@@ -2299,8 +2300,8 @@ describe('healthEngine', () => {
       expect(cov.hasHardwareGaps).toBe(false);
     });
 
-    // F. cpu_temp unavailable → hasHardwareGaps true
-    it('F. cpu_temp unavailable → hasHardwareGaps true', () => {
+    // F. cpu_temp unavailable → hasHardwareGaps false (telemetry gap, non hardware gap)
+    it('F. cpu_temp unavailable → hasHardwareGaps false (telemetry gap)', () => {
       const facts = createFullFacts();
       facts.monitoring!.cpu.packageTemperatureCelsius = {
         value: null,
@@ -2311,11 +2312,11 @@ describe('healthEngine', () => {
       expect(cov.availableChannels).toBe(14);
       expect(cov.totalChannels).toBe(15);
       expect(cov.percentage).toBe(93);
-      expect(cov.hasHardwareGaps).toBe(true);
+      expect(cov.hasHardwareGaps).toBe(false);
     });
 
-    // G. gpu_telemetry unavailable → hasHardwareGaps true
-    it('G. gpu_telemetry unavailable → hasHardwareGaps true', () => {
+    // G. gpu_telemetry unavailable → hasHardwareGaps false (telemetry gap, non hardware gap)
+    it('G. gpu_telemetry unavailable → hasHardwareGaps false (telemetry gap)', () => {
       const facts = createFullFacts();
       facts.monitoring!.gpus[0].utilizationPercent = {
         value: null,
@@ -2326,18 +2327,18 @@ describe('healthEngine', () => {
       expect(cov.availableChannels).toBe(14);
       expect(cov.totalChannels).toBe(15);
       expect(cov.percentage).toBe(93);
-      expect(cov.hasHardwareGaps).toBe(true);
+      expect(cov.hasHardwareGaps).toBe(false);
     });
 
-    // H. storage_smart unavailable → hasHardwareGaps true
-    it('H. storage_smart unavailable → hasHardwareGaps true', () => {
+    // H. storage_smart unavailable → hasHardwareGaps false (telemetry gap, non hardware gap)
+    it('H. storage_smart unavailable → hasHardwareGaps false (telemetry gap)', () => {
       const facts = createFullFacts();
       facts.smartDisks = [];
       const cov = computeDiagnosticCoverage(facts);
       expect(cov.availableChannels).toBe(14);
       expect(cov.totalChannels).toBe(15);
       expect(cov.percentage).toBe(93);
-      expect(cov.hasHardwareGaps).toBe(true);
+      expect(cov.hasHardwareGaps).toBe(false);
     });
 
     // I. coverage percentage corretta in tutti i casi
@@ -2364,61 +2365,124 @@ describe('healthEngine', () => {
       expect(computeDiagnosticCoverage(facts).percentage).toBe(67);
     });
 
-    // Tranche 8D-2.1 — Final Semantic Fix: not_detected semantics
-    describe('Semantica not_detected per canali hardware vs non-hardware', () => {
-      // A. gpu_telemetry = not_detected → hasHardwareGaps === true
-      it('A. gpu_telemetry = not_detected → hasHardwareGaps === true', () => {
-        const facts = createFullFacts();
-        facts.monitoring!.gpus[0].utilizationPercent = {
-          value: null,
-          availability: 'not_detected',
-          source: 'NVML',
-        };
-        const cov = computeDiagnosticCoverage(facts);
-        const ch = cov.channels.find((c) => c.id === 'gpu_telemetry');
-        expect(ch?.status).toBe('not_detected');
-        expect(cov.hasHardwareGaps).toBe(true);
+    // Tranche 8D-2.1 — Final Semantic Precision Fix: isHardwareGap
+    describe('isHardwareGap — Distinzione semantica tra Hardware Gap e Telemetry/Coverage Gap', () => {
+      // 1. Funzione pura isHardwareGap per gpu_telemetry (tutti i 6 stati)
+      it('gpu_telemetry: distingue rigorosamente assenza hardware da lacune di telemetria', () => {
+        // 1. available → false (nessun gap)
+        expect(isHardwareGap('gpu_telemetry', 'available')).toBe(false);
+
+        // 2. not_detected → true (Hardware Gap reale: nessuna GPU presente nel sistema)
+        expect(isHardwareGap('gpu_telemetry', 'not_detected')).toBe(true);
+
+        // 3. unavailable → false (Coverage Gap: telemetria temporaneamente non campionata)
+        expect(isHardwareGap('gpu_telemetry', 'unavailable')).toBe(false);
+
+        // 4. permission_required → false (Coverage Gap: permessi UAC Windows)
+        expect(isHardwareGap('gpu_telemetry', 'permission_required')).toBe(false);
+
+        // 5. error → false (Coverage Gap: errore transitorio query WMI/NVML)
+        expect(isHardwareGap('gpu_telemetry', 'error')).toBe(false);
+
+        // 6. unsupported → false (Coverage Gap: la GPU è presente nel computer, ma il modello o
+        // l'ambiente di runtime non supporta librerie proprietarie di telemetria NVML. Non è un hardware mancante)
+        expect(isHardwareGap('gpu_telemetry', 'unsupported')).toBe(false);
       });
 
-      // B. gpu_temp = not_detected → hasHardwareGaps === true
-      it('B. gpu_temp = not_detected → hasHardwareGaps === true', () => {
-        const facts = createFullFacts();
-        facts.monitoring!.gpus[0].coreTemperatureCelsius = {
-          value: null,
-          availability: 'not_detected',
-          source: 'NVML',
-        };
-        const cov = computeDiagnosticCoverage(facts);
-        const ch = cov.channels.find((c) => c.id === 'gpu_temp');
-        expect(ch?.status).toBe('not_detected');
-        expect(cov.hasHardwareGaps).toBe(true);
+      // 2. Funzione pura isHardwareGap per storage_smart (tutti i 6 stati)
+      it('storage_smart: distingue rigorosamente assenza hardware da lacune di telemetria', () => {
+        // 1. available → false (nessun gap)
+        expect(isHardwareGap('storage_smart', 'available')).toBe(false);
+
+        // 2. not_detected → true (Hardware Gap reale: nessun disco o controller SMART rilevato)
+        expect(isHardwareGap('storage_smart', 'not_detected')).toBe(true);
+
+        // 3. unavailable → false (Coverage Gap: dati SMART non ancora popolati o snapshot vuoto)
+        expect(isHardwareGap('storage_smart', 'unavailable')).toBe(false);
+
+        // 4. permission_required → false (Coverage Gap: lettura CIM limitata senza elevazione UAC)
+        expect(isHardwareGap('storage_smart', 'permission_required')).toBe(false);
+
+        // 5. error → false (Coverage Gap: errore I/O o driver durante lettura registri SMART)
+        expect(isHardwareGap('storage_smart', 'error')).toBe(false);
+
+        // 6. unsupported → false (Coverage Gap: il disco fisico esiste ed è montato, ma il bus,
+        // enclosure esterna o virtual disk non supporta comandi ATA/NVMe SMART in user-space standard)
+        expect(isHardwareGap('storage_smart', 'unsupported')).toBe(false);
       });
 
-      // C. storage_smart = not_detected → hasHardwareGaps === true
-      it('C. storage_smart = not_detected → hasHardwareGaps === true', () => {
-        const facts = createFullFacts();
-        facts.smartDisks = [
-          {
-            deviceId: '0',
-            friendlyName: 'Virtual Disk',
-            mediaType: 'SSD',
-            healthStatus: 'Unknown',
-            readErrorsTotal: 0,
-            writeErrorsTotal: 0,
-            smartStatus: 'not_detected',
-          },
-        ];
-        const cov = computeDiagnosticCoverage(facts);
-        const ch = cov.channels.find((c) => c.id === 'storage_smart');
-        expect(ch?.status).toBe('not_detected');
-        expect(cov.hasHardwareGaps).toBe(true);
+      // 3. Canali OS / software non generano mai Hardware Gap
+      it('system_events e system_services non generano mai Hardware Gap', () => {
+        expect(isHardwareGap('system_events', 'available')).toBe(false);
+        expect(isHardwareGap('system_events', 'not_detected')).toBe(false);
+        expect(isHardwareGap('system_events', 'unavailable')).toBe(false);
+
+        expect(isHardwareGap('system_services', 'available')).toBe(false);
+        expect(isHardwareGap('system_services', 'not_detected')).toBe(false);
+        expect(isHardwareGap('system_services', 'unavailable')).toBe(false);
       });
 
-      // D. system_events = not_detected → hasHardwareGaps === false
-      it('D. system_events = not_detected → hasHardwareGaps === false', () => {
+      // 4. Test end-to-end con computeDiagnosticCoverage per gpu_telemetry
+      it('computeDiagnosticCoverage riflette la semantica per gpu_telemetry', () => {
+        const facts = createFullFacts();
+
+        // available → hasHardwareGaps false
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // not_detected → hasHardwareGaps true
+        facts.monitoring!.gpus[0].utilizationPercent = { value: null, availability: 'not_detected', source: 'NVML' };
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(true);
+
+        // unavailable → hasHardwareGaps false
+        facts.monitoring!.gpus[0].utilizationPercent = { value: null, availability: 'unavailable', source: 'NVML' };
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // permission_error / permission_required → hasHardwareGaps false
+        facts.monitoring!.gpus[0].utilizationPercent = { value: null, availability: 'permission_error', source: 'NVML' };
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // error → hasHardwareGaps false
+        facts.monitoring!.gpus[0].utilizationPercent = { value: null, availability: 'error', source: 'NVML' };
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // unsupported → hasHardwareGaps false
+        facts.monitoring!.gpus[0].utilizationPercent = { value: null, availability: 'unsupported', source: 'NVML' };
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+      });
+
+      // 5. Test end-to-end con computeDiagnosticCoverage per storage_smart
+      it('computeDiagnosticCoverage riflette la semantica per storage_smart', () => {
+        const facts = createFullFacts();
+
+        // available → hasHardwareGaps false
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // not_detected → hasHardwareGaps true
+        facts.smartDisks = [{ deviceId: '0', friendlyName: 'Virtual', mediaType: 'SSD', healthStatus: 'Unknown', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'not_detected' }];
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(true);
+
+        // unavailable → hasHardwareGaps false
+        facts.smartDisks = [{ deviceId: '0', friendlyName: 'Disk', mediaType: 'SSD', healthStatus: 'Unknown', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'unavailable' }];
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // permission_required → hasHardwareGaps false
+        facts.smartDisks = [{ deviceId: '0', friendlyName: 'Disk', mediaType: 'SSD', healthStatus: 'Unknown', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'permission_required' }];
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // error → hasHardwareGaps false
+        facts.smartDisks = [{ deviceId: '0', friendlyName: 'Disk', mediaType: 'SSD', healthStatus: 'Unknown', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'error' }];
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+
+        // unsupported → hasHardwareGaps false
+        facts.smartDisks = [{ deviceId: '0', friendlyName: 'Disk', mediaType: 'SSD', healthStatus: 'Unknown', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'unsupported' }];
+        expect(computeDiagnosticCoverage(facts).hasHardwareGaps).toBe(false);
+      });
+
+      // 6. Test end-to-end per canali OS unavailable
+      it('computeDiagnosticCoverage: system_events e system_services unavailable → hasHardwareGaps false', () => {
         const facts = createFullFacts();
         facts.diagnostics!.eventLog = {
-          availability: 'not_detected',
+          availability: 'unavailable',
           source: 'Wevtapi',
           queryTimeWindowHours: 168,
           maxEventsCap: 50,
@@ -2426,25 +2490,17 @@ describe('healthEngine', () => {
           truncated: false,
           events: [],
         };
-        const cov = computeDiagnosticCoverage(facts);
-        const ch = cov.channels.find((c) => c.id === 'system_events');
-        expect(ch?.status).toBe('not_detected');
-        expect(cov.hasHardwareGaps).toBe(false);
-      });
-
-      // E. system_services = not_detected → hasHardwareGaps === false
-      it('E. system_services = not_detected → hasHardwareGaps === false', () => {
-        const facts = createFullFacts();
         facts.diagnostics!.systemServices = {
-          availability: 'not_detected',
+          availability: 'unavailable',
           source: 'Advapi32_SCM',
           scannedAt: REF_DATE,
           catalogCount: 6,
           services: [],
         };
         const cov = computeDiagnosticCoverage(facts);
-        const ch = cov.channels.find((c) => c.id === 'system_services');
-        expect(ch?.status).toBe('not_detected');
+        expect(cov.availableChannels).toBe(13);
+        expect(cov.totalChannels).toBe(15);
+        expect(cov.percentage).toBe(87);
         expect(cov.hasHardwareGaps).toBe(false);
       });
     });
