@@ -56,6 +56,18 @@ export const MEMORY_PHYSICAL_LOW_AVAILABILITY_PERCENT = 15;
 export const MEMORY_PHYSICAL_CRITICAL_AVAILABILITY_PERCENT = 8;
 
 /**
+ * Canali diagnostici strettamente legati a sensori fisici e telemetria hardware diretta (Tranche 8D-2.1).
+ * hasHardwareGaps = true esclusivamente se uno di questi 5 canali hardware/termici/SMART non è disponibile.
+ */
+export const HARDWARE_SENSOR_CHANNEL_IDS = new Set<string>([
+  'cpu_temp',
+  'cpu_power',
+  'gpu_telemetry',
+  'gpu_temp',
+  'storage_smart',
+]);
+
+/**
  * Valuta obiettivamente i fatti di sistema e produce il report di salute completo.
  */
 export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthReport {
@@ -1823,11 +1835,15 @@ export function computeDiagnosticCoverage(facts: SystemFactsInput): DiagnosticCo
   const availableChannels = channels.filter((c) => c.status === 'available').length;
   const percentage = Math.round((availableChannels / totalChannels) * 100);
 
-  // Distinzione rigorosa tra Coverage Gap (canali non disponibili) e Hardware Gap (canali hardware non coperti)
-  // Canali puramente software/OS (system_events, system_services) non costituiscono un hardware gap
-  const NON_HARDWARE_CHANNEL_IDS = new Set(['system_events', 'system_services']);
-  const hardwareChannels = channels.filter((c) => !NON_HARDWARE_CHANNEL_IDS.has(c.id));
-  const hasHardwareGaps = hardwareChannels.some((c) => c.status !== 'available');
+  // Distinzione semantica rigorosa tra Coverage Gap e Hardware Gap (Tranche 8D-2.1)
+  // hasHardwareGaps riflette esclusivamente lacune reali nei sensori/telemetria hardware:
+  // - cpu_temp, cpu_power, gpu_telemetry, gpu_temp, storage_smart.
+  // Canali OS, driver state e contatori virtuali (cpu_load, ram_usage, storage_volumes,
+  // system_security, system_files, device_faults, memory_commit, power_architecture,
+  // system_events, system_services) generano Coverage Gap ma NON impostano hasHardwareGaps.
+  const hasHardwareGaps = channels.some(
+    (c) => HARDWARE_SENSOR_CHANNEL_IDS.has(c.id) && c.status !== 'available' && c.status !== 'not_detected'
+  );
 
   let level: DiagnosticCoverageLevel = 'full';
   if (percentage < 60) {

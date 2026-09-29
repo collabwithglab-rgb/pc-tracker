@@ -5,6 +5,7 @@ import {
   evaluateWindowsServicesHealth,
   computeDaysBetween,
   computeDiagnosticCoverage,
+  HARDWARE_SENSOR_CHANNEL_IDS,
 } from '../healthEngine';
 import { SystemFactsInput } from '../../types/health';
 import { EventLogNativeFact, WindowsServiceNativeFact } from '../../types/diagnostics';
@@ -2137,6 +2138,233 @@ describe('healthEngine', () => {
       expect(findings2).toEqual(findings3);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // TRANCHE 8D-2.1 — HARDWARE GAP SEMANTIC HARDENING
+  // -------------------------------------------------------------------------
+  describe('Tranche 8D-2.1 — Hardware Gap Semantic Hardening', () => {
+    const createFullFacts = (): SystemFactsInput => ({
+      referenceDate: REF_DATE,
+      systemFilesStatus: 'clean',
+      securityAudit: {
+        secureBootEnabled: true,
+        tpmPresent: true,
+        tpmReady: true,
+        vbsRunning: true,
+        hvciRunning: true,
+        hostsFileClean: true,
+        hostsCustomEntriesCount: 0,
+        details: 'Audit OK',
+      },
+      drives: [
+        { driveLetter: 'C:', label: 'OS', fileSystem: 'NTFS', totalBytes: 1_000_000_000_000, freeBytes: 500_000_000_000, isSSD: true, mediaType: 'SSD', trimSupported: true },
+      ],
+      smartDisks: [
+        { deviceId: '0', friendlyName: 'NVMe', mediaType: 'SSD', healthStatus: 'Healthy', readErrorsTotal: 0, writeErrorsTotal: 0, smartStatus: 'available' },
+      ],
+      monitoring: {
+        timestamp: REF_DATE,
+        status: 'success',
+        cpu: {
+          utilizationPercent: { value: 15, availability: 'available', source: 'Win32' },
+          logicalProcessorCount: 8,
+          baseFrequencyMhz: { value: 3600, availability: 'available', source: 'Win32' },
+          packageTemperatureCelsius: { value: 45, availability: 'available', source: 'ACPI' },
+          packagePowerWatts: { value: 65, availability: 'available', source: 'RAPL' },
+        },
+        memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50 },
+        gpus: [
+          {
+            id: 'gpu-0',
+            name: 'RTX 4070',
+            vendor: 'NVIDIA',
+            isDiscrete: true,
+            utilizationPercent: { value: 20, availability: 'available', source: 'NVML' },
+            vramTotalBytes: { value: 12000000000, availability: 'available', source: 'NVML' },
+            vramUsedBytes: { value: 2000000000, availability: 'available', source: 'NVML' },
+            vramUtilizationPercent: { value: 16.6, availability: 'available', source: 'NVML' },
+            coreTemperatureCelsius: { value: 50, availability: 'available', source: 'NVML' },
+            hotspotTemperatureCelsius: { value: 60, availability: 'available', source: 'NVML' },
+            coreClockMhz: { value: 2000, availability: 'available', source: 'NVML' },
+            memoryClockMhz: { value: 10000, availability: 'available', source: 'NVML' },
+            powerWatts: { value: 50, availability: 'available', source: 'NVML' },
+            fanSpeedPercent: { value: 0, availability: 'available', source: 'NVML' },
+          },
+        ],
+        storage: [],
+        system: { osVersion: 'Windows 11', osBuild: '26100', uptimeSeconds: 100 },
+      },
+      diagnostics: {
+        timestamp: REF_DATE,
+        status: 'success',
+        collectionDurationMs: 4,
+        deviceProblems: { availability: 'available', source: 'CM_Get_DevNode_Status', totalDevicesScanned: 219, problemCount: 0, devicesWithProblems: [] },
+        memoryCommit: { availability: 'available', source: 'GetPerformanceInfo', commitTotalBytes: 16 * 1024 * 1024 * 1024, commitLimitBytes: 32 * 1024 * 1024 * 1024, commitPeakBytes: 20 * 1024 * 1024 * 1024, physicalTotalBytes: 32 * 1024 * 1024 * 1024, physicalAvailableBytes: 18 * 1024 * 1024 * 1024, systemCacheBytes: 10 * 1024 * 1024 * 1024, kernelPagedBytes: 500 * 1024 * 1024, kernelNonpagedBytes: 400 * 1024 * 1024, processCount: 250, threadCount: 3500, commitUtilizationPercent: 50.0, physicalUtilizationPercent: 43.8 },
+        powerStatus: { availability: 'available', source: 'GetSystemPowerStatus', acLineStatus: 1, batteryFlag: 128, batteryLifePercent: null, batterySaverActive: false, hasSystemBattery: false, isOnAC: true, isOnBattery: false, powerArchitecture: 'desktop_like' },
+        eventLog: { availability: 'available', source: 'Wevtapi', queryTimeWindowHours: 168, maxEventsCap: 50, returnedEventCount: 0, truncated: false, events: [] },
+        systemServices: {
+          availability: 'available',
+          source: 'Advapi32_SCM',
+          scannedAt: REF_DATE,
+          catalogCount: 6,
+          services: [
+            { serviceName: 'EventLog', displayName: 'Windows Event Log', operationalModel: 'always_running', currentState: 'running', startType: 'auto', win32ExitCode: 0 },
+          ],
+        },
+      },
+    });
+
+    it('contiene esattamente i 5 canali hardware/termici/SMART candidati', () => {
+      expect(Array.from(HARDWARE_SENSOR_CHANNEL_IDS).sort()).toEqual([
+        'cpu_power',
+        'cpu_temp',
+        'gpu_telemetry',
+        'gpu_temp',
+        'storage_smart',
+      ]);
+    });
+
+    // A. system_events unavailable → hasHardwareGaps false
+    it('A. system_events unavailable → hasHardwareGaps false', () => {
+      const facts = createFullFacts();
+      facts.diagnostics!.eventLog = {
+        availability: 'unavailable',
+        source: 'Wevtapi',
+        queryTimeWindowHours: 168,
+        maxEventsCap: 50,
+        returnedEventCount: 0,
+        truncated: false,
+        events: [],
+      };
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(false);
+    });
+
+    // B. system_services unavailable → hasHardwareGaps false
+    it('B. system_services unavailable → hasHardwareGaps false', () => {
+      const facts = createFullFacts();
+      facts.diagnostics!.systemServices = {
+        availability: 'unavailable',
+        source: 'Advapi32_SCM',
+        scannedAt: REF_DATE,
+        catalogCount: 6,
+        services: [],
+      };
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(false);
+    });
+
+    // C. system_files unavailable → hasHardwareGaps false
+    it('C. system_files unavailable → hasHardwareGaps false', () => {
+      const facts = createFullFacts();
+      facts.systemFilesStatus = 'not_tested';
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(false);
+    });
+
+    // D. memory_commit unavailable → hasHardwareGaps false
+    it('D. memory_commit unavailable → hasHardwareGaps false', () => {
+      const facts = createFullFacts();
+      facts.diagnostics!.memoryCommit = {
+        ...facts.diagnostics!.memoryCommit,
+        availability: 'unavailable',
+      };
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(false);
+    });
+
+    // E. power_architecture unavailable → hasHardwareGaps false
+    it('E. power_architecture unavailable → hasHardwareGaps false', () => {
+      const facts = createFullFacts();
+      facts.diagnostics!.powerStatus = {
+        ...facts.diagnostics!.powerStatus,
+        availability: 'unavailable',
+      };
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(false);
+    });
+
+    // F. cpu_temp unavailable → hasHardwareGaps true
+    it('F. cpu_temp unavailable → hasHardwareGaps true', () => {
+      const facts = createFullFacts();
+      facts.monitoring!.cpu.packageTemperatureCelsius = {
+        value: null,
+        availability: 'unavailable',
+        source: 'ACPI',
+      };
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(true);
+    });
+
+    // G. gpu_telemetry unavailable → hasHardwareGaps true
+    it('G. gpu_telemetry unavailable → hasHardwareGaps true', () => {
+      const facts = createFullFacts();
+      facts.monitoring!.gpus[0].utilizationPercent = {
+        value: null,
+        availability: 'unavailable',
+        source: 'NVML',
+      };
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(true);
+    });
+
+    // H. storage_smart unavailable → hasHardwareGaps true
+    it('H. storage_smart unavailable → hasHardwareGaps true', () => {
+      const facts = createFullFacts();
+      facts.smartDisks = [];
+      const cov = computeDiagnosticCoverage(facts);
+      expect(cov.availableChannels).toBe(14);
+      expect(cov.totalChannels).toBe(15);
+      expect(cov.percentage).toBe(93);
+      expect(cov.hasHardwareGaps).toBe(true);
+    });
+
+    // I. coverage percentage corretta in tutti i casi
+    it('I. coverage percentage corretta in tutti i casi: calcolo deterministico percentuale', () => {
+      const facts = createFullFacts();
+      // Con tutti i 15 attivi -> 100%
+      expect(computeDiagnosticCoverage(facts).percentage).toBe(100);
+
+      // Con 1 disattivato (14/15) -> 93%
+      facts.diagnostics!.eventLog = { availability: 'unavailable', source: 'Wevtapi', queryTimeWindowHours: 168, maxEventsCap: 50, returnedEventCount: 0, truncated: false, events: [] };
+      expect(computeDiagnosticCoverage(facts).percentage).toBe(93);
+
+      // Con 2 disattivati (13/15) -> 87%
+      facts.diagnostics!.systemServices = { availability: 'unavailable', source: 'Advapi32_SCM', scannedAt: REF_DATE, catalogCount: 6, services: [] };
+      expect(computeDiagnosticCoverage(facts).percentage).toBe(87);
+
+      // Con 3 disattivati (12/15) -> 80%
+      facts.systemFilesStatus = 'not_tested';
+      expect(computeDiagnosticCoverage(facts).percentage).toBe(80);
+
+      // Con 5 disattivati (10/15) -> 67%
+      facts.diagnostics!.memoryCommit = { ...facts.diagnostics!.memoryCommit, availability: 'unavailable' };
+      facts.diagnostics!.powerStatus = { ...facts.diagnostics!.powerStatus, availability: 'unavailable' };
+      expect(computeDiagnosticCoverage(facts).percentage).toBe(67);
+    });
+  });
 });
+
 
 
