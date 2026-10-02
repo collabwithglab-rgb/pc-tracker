@@ -234,7 +234,7 @@ export interface DiagnosticCorrelation {
   - `8D-2`: Windows Services → Health Findings deterministici e Coverage a 15 canali [COMPLETATO].
   - `8D-2.1`: Semantica Hardware Gap (5 canali fisici) vs Coverage/Telemetry Gap [COMPLETATO].
   - `8D-3`: Correlation → Health Integration (Enrichment, Assorbimento e Anti-Double-Penalty) [COMPLETATO - Commit a64925a].
-  - `8D-4`: Optimization & Recommendation Integration [COMPLETATO] * [TAG: TRANCHE-8D-4-VERIFICATA-CHATGPT] *
+  - `8D-4`: Optimization & Recommendation Integration [COMPLETATO] * [TAG: TRANCHE-8D-DA-VERIFICARE-CON-CHATGPT] *
 - **Criterio di Completamento:** 15 canali coperti; score health isolato e non penalizzato se non supportato; raccomandazioni collegate ai fatti diagnostici avanzati; commit locale Tranche 8D-4 (senza push).
 
 ### 8E — UI Presentation & Browser Verification
@@ -316,7 +316,7 @@ Se l'anchor non possiede un proprio `recommendedActionId` e il secondario assorb
 
 ---
 
-## 6. SPECIFICA FORMALE TRANCHE 8D-4 (OPTIMIZATION & RECOMMENDATION INTEGRATION) * [TAG: TRANCHE-8D-4-VERIFICATA-CHATGPT] *
+## 6. SPECIFICA FORMALE TRANCHE 8D-4 (OPTIMIZATION & RECOMMENDATION INTEGRATION) * [TAG: TRANCHE-8D-DA-VERIFICARE-CON-CHATGPT] *
 
 ### 6.1 Ruolo Architetturale di 8D-4
 Tranche 8D-4 completa la convergenza tra i fatti diagnostici nativi, i finding di salute e il catalogo di raccomandazioni pure del sistema (`optimizationEngine.ts`, `optimizationLifecycleEngine.ts`, `optimizationExecutionService.ts`):
@@ -355,7 +355,7 @@ Tranche 8D-4 completa la convergenza tra i fatti diagnostici nativi, i finding d
 
 ---
 
-## 7. SPECIFICA FORMALE TRANCHE 8E (UI PRESENTATION & VERIFICATION) * [TAG: TRANCHE-8E-VERIFICATA] *
+## 7. SPECIFICA FORMALE TRANCHE 8E (UI PRESENTATION & VERIFICATION) * [TAG: TRANCHE-8E-DA-VERIFICARE-CON-CHATGPT] *
 
 ### 7.1 Obiettivi e Risultati Conseguiti
 1. **Modali di Ispezione Dedicate:**
