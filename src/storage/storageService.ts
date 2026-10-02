@@ -12,6 +12,7 @@ import {
   TuningProfile,
   OptimizationExecutionRecord,
   DEFAULT_SCHEDULER_SETTINGS,
+  SupportedLocale,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   rigDescription: '',
   buildYear: undefined,
   quickSetupCompleted: false,
+  language: 'it',
   currencySymbol: '€',
   dateFormat: 'DD/MM/YYYY',
   uiDensity: 'comfortable',
@@ -103,12 +105,19 @@ export function normalizeSettings(rawSettings: unknown): AppSettings {
       ? (s.typographyPreset as TypographyPresetPreference)
       : DEFAULT_SETTINGS.typographyPreset;
 
+  const validLocales: SupportedLocale[] = ['it', 'en', 'de', 'fr', 'es', 'zh', 'ja'];
+  const language: SupportedLocale =
+    typeof s.language === 'string' && validLocales.includes(s.language as SupportedLocale)
+      ? (s.language as SupportedLocale)
+      : (DEFAULT_SETTINGS.language || 'it');
+
   return {
     rigName: typeof s.rigName === 'string' ? s.rigName.trim() : DEFAULT_SETTINGS.rigName,
     rigDescription:
       typeof s.rigDescription === 'string' ? s.rigDescription.trim() : DEFAULT_SETTINGS.rigDescription,
     buildYear,
     quickSetupCompleted: typeof s.quickSetupCompleted === 'boolean' ? s.quickSetupCompleted : false,
+    language,
     currencySymbol: '€', // PC Tracker rimane rigorosamente focalizzato sull'euro
     dateFormat: s.dateFormat === 'YYYY-MM-DD' ? 'YYYY-MM-DD' : 'DD/MM/YYYY',
     uiDensity: s.uiDensity === 'compact' ? 'compact' : 'comfortable',

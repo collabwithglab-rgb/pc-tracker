@@ -202,7 +202,7 @@ export interface InstalledComponentItem {
   computed: ComponentComputedState;
 }
 
-interface PCStoreState {
+export interface PCStoreState {
   components: Component[];
   events: ComponentEvent[];
   upgrades: Upgrade[];
@@ -329,7 +329,7 @@ interface PCStoreState {
   ) => MaintenanceReminder[];
 }
 
-const PCContext = createContext<PCStoreState | null>(null);
+export const PCContext = createContext<PCStoreState | null>(null);
 
 export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [data, setData] = useState<DatabaseSchema>({

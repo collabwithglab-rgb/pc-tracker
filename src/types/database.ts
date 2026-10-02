@@ -17,6 +17,7 @@ export type TypographyPresetPreference = 'default' | 'minimal' | 'system';
 export type DefaultSectionPreference = 'dashboard' | 'current-rig' | 'archive';
 export type ArchiveSortPreference = 'purchase_date_desc' | 'name_asc' | 'cost_desc';
 export type ArchiveViewPreference = 'cards' | 'table';
+export type SupportedLocale = 'it' | 'en' | 'de' | 'fr' | 'es' | 'zh' | 'ja';
 
 export interface AppSettings {
   // Identità del Setup
@@ -26,6 +27,7 @@ export interface AppSettings {
   quickSetupCompleted?: boolean; // default: false
 
   // Interfaccia & Visualizzazione Globale
+  language?: SupportedLocale; // default: "it"
   currencySymbol: string; // default: "€"
   dateFormat: DateFormatPreference; // default: "DD/MM/YYYY"
   uiDensity: UIDensity; // default: "comfortable"

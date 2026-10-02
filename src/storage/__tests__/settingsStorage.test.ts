@@ -86,6 +86,7 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
     expect(DEFAULT_SETTINGS.rigDescription).toBe('');
     expect(DEFAULT_SETTINGS.buildYear).toBeUndefined();
     expect(DEFAULT_SETTINGS.currencySymbol).toBe('€');
+    expect(DEFAULT_SETTINGS.language).toBe('it');
     expect(DEFAULT_SETTINGS.dateFormat).toBe('DD/MM/YYYY');
     expect(DEFAULT_SETTINGS.uiDensity).toBe('comfortable');
     expect(DEFAULT_SETTINGS.reducedMotion).toBe('system');
@@ -110,6 +111,7 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
     const normalized = normalizeSettings(legacyPayload);
 
     expect(normalized.currencySymbol).toBe('€');
+    expect(normalized.language).toBe('it');
     expect(normalized.dateFormat).toBe('DD/MM/YYYY');
     expect(normalized.rigName).toBe('');
     expect(normalized.rigDescription).toBe('');
@@ -246,6 +248,25 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
     expect(formatDate(null)).toBe('-');
     expect(formatDate(undefined)).toBe('-');
     expect(formatDate('invalid-date')).toBe('invalid-date');
+  });
+
+  it('8b. valida, normalizza e persiste la preferenza language', async () => {
+    expect(normalizeSettings({ language: 'en' }).language).toBe('en');
+    expect(normalizeSettings({ language: 'de' }).language).toBe('de');
+    expect(normalizeSettings({ language: 'fr' }).language).toBe('fr');
+    expect(normalizeSettings({ language: 'es' }).language).toBe('es');
+    expect(normalizeSettings({ language: 'zh' }).language).toBe('zh');
+    expect(normalizeSettings({ language: 'ja' }).language).toBe('ja');
+    expect(normalizeSettings({ language: 'invalid' as any }).language).toBe('it');
+    expect(normalizeSettings({ language: 123 as any }).language).toBe('it');
+
+    await saveSettings({
+      ...DEFAULT_SETTINGS,
+      language: 'en',
+    });
+
+    const db = await loadFullDatabase();
+    expect(db.settings.language).toBe('en');
   });
 
   it('9. valida, normalizza e persiste la preferenza uiDensity', async () => {
