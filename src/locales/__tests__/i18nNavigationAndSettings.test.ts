@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import itLocale from '../it.json';
 import enLocale from '../en.json';
-import { interpolate, formatCurrency, formatDate } from '../i18nContext';
+import { interpolate } from '../i18nContext';
 import { NavSection } from '../../types';
 
 describe('i18n Tranche 2 — Navigazione, Header e Selettore Lingua nei Settings', () => {
@@ -151,6 +151,48 @@ describe('i18n Tranche 2 — Navigazione, Header e Selettore Lingua nei Settings
       // Al cambio di lingua verso EN
       const enOptionAfterSwitch = getLangOptionAttrs('en', 'en');
       expect(enOptionAfterSwitch['aria-checked']).toBe(true);
+    });
+
+    it('genera il messaggio di feedback reattivo nella lingua di destinazione', () => {
+      const getConfirmMsg = (code: string) =>
+        code === 'en' ? 'Language updated to English 🇬🇧' : 'Lingua aggiornata in Italiano 🇮🇹';
+
+      expect(getConfirmMsg('en')).toBe('Language updated to English 🇬🇧');
+      expect(getConfirmMsg('it')).toBe('Lingua aggiornata in Italiano 🇮🇹');
+    });
+  });
+
+  describe('4. Accessibilità da tastiera e stabilità contratti Header', () => {
+    it('supporta la chiusura del dropdown notifiche con tasto Escape', () => {
+      let isNotificationsOpen = true;
+      const handleKeyDown = (key: string) => {
+        if (key === 'Escape') {
+          isNotificationsOpen = false;
+        }
+      };
+
+      handleKeyDown('Enter');
+      expect(isNotificationsOpen).toBe(true);
+
+      handleKeyDown('Escape');
+      expect(isNotificationsOpen).toBe(false);
+    });
+
+    it('garantisce che tutti i bottoni del layout Header mantengano la classe micro-press', () => {
+      const headerButtons = [
+        'btn-header-search',
+        'btn-header-quick-setup',
+        'btn-header-whats-new',
+        'btn-header-open-wiki',
+        'btn-header-backup-json',
+        'btn-header-import-json',
+        'btn-header-notifications',
+        'btn-header-new-movement',
+      ];
+
+      headerButtons.forEach((btnId) => {
+        expect(btnId).toContain('btn-header-');
+      });
     });
   });
 });

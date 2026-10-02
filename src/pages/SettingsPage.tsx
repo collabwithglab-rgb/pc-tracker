@@ -232,10 +232,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const handleSelectLanguage = async (code: SupportedLocale) => {
     try {
       await setLocale(code);
-      showNotification(
-        'success',
-        t('settings_language_switch_confirm', { lang: code === 'it' ? 'Italiano 🇮🇹' : 'English 🇬🇧' })
-      );
+      const confirmMsg =
+        code === 'en'
+          ? 'Language updated to English 🇬🇧'
+          : 'Lingua aggiornata in Italiano 🇮🇹';
+      showNotification('success', confirmMsg);
     } catch (err) {
       showNotification('error', `Errore cambio lingua: ${(err as Error).message}`);
     }
