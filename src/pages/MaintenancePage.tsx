@@ -74,6 +74,8 @@ import {
   BiosParameterCardModal,
   CareOverviewTab,
   CareLiveTab,
+  EventLogInspectionModal,
+  WindowsServicesInspectionModal,
 } from '../components/maintenance';
 import { Modal } from '../components/common/Modal';
 import {
@@ -206,6 +208,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [restorePointDesc, setRestorePointDesc] = useState('PC Tracker Safety Point');
   const [monitoringSnapshot, setMonitoringSnapshot] = useState<MonitoringSnapshot | null>(null);
   const [diagnosticsSnapshot, setDiagnosticsSnapshot] = useState<SystemDiagnosticsSnapshot | null>(null);
+  const [isEventLogModalOpen, setIsEventLogModalOpen] = useState(false);
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
 
   // Caricamento dati iniziali per la tab Strumenti e Panoramica
   const loadWindowsToolsData = async () => {
@@ -1629,6 +1633,60 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                     {runningTool === 'chkdsk' ? 'Scansione in corso...' : `Esegui chkdsk /scan su ${selectedChkdskDrive}`}
                   </button>
                 </div>
+
+                {/* Tool: Registro Eventi di Sistema (Event Log Wevtapi) */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FileText size={18} color="var(--accent-primary)" />
+                        Registro Eventi Hardware (Event Log)
+                      </div>
+                      <span className="badge badge-cyan" style={{ fontSize: '0.68rem' }}>
+                        Read-Only Win32
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Interroga il registro eventi di sistema nativo (Wevtapi.dll) per WHEA, errori disco/NTFS, TDR scheda video e Kernel-Power 41, con deduplicazione intelligente.
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsEventLogModalOpen(true)}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    Ispeziona Log di Sistema (WHEA/Disk/TDR)
+                  </button>
+                </div>
+
+                {/* Tool: Servizi di Sistema Critici (SCM Advapi32) */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Terminal size={18} color="var(--accent-emerald)" />
+                        Servizi di Sistema Critici (SCM)
+                      </div>
+                      <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
+                        Read-Only SCM
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      Verifica lo stato e il modello operativo dei 6 servizi critici di sistema (EventLog, WMI, Windows Update, TrustedInstaller, VSS, Windows Defender).
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsServicesModalOpen(true)}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    Verifica Servizi di Sistema (SCM)
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2563,6 +2621,20 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           </div>
         </form>
       </Modal>
+
+      {/* Modale Ispezione Event Log Windows */}
+      <EventLogInspectionModal
+        isOpen={isEventLogModalOpen}
+        onClose={() => setIsEventLogModalOpen(false)}
+        eventLogSnapshot={diagnosticsSnapshot?.eventLog}
+      />
+
+      {/* Modale Stato Servizi Windows SCM */}
+      <WindowsServicesInspectionModal
+        isOpen={isServicesModalOpen}
+        onClose={() => setIsServicesModalOpen(false)}
+        servicesSnapshot={diagnosticsSnapshot?.systemServices}
+      />
     </div>
   );
 };

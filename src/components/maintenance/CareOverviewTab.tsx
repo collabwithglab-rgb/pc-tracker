@@ -19,7 +19,13 @@ import {
   Cpu,
   Zap,
   Battery,
+  FileText,
+  Terminal,
+  Activity,
 } from 'lucide-react';
+import { SystemDiagnosticsSnapshot } from '../../types/diagnostics';
+import { EventLogInspectionModal } from './EventLogInspectionModal';
+import { WindowsServicesInspectionModal } from './WindowsServicesInspectionModal';
 import {
   SystemFactsInput,
   SystemHealthReport,
@@ -57,6 +63,115 @@ import { usePCStore } from '../../store';
 import { Modal } from '../common/Modal';
 import { OptimizationHistoryModal } from './OptimizationHistoryModal';
 
+const DEMO_DIAGNOSTICS_SNAPSHOT: SystemDiagnosticsSnapshot = {
+  timestamp: new Date().toISOString(),
+  status: 'success',
+  collectionDurationMs: 6,
+  deviceProblems: {
+    availability: 'available',
+    source: 'CM_Get_DevNode_Status',
+    totalDevicesScanned: 219,
+    problemCount: 0,
+    devicesWithProblems: [],
+  },
+  memoryCommit: {
+    availability: 'available',
+    source: 'GetPerformanceInfo',
+    commitTotalBytes: 14_200_000_000,
+    commitLimitBytes: 36_000_000_000,
+    commitPeakBytes: 21_000_000_000,
+    physicalTotalBytes: 34_359_738_368,
+    physicalAvailableBytes: 22_548_578_304,
+    systemCacheBytes: 6_442_450_944,
+    kernelPagedBytes: 480_000_000,
+    kernelNonpagedBytes: 350_000_000,
+    processCount: 168,
+    threadCount: 2450,
+    commitUtilizationPercent: 39,
+    physicalUtilizationPercent: 34,
+  },
+  powerStatus: {
+    availability: 'available',
+    source: 'GetSystemPowerStatus',
+    acLineStatus: 1,
+    batteryFlag: 128,
+    batteryLifePercent: null,
+    batterySaverActive: false,
+    hasSystemBattery: false,
+    isOnAC: true,
+    isOnBattery: false,
+    powerArchitecture: 'desktop_like',
+  },
+  eventLog: {
+    availability: 'available',
+    source: 'Wevtapi_SystemLog',
+    queryTimeWindowHours: 168,
+    maxEventsCap: 50,
+    returnedEventCount: 0,
+    truncated: false,
+    events: [],
+  },
+  systemServices: {
+    availability: 'available',
+    source: 'Advapi32_SCM',
+    scannedAt: new Date().toISOString(),
+    catalogCount: 6,
+    services: [
+      {
+        serviceName: 'EventLog',
+        displayName: 'Windows Event Log',
+        operationalModel: 'always_running',
+        currentState: 'running',
+        startType: 'auto',
+        win32ExitCode: 0,
+        processId: 1044,
+      },
+      {
+        serviceName: 'Winmgmt',
+        displayName: 'Windows Management Instrumentation',
+        operationalModel: 'always_running',
+        currentState: 'running',
+        startType: 'auto',
+        win32ExitCode: 0,
+        processId: 1820,
+      },
+      {
+        serviceName: 'wuauserv',
+        displayName: 'Windows Update',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 0,
+      },
+      {
+        serviceName: 'TrustedInstaller',
+        displayName: 'Windows Modules Installer',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 0,
+      },
+      {
+        serviceName: 'VSS',
+        displayName: 'Volume Shadow Copy',
+        operationalModel: 'on_demand',
+        currentState: 'stopped',
+        startType: 'demand',
+        win32ExitCode: 0,
+      },
+      {
+        serviceName: 'WinDefend',
+        displayName: 'Microsoft Defender Antivirus Service',
+        operationalModel: 'contextual',
+        currentState: 'running',
+        startType: 'auto',
+        win32ExitCode: 0,
+        processId: 3412,
+      },
+    ],
+  },
+};
+
 interface CareOverviewTabProps {
   facts: SystemFactsInput;
   onRefreshFacts?: () => void;
@@ -91,6 +206,20 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
   const [recViewFilter, setRecViewFilter] = useState<'actionable' | 'resolved'>('actionable');
   const [showAllReminders, setShowAllReminders] = useState(false);
   const [expandedReminderId, setExpandedReminderId] = useState<string | null>(null);
+  const [isEventLogModalOpen, setIsEventLogModalOpen] = useState(false);
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
+  const [showDemoDiagnostics, setShowDemoDiagnostics] = useState(false);
+
+  // Snapshot diagnostico attivo (nativo Windows o anteprima web opzionale)
+  const activeDiagnostics = useMemo(() => {
+    if (facts.diagnostics && facts.diagnostics.status !== 'unsupported') {
+      return facts.diagnostics;
+    }
+    if (showDemoDiagnostics) {
+      return DEMO_DIAGNOSTICS_SNAPSHOT;
+    }
+    return null;
+  }, [facts.diagnostics, showDemoDiagnostics]);
 
   // Valutazione pura e deterministica della salute
   const healthReport: SystemHealthReport = useMemo(() => {
@@ -628,125 +757,309 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
         </div>
       </div>
 
-      {/* 2.3 DIAGNOSTICA NATIVA: HARDWARE FAULTS, MEMORY COMMIT & POWER (TRANCHE 7B) */}
-      {facts.diagnostics && facts.diagnostics.status !== 'unsupported' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-md)' }}>
-          {/* Card 1: Periferiche e Driver Hardware */}
-          <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Cpu size={16} color="var(--accent-primary)" />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Periferiche & Driver
+      {/* 2.3 DIAGNOSTICA NATIVA DI SISTEMA (5 CANALI: DRIVER, COMMIT, POWER, EVENT LOG, SERVIZI) */}
+      {activeDiagnostics ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+          {showDemoDiagnostics && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                fontSize: '0.78rem',
+              }}
+            >
+              <span style={{ color: 'var(--accent-cyan)' }}>
+                ℹ️ Anteprima Dimostrativa Web: visualizzazione simulata dei fatti nativi catturati da Rust in ambiente Desktop.
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => setShowDemoDiagnostics(false)}
+                style={{ fontSize: '0.72rem', padding: '1px 6px' }}
+              >
+                Nascondi anteprima
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-md)' }}>
+            {/* Card 1: Periferiche e Driver Hardware */}
+            <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Cpu size={16} color="var(--accent-primary)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Periferiche & Driver
+                    </span>
+                  </div>
+                  <span
+                    className={`badge ${
+                      activeDiagnostics.deviceProblems.problemCount === 0 ? 'badge-emerald' : 'badge-amber'
+                    }`}
+                    style={{ fontSize: '0.7rem' }}
+                  >
+                    {activeDiagnostics.deviceProblems.problemCount === 0
+                      ? '0 Problemi'
+                      : `${activeDiagnostics.deviceProblems.problemCount} Problemi`}
                   </span>
                 </div>
-                <span
-                  className={`badge ${
-                    facts.diagnostics.deviceProblems.problemCount === 0 ? 'badge-emerald' : 'badge-amber'
-                  }`}
-                  style={{ fontSize: '0.7rem' }}
-                >
-                  {facts.diagnostics.deviceProblems.problemCount === 0
-                    ? '0 Problemi'
-                    : `${facts.diagnostics.deviceProblems.problemCount} Problemi`}
-                </span>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  {activeDiagnostics.deviceProblems.problemCount === 0 ? (
+                    <span>Tutti i {activeDiagnostics.deviceProblems.totalDevicesScanned} nodi hardware operano nominalmente senza codici errore Windows.</span>
+                  ) : (
+                    <span>
+                      Rilevati codici di errore in {activeDiagnostics.deviceProblems.problemCount} periferiche su {activeDiagnostics.deviceProblems.totalDevicesScanned} scansionate.
+                    </span>
+                  )}
+                </div>
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                {facts.diagnostics.deviceProblems.problemCount === 0 ? (
-                  <span>Tutti i {facts.diagnostics.deviceProblems.totalDevicesScanned} nodi hardware operano nominalmente senza codici errore Windows.</span>
-                ) : (
-                  <span>
-                    Rilevati codici di errore in {facts.diagnostics.deviceProblems.problemCount} periferiche su {facts.diagnostics.deviceProblems.totalDevicesScanned} scansionate.
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                Fonte: CM_Get_DevNode_Status • Windows CfgMgr
+              </div>
+            </div>
+
+            {/* Card 2: Spazio di Commit e Paging */}
+            <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Layers size={16} color="var(--accent-primary)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Spazio di Commit
+                    </span>
+                  </div>
+                  <span
+                    className={`badge ${
+                      activeDiagnostics.memoryCommit.commitUtilizationPercent >= 88
+                        ? 'badge-amber'
+                        : 'badge-emerald'
+                    }`}
+                    style={{ fontSize: '0.7rem' }}
+                  >
+                    {activeDiagnostics.memoryCommit.commitUtilizationPercent}% Allocato
                   </span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  <div>
+                    <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {(activeDiagnostics.memoryCommit.commitTotalBytes / (1024 * 1024 * 1024)).toFixed(1)} GB
+                    </strong>{' '}
+                    / {(activeDiagnostics.memoryCommit.commitLimitBytes / (1024 * 1024 * 1024)).toFixed(1)} GB limite
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    RAM libera: {(activeDiagnostics.memoryCommit.physicalAvailableBytes / (1024 * 1024 * 1024)).toFixed(1)} GB • Cache: {(activeDiagnostics.memoryCommit.systemCacheBytes / (1024 * 1024 * 1024)).toFixed(1)} GB
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                Fonte: GetPerformanceInfo • Memoria virtuale protetta
+              </div>
+            </div>
+
+            {/* Card 3: Architettura Energetica */}
+            <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {activeDiagnostics.powerStatus.hasSystemBattery ? (
+                      <Battery size={16} color="var(--accent-primary)" />
+                    ) : (
+                      <Zap size={16} color="var(--accent-primary)" />
+                    )}
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Alimentazione
+                    </span>
+                  </div>
+                  <span
+                    className={`badge ${
+                      activeDiagnostics.powerStatus.isOnBattery ? 'badge-amber' : 'badge-cyan'
+                    }`}
+                    style={{ fontSize: '0.7rem' }}
+                  >
+                    {activeDiagnostics.powerStatus.isOnBattery ? 'Batteria' : 'Rete AC'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  <div>
+                    {activeDiagnostics.powerStatus.powerArchitecture === 'desktop_like'
+                      ? 'Desktop Fisso (Rete Elettrica AC)'
+                      : activeDiagnostics.powerStatus.isOnBattery
+                      ? `Portatile su Batteria (${activeDiagnostics.powerStatus.batteryLifePercent ?? 'N/D'}%)`
+                      : 'Portatile Collegato ad Alimentazione AC'}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {activeDiagnostics.powerStatus.batterySaverActive
+                      ? 'Risparmio batteria Windows: Attivo'
+                      : 'Profilo energetico standard Windows'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                Fonte: GetSystemPowerStatus • Architettura operativa
+              </div>
+            </div>
+
+            {/* Card 4: Eventi Kernel & Driver (Tranche 8A & 8E) */}
+            <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileText size={16} color="var(--accent-primary)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Eventi Kernel & Driver
+                    </span>
+                  </div>
+                  <span
+                    className={`badge ${
+                      !activeDiagnostics.eventLog || activeDiagnostics.eventLog.returnedEventCount === 0
+                        ? 'badge-emerald'
+                        : activeDiagnostics.eventLog.truncated
+                        ? 'badge-amber'
+                        : 'badge-cyan'
+                    }`}
+                    style={{ fontSize: '0.7rem' }}
+                  >
+                    {!activeDiagnostics.eventLog || activeDiagnostics.eventLog.returnedEventCount === 0
+                      ? '0 Segnalazioni'
+                      : activeDiagnostics.eventLog.truncated
+                      ? '50+ (Cap Raggiunto)'
+                      : `${activeDiagnostics.eventLog.returnedEventCount} Eventi`}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  {activeDiagnostics.eventLog?.truncated ? (
+                    <span style={{ color: 'var(--accent-amber)' }}>
+                      Almeno 50 eventi rilevati (campionamento limitato ai più recenti)
+                    </span>
+                  ) : !activeDiagnostics.eventLog || activeDiagnostics.eventLog.returnedEventCount === 0 ? (
+                    <span>Nessun evento critico registrato nel canale System negli ultimi 7 giorni (WHEA, Kernel-Power, Disk, NTFS, Display TDR).</span>
+                  ) : (
+                    <span>Rilevati {activeDiagnostics.eventLog.returnedEventCount} eventi diagnostici analizzati negli ultimi 7 giorni.</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Fonte: Wevtapi_SystemLog • Canale System (168h)
+                </span>
+                {activeDiagnostics.eventLog && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => setIsEventLogModalOpen(true)}
+                    style={{ fontSize: '0.72rem', padding: '1px 6px', color: 'var(--accent-primary)' }}
+                  >
+                    Ispeziona Log
+                  </button>
                 )}
               </div>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
-              Fonte: CM_Get_DevNode_Status • Windows CfgMgr
-            </div>
-          </div>
 
-          {/* Card 2: Spazio di Commit e Paging */}
-          <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Layers size={16} color="var(--accent-primary)" />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Spazio di Commit
-                  </span>
-                </div>
-                <span
-                  className={`badge ${
-                    facts.diagnostics.memoryCommit.commitUtilizationPercent >= 88
-                      ? 'badge-amber'
-                      : 'badge-emerald'
-                  }`}
-                  style={{ fontSize: '0.7rem' }}
-                >
-                  {facts.diagnostics.memoryCommit.commitUtilizationPercent}% Allocato
-                </span>
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                    {(facts.diagnostics.memoryCommit.commitTotalBytes / (1024 * 1024 * 1024)).toFixed(1)} GB
-                  </strong>{' '}
-                  / {(facts.diagnostics.memoryCommit.commitLimitBytes / (1024 * 1024 * 1024)).toFixed(1)} GB limite
-                </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  RAM libera: {(facts.diagnostics.memoryCommit.physicalAvailableBytes / (1024 * 1024 * 1024)).toFixed(1)} GB • Cache: {(facts.diagnostics.memoryCommit.systemCacheBytes / (1024 * 1024 * 1024)).toFixed(1)} GB
-                </div>
-              </div>
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
-              Fonte: GetPerformanceInfo • Memoria virtuale protetta
-            </div>
-          </div>
+            {/* Card 5: Servizi di Sistema SCM (Tranche 8B & 8E) */}
+            <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={16} color="var(--accent-primary)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Servizi di Sistema (SCM)
+                    </span>
+                  </div>
+                  {(() => {
+                    const problematicCount = activeDiagnostics.systemServices?.services?.filter((s) => {
+                      if (s.operationalModel === 'always_running' && s.currentState !== 'running') return true;
+                      if (s.startType === 'disabled' && s.operationalModel !== 'contextual') return true;
+                      if (s.win32ExitCode !== 0) return true;
+                      return false;
+                    }).length ?? 0;
 
-          {/* Card 3: Architettura Energetica */}
-          <div className="card" style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {facts.diagnostics.powerStatus.hasSystemBattery ? (
-                    <Battery size={16} color="var(--accent-primary)" />
-                  ) : (
-                    <Zap size={16} color="var(--accent-primary)" />
-                  )}
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Alimentazione
-                  </span>
+                    return (
+                      <span
+                        className={`badge ${problematicCount === 0 ? 'badge-emerald' : 'badge-amber'}`}
+                        style={{ fontSize: '0.7rem' }}
+                      >
+                        {problematicCount === 0 ? '6/6 Regolari' : `${problematicCount} con Anomalie`}
+                      </span>
+                    );
+                  })()}
                 </div>
-                <span
-                  className={`badge ${
-                    facts.diagnostics.powerStatus.isOnBattery ? 'badge-amber' : 'badge-cyan'
-                  }`}
-                  style={{ fontSize: '0.7rem' }}
-                >
-                  {facts.diagnostics.powerStatus.isOnBattery ? 'Batteria' : 'Rete AC'}
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  {(() => {
+                    const problematic = activeDiagnostics.systemServices?.services?.filter((s) => {
+                      if (s.operationalModel === 'always_running' && s.currentState !== 'running') return true;
+                      if (s.startType === 'disabled' && s.operationalModel !== 'contextual') return true;
+                      if (s.win32ExitCode !== 0) return true;
+                      return false;
+                    }) ?? [];
+
+                    if (problematic.length === 0) {
+                      return <span>Modello a 3 classi: servizi essenziali attivi; servizi on-demand a riposo considerati fisiologici.</span>;
+                    }
+                    return (
+                      <span>
+                        Rilevata anomalia in {problematic.map((p) => p.displayName).join(', ')}.
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Fonte: Advapi32_SCM • Catalogo 6 Servizi
                 </span>
+                {activeDiagnostics.systemServices && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => setIsServicesModalOpen(true)}
+                    style={{ fontSize: '0.72rem', padding: '1px 6px', color: 'var(--accent-primary)' }}
+                  >
+                    Stato Servizi
+                  </button>
+                )}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                <div>
-                  {facts.diagnostics.powerStatus.powerArchitecture === 'desktop_like'
-                    ? 'Desktop Fisso (Rete Elettrica AC)'
-                    : facts.diagnostics.powerStatus.isOnBattery
-                    ? `Portatile su Batteria (${facts.diagnostics.powerStatus.batteryLifePercent ?? 'N/D'}%)`
-                    : 'Portatile Collegato ad Alimentazione AC'}
-                </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {facts.diagnostics.powerStatus.batterySaverActive
-                    ? 'Risparmio batteria Windows: Attivo'
-                    : 'Profilo energetico standard Windows'}
-                </div>
-              </div>
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
-              Fonte: GetSystemPowerStatus • Architettura operativa
             </div>
           </div>
+        </div>
+      ) : (
+        <div
+          className="card"
+          style={{
+            padding: 'var(--space-md)',
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-subtle)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 'var(--space-sm)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+            <Terminal size={18} color="var(--accent-primary)" />
+            <div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Diagnostica Nativa di Sistema (Hardware, Memoria, Event Log & Servizi SCM)
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Rilevata con zero processi esterni nell'applicazione Desktop Windows nativa di PC Tracker.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-xs"
+            onClick={() => setShowDemoDiagnostics(true)}
+            style={{ fontSize: '0.75rem' }}
+          >
+            Attiva Anteprima Diagnostica
+          </button>
         </div>
       )}
 
@@ -1377,7 +1690,14 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     {f.area}
                   </span>
-                  {getSeverityBadge(f.severity)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {f.metadata?.isTruncatedSample === true && (
+                      <span className="care-truncation-pill" title="Campionamento limitato ai più recenti">
+                        Campione limitato
+                      </span>
+                    )}
+                    {getSeverityBadge(f.severity)}
+                  </div>
                 </div>
 
                 <h4 style={{ margin: '0 0 var(--space-2xs)', fontSize: '0.95rem', fontWeight: 600 }}>
@@ -1387,11 +1707,60 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                 <p style={{ margin: '0 0 var(--space-xs)', fontSize: '0.825rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                   {f.explanation}
                 </p>
+
+                {/* Correlazioni Diagnostiche (Tranche 8D-3 & 8E) */}
+                {f.correlations && f.correlations.length > 0 && (
+                  <div className="care-correlations-container">
+                    {f.correlations.map((c) => (
+                      <div key={c.correlationId} className="care-correlation-card">
+                        <div className="care-correlation-header">
+                          <span className="care-correlation-title">{c.title}</span>
+                          <span className={`badge ${
+                            c.strength === 'DIRECT_MATCH' ? 'badge-danger' :
+                            c.strength === 'RELATED_SIGNAL' ? 'badge-warning' : 'badge-neutral'
+                          }`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                            {c.strength}
+                          </span>
+                        </div>
+                        <div className="care-correlation-explanation">
+                          {c.explanation}
+                        </div>
+                        <div className="care-correlation-evidence-grid">
+                          <div className="care-correlation-evidence-item">
+                            <span className="care-correlation-evidence-label">Evidenza Hardware</span>
+                            <span className="care-correlation-evidence-val">{c.hardwareEvidence}</span>
+                          </div>
+                          <div className="care-correlation-evidence-item">
+                            <span className="care-correlation-evidence-label">Evidenza Event Log</span>
+                            <span className="care-correlation-evidence-val">{c.eventEvidence}</span>
+                          </div>
+                        </div>
+
+                        {/* Preservazione Segnale Assorbito (Zero Data Loss) */}
+                        {c.absorbedFinding && (
+                          <div className="care-absorbed-box">
+                            <div className="care-absorbed-header">
+                              <span>Segnale Correlato Assorbito</span>
+                              {getSeverityBadge(c.absorbedFinding.originalSeverity)}
+                            </div>
+                            <div className="care-absorbed-title">{c.absorbedFinding.title}</div>
+                            <div className="care-absorbed-details">
+                              {c.absorbedFinding.explanation}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                              Evidenza: {c.absorbedFinding.evidence}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div style={{ paddingTop: 'var(--space-xs)', borderTop: '1px solid var(--border-subtle)', fontSize: '0.775rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ paddingTop: 'var(--space-xs)', borderTop: '1px solid var(--border-subtle)', fontSize: '0.775rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-xs)' }}>
                 <span>Evidenza:</span>
-                <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{f.evidence}</span>
+                <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', textAlign: 'right', marginLeft: 'var(--space-xs)' }}>{f.evidence}</span>
               </div>
             </div>
           ))}
@@ -1470,6 +1839,21 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
           onDeleteRecord={(id) => deleteOptimizationExecution(id)}
         />
       )}
+
+      {/* 8. MODALE ISPEZIONE EVENT LOG WINDOWS */}
+      <EventLogInspectionModal
+        isOpen={isEventLogModalOpen}
+        onClose={() => setIsEventLogModalOpen(false)}
+        eventLogSnapshot={activeDiagnostics?.eventLog}
+        referenceDate={facts.referenceDate}
+      />
+
+      {/* 9. MODALE STATO SERVIZI WINDOWS SCM */}
+      <WindowsServicesInspectionModal
+        isOpen={isServicesModalOpen}
+        onClose={() => setIsServicesModalOpen(false)}
+        servicesSnapshot={activeDiagnostics?.systemServices}
+      />
     </div>
   );
 };

@@ -6,3 +6,5 @@ export { BiosParameterCardModal } from './BiosParameterCardModal';
 export { CareOverviewTab } from './CareOverviewTab';
 export { CareLiveTab } from './CareLiveTab';
 export { OptimizationHistoryModal } from './OptimizationHistoryModal';
+export { EventLogInspectionModal } from './EventLogInspectionModal';
+export { WindowsServicesInspectionModal } from './WindowsServicesInspectionModal';

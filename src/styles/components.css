@@ -5229,3 +5229,131 @@
   color: var(--accent-ruby);
 }
 
+/* ==========================================================================
+   DIAGNOSTIC CORRELATIONS & ABSORPTION PRESENTATION (TRANCHE 8E)
+   ========================================================================== */
+
+.care-correlations-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.care-correlation-card {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.care-correlation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.care-correlation-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.care-correlation-explanation {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  font-size: 0.8rem;
+}
+
+.care-correlation-evidence-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  font-size: 0.76rem;
+  background-color: var(--bg-input);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+@media (min-width: 600px) {
+  .care-correlation-evidence-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.care-correlation-evidence-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.care-correlation-evidence-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.care-correlation-evidence-val {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+/* Box Segnale Secondario Assorbito (Zero Data Loss) */
+.care-absorbed-box {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background-color: rgba(56, 189, 248, 0.04);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.77rem;
+}
+
+.care-absorbed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--accent-cyan);
+  font-weight: 600;
+  font-size: 0.76rem;
+}
+
+.care-absorbed-title {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.care-absorbed-details {
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* Badge Truncation Informatico */
+.care-truncation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--accent-amber);
+  background-color: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
