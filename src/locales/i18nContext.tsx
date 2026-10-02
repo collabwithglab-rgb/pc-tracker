@@ -221,3 +221,5 @@ export function useTranslation(): I18nContextValue {
   }
   return context;
 }
+
+export const useI18n = useTranslation;

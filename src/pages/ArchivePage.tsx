@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { usePCStore } from '../store';
-import { formatDate } from '../utils';
 import {
   Component,
   ComponentStatus,
@@ -16,6 +15,7 @@ import {
   sortComponentsForArchive,
 } from '../domain/archiveEngine';
 import { ComponentIcon } from '../components/common/ComponentIcon';
+import { useI18n, TranslationKey } from '../locales';
 import {
   Plus,
   Search,
@@ -35,6 +35,29 @@ import {
   BookOpen,
 } from 'lucide-react';
 
+const COMPONENT_STATUS_KEYS: Record<ComponentStatus, TranslationKey> = {
+  IN_USE: 'status_in_use',
+  IN_STORAGE: 'status_in_storage',
+  SOLD: 'status_sold',
+  GIFTED: 'status_gifted',
+  DISPOSED: 'status_disposed',
+};
+
+const COMPONENT_CATEGORY_KEYS: Record<ComponentCategory, TranslationKey> = {
+  cpu: 'category_cpu',
+  gpu: 'category_gpu',
+  motherboard: 'category_motherboard',
+  ram: 'category_ram',
+  storage: 'category_storage',
+  psu: 'category_psu',
+  case: 'category_case',
+  cooling: 'category_cooling',
+  monitor: 'category_monitor',
+  peripherals: 'category_peripherals',
+  accessories: 'category_accessories',
+  other: 'category_other',
+};
+
 interface ArchivePageProps {
   onSelectComponent: (componentId: string) => void;
   onOpenCreateModal: () => void;
@@ -53,6 +76,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
   onOpenWikiArticle,
 }) => {
   const { components, getComponentComputed, getComponentWarranty, isLoading, settings } = usePCStore();
+  const { t, formatCurrency, formatDate } = useI18n();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -162,8 +186,18 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
     setSelectedWarranty('all');
   };
 
+  const getStatusLabel = (status: ComponentStatus) => {
+    const key = COMPONENT_STATUS_KEYS[status];
+    return key ? t(key) : COMPONENT_STATUS_LABELS[status] || status;
+  };
+
+  const getCategoryLabel = (category: ComponentCategory) => {
+    const key = COMPONENT_CATEGORY_KEYS[category];
+    return key ? t(key) : COMPONENT_CATEGORY_LABELS[category] || category;
+  };
+
   if (isLoading) {
-    return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>Caricamento archivio da IndexedDB...</div>;
+    return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>{t('archive_loading')}</div>;
   }
 
   // STATO VUOTO 1: Nessun componente presente in tutto il database
@@ -174,14 +208,14 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
           <div className="empty-state-icon">
             <Cpu size={26} color="var(--accent-primary)" />
           </div>
-          <h2 className="empty-state-title">Archivio hardware vuoto</h2>
+          <h2 className="empty-state-title">{t('archive_empty_db_title')}</h2>
           <p className="empty-state-desc">
-            Nessun componente è presente su IndexedDB. Inizia registrando il primo pezzo del tuo computer per tracciarne la vita, i costi e gli upgrade.
+            {t('archive_empty_db_desc')}
           </p>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onOpenCreateModal} className="btn btn-primary micro-press">
               <Plus size={15} strokeWidth={2.2} />
-              <span>Aggiungi il Primo Componente</span>
+              <span>{t('archive_empty_db_add_btn')}</span>
             </button>
             {onOpenWikiArticle && (
               <button
@@ -190,7 +224,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                 className="btn btn-secondary micro-press"
               >
                 <BookOpen size={14} color="var(--accent-primary)" />
-                <span>Guida Primi Passi</span>
+                <span>{t('archive_empty_db_guide_btn')}</span>
               </button>
             )}
           </div>
@@ -215,19 +249,19 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
             <Search size={16} color="var(--text-muted)" style={styles.searchIcon} />
             <input
               type="text"
-              placeholder="Cerca hardware per nome, marca, modello o note..."
+              placeholder={t('archive_search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="form-input"
               style={styles.searchInput}
-              aria-label="Cerca hardware per nome o specifiche"
+              aria-label={t('archive_search_aria_label')}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
                 style={styles.searchClearBtn}
-                title="Cancella ricerca"
-                aria-label="Cancella ricerca"
+                title={t('archive_search_clear_tooltip')}
+                aria-label={t('archive_search_clear_tooltip')}
               >
                 <X size={14} />
               </button>
@@ -236,13 +270,13 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
 
           <div style={styles.primaryRowActions}>
             {/* Toggle Vista Cards / Table (Segmented Control Compatto) */}
-            <div className="view-toggle-group" role="group" aria-label="Modalità di visualizzazione">
+            <div className="view-toggle-group" role="group" aria-label={t('archive_view_mode_aria')}>
               <button
                 type="button"
                 className={`view-toggle-btn ${viewMode === 'cards' ? 'active' : ''}`}
                 onClick={() => setViewMode('cards')}
-                title="Vista Griglia Schede"
-                aria-label="Vista Griglia Schede"
+                title={t('archive_view_cards_tooltip')}
+                aria-label={t('archive_view_cards_tooltip')}
               >
                 <LayoutGrid size={15} />
               </button>
@@ -250,8 +284,8 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                 type="button"
                 className={`view-toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
                 onClick={() => setViewMode('table')}
-                title="Vista Tabella Compatta"
-                aria-label="Vista Tabella Compatta"
+                title={t('archive_view_table_tooltip')}
+                aria-label={t('archive_view_table_tooltip')}
               >
                 <List size={15} />
               </button>
@@ -262,10 +296,10 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               onClick={onOpenCreateModal}
               className="btn btn-primary micro-press"
               style={{ height: '38px', fontSize: '13px', padding: '0 16px' }}
-              title="Aggiungi un nuovo componente all'archivio"
+              title={t('archive_new_component_tooltip')}
             >
               <Plus size={15} strokeWidth={2.2} />
-              <span>Nuovo Componente</span>
+              <span>{t('archive_new_component_btn')}</span>
             </button>
           </div>
         </div>
@@ -279,14 +313,14 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="form-select"
               style={styles.filterSelect}
-              aria-label="Filtra per stato del componente"
+              aria-label={t('archive_filter_status_aria')}
             >
-              <option value="all">Tutti gli stati</option>
-              <option value="IN_USE">In Uso (PC)</option>
-              <option value="IN_STORAGE">In Magazzino</option>
-              <option value="SOLD">Venduto</option>
-              <option value="GIFTED">Regalato</option>
-              <option value="DISPOSED">Smaltito</option>
+              <option value="all">{t('archive_status_filter_all')}</option>
+              <option value="IN_USE">{t('archive_status_filter_in_use')}</option>
+              <option value="IN_STORAGE">{t('archive_status_filter_in_storage')}</option>
+              <option value="SOLD">{t('archive_status_filter_sold')}</option>
+              <option value="GIFTED">{t('archive_status_filter_gifted')}</option>
+              <option value="DISPOSED">{t('archive_status_filter_disposed')}</option>
             </select>
 
             {/* Filtro Categoria */}
@@ -295,12 +329,12 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="form-select"
               style={styles.filterSelect}
-              aria-label="Filtra per categoria hardware"
+              aria-label={t('archive_filter_category_aria')}
             >
-              <option value="all">Tutte le categorie</option>
+              <option value="all">{t('archive_category_filter_all')}</option>
               {VALID_CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>
-                  {COMPONENT_CATEGORY_LABELS[cat]}
+                  {getCategoryLabel(cat)}
                 </option>
               ))}
             </select>
@@ -311,12 +345,12 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               onChange={(e) => setSelectedWarranty(e.target.value as 'all' | 'active' | 'expiring' | 'expired')}
               className="form-select"
               style={styles.filterSelect}
-              aria-label="Filtra per stato della garanzia"
+              aria-label={t('archive_filter_warranty_aria')}
             >
-              <option value="all">Tutte le garanzie</option>
-              <option value="active">Garanzia attiva</option>
-              <option value="expiring">In scadenza (≤ 30 gg)</option>
-              <option value="expired">Garanzia terminata</option>
+              <option value="all">{t('archive_warranty_filter_all')}</option>
+              <option value="active">{t('archive_warranty_filter_active')}</option>
+              <option value="expiring">{t('archive_warranty_filter_expiring')}</option>
+              <option value="expired">{t('archive_warranty_filter_expired')}</option>
             </select>
 
             {/* Ordinamento */}
@@ -325,11 +359,11 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               onChange={(e) => setSortPreference(e.target.value as ArchiveSortPreference)}
               className="form-select"
               style={styles.filterSelect}
-              aria-label="Ordinamento componenti"
+              aria-label={t('archive_sort_aria')}
             >
-              <option value="purchase_date_desc">Acquisto più recente</option>
-              <option value="name_asc">Nome alfabetico (A-Z)</option>
-              <option value="cost_desc">Costo decrescente</option>
+              <option value="purchase_date_desc">{t('archive_sort_purchase_date_desc')}</option>
+              <option value="name_asc">{t('archive_sort_name_asc')}</option>
+              <option value="cost_desc">{t('archive_sort_cost_desc')}</option>
             </select>
 
             {hasActiveFilters && (
@@ -337,10 +371,10 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                 onClick={resetFilters}
                 className="btn btn-ghost micro-press"
                 style={{ fontSize: '12px', padding: '5px 10px', height: '34px' }}
-                title="Azzera tutti i filtri"
+                title={t('archive_reset_filters_tooltip')}
               >
                 <RotateCcw size={12} />
-                <span>Azzera filtri</span>
+                <span>{t('archive_reset_filters_btn')}</span>
               </button>
             )}
           </div>
@@ -348,18 +382,18 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
           {/* Contatori compatti di inventario */}
           <div className="archive-pills-group">
             <span className="archive-stat-pill badge-in-use">
-              {statusCounts.inUse} In Uso
+              {t('archive_pill_in_use', { count: statusCounts.inUse })}
             </span>
             <span className="archive-stat-pill badge-in-storage">
-              {statusCounts.inStorage} In Magazzino
+              {t('archive_pill_in_storage', { count: statusCounts.inStorage })}
             </span>
             {statusCounts.dismissed > 0 && (
               <span className="archive-stat-pill badge-sold">
-                {statusCounts.dismissed} Dismessi
+                {t('archive_pill_dismissed', { count: statusCounts.dismissed })}
               </span>
             )}
             <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginLeft: '4px' }}>
-              ({sortedComponents.length} di {components.length})
+              {t('archive_pill_count_ratio', { filtered: sortedComponents.length, total: components.length })}
             </span>
 
             {onOpenWikiArticle && (
@@ -367,10 +401,10 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                 type="button"
                 className="contextual-help-pill"
                 onClick={() => onOpenWikiArticle('component-states-explained')}
-                title="Spiegazione di come funzionano gli stati derivati (IN_USE, IN_STORAGE, SOLD, ecc.) e ciclo di vita"
+                title={t('archive_guide_states_tooltip')}
               >
                 <BookOpen size={12} />
-                <span>Guida Stati</span>
+                <span>{t('archive_guide_states_btn')}</span>
               </button>
             )}
           </div>
@@ -386,10 +420,10 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               <Search size={24} color="var(--accent-primary)" />
             </div>
             <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
-              Nessun risultato per "{searchQuery}"
+              {t('archive_search_empty_title', { query: searchQuery })}
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', maxWidth: '440px', margin: '0 auto 16px', lineHeight: 1.5 }}>
-              Non è stato trovato alcun componente che corrisponda alla query. Verifica il nome, la marca o il modello inserito.
+              {t('archive_search_empty_desc')}
             </p>
             <button
               onClick={() => setSearchQuery('')}
@@ -397,7 +431,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               style={{ fontSize: '12.5px', margin: '0 auto' }}
             >
               <RotateCcw size={13} />
-              <span>Cancella Ricerca</span>
+              <span>{t('archive_search_clear_btn')}</span>
             </button>
           </div>
         ) : (
@@ -407,10 +441,10 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               <Sliders size={24} color="var(--accent-primary)" />
             </div>
             <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
-              Nessun componente con i filtri selezionati
+              {t('archive_filter_empty_title')}
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', maxWidth: '440px', margin: '0 auto 16px', lineHeight: 1.5 }}>
-              Nessun pezzo soddisfa contemporaneamente i filtri di categoria, stato e garanzia attivi.
+              {t('archive_filter_empty_desc')}
             </p>
             <button
               onClick={resetFilters}
@@ -418,7 +452,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
               style={{ fontSize: '12.5px', margin: '0 auto' }}
             >
               <RotateCcw size={13} />
-              <span>Azzera Filtri</span>
+              <span>{t('archive_filter_reset_btn')}</span>
             </button>
           </div>
         )
@@ -428,13 +462,13 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
           <table className="archive-table">
             <thead>
               <tr>
-                <th style={{ width: '130px' }}>Stato</th>
-                <th>Componente</th>
-                <th style={{ width: '150px' }}>Categoria</th>
-                <th style={{ width: '130px' }}>Data Acquisto</th>
-                <th style={{ width: '120px' }}>Costo Storico</th>
-                <th style={{ width: '140px' }}>Utilizzo / Note</th>
-                <th style={{ width: '110px', textAlign: 'right' }}>Azioni</th>
+                <th style={{ width: '130px' }}>{t('archive_th_status')}</th>
+                <th>{t('archive_th_component')}</th>
+                <th style={{ width: '150px' }}>{t('archive_th_category')}</th>
+                <th style={{ width: '130px' }}>{t('archive_th_purchase_date')}</th>
+                <th style={{ width: '120px' }}>{t('archive_th_historical_cost')}</th>
+                <th style={{ width: '140px' }}>{t('archive_th_usage_notes')}</th>
+                <th style={{ width: '110px', textAlign: 'right' }}>{t('archive_th_actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -453,12 +487,12 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') onSelectComponent(comp.id);
                     }}
-                    title={`Visualizza dettaglio di ${comp.name}`}
-                    aria-label={`Componente ${comp.name}, ${COMPONENT_STATUS_LABELS[status]}`}
+                    title={t('archive_row_view_tooltip', { name: comp.name })}
+                    aria-label={t('archive_row_aria_label', { name: comp.name, status: getStatusLabel(status) })}
                   >
                     <td>
                       <span className={`badge ${getStatusBadgeClass(status)}`}>
-                        {COMPONENT_STATUS_LABELS[status]}
+                        {getStatusLabel(status)}
                       </span>
                     </td>
                     <td>
@@ -472,37 +506,37 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                     <td>
                       <span className="category-chip" data-category={comp.category}>
                         {getCategoryIcon(comp.category, 14, comp.name)}
-                        <span>{COMPONENT_CATEGORY_LABELS[comp.category] || comp.category}</span>
+                        <span>{getCategoryLabel(comp.category)}</span>
                       </span>
                     </td>
                     <td className="font-mono" style={{ fontSize: '12px' }}>
-                      {computed?.purchaseDate ? formatDate(computed.purchaseDate, settings.dateFormat) : '—'}
+                      {computed?.purchaseDate ? formatDate(computed.purchaseDate) : '—'}
                     </td>
                     <td className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       {computed && computed.totalPurchaseCost > 0
-                        ? `€${computed.totalPurchaseCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
+                        ? formatCurrency(computed.totalPurchaseCost)
                         : '—'}
                     </td>
                     <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         {wInfo && wInfo.status === 'active' && (
                           <span className="badge badge-warranty-active" style={{ fontSize: '11px', padding: '2px 7px' }} title={wInfo.humanLabel}>
-                            <ShieldCheck size={11} /> Garanzia
+                            <ShieldCheck size={11} /> {t('archive_badge_warranty_active')}
                           </span>
                         )}
                         {wInfo && wInfo.status === 'expiring' && (
                           <span className="badge badge-warranty-expiring" style={{ fontSize: '11px', padding: '2px 7px' }} title={wInfo.humanLabel}>
-                            <ShieldAlert size={11} /> Scade a breve
+                            <ShieldAlert size={11} /> {t('archive_badge_warranty_expiring')}
                           </span>
                         )}
                         {wInfo && wInfo.status === 'expired' && selectedWarranty === 'expired' && (
                           <span className="badge badge-warranty-expired" style={{ fontSize: '11px', padding: '2px 7px' }} title={wInfo.humanLabel}>
-                            <ShieldX size={11} /> Scaduta
+                            <ShieldX size={11} /> {t('archive_badge_warranty_expired')}
                           </span>
                         )}
                         {computed && computed.daysInUse > 0 ? (
                           <span className="font-mono" style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>
-                            {computed.daysInUse} gg d'uso
+                            {t('archive_badge_days_in_use', { days: computed.daysInUse })}
                           </span>
                         ) : comp.notes ? (
                           <span
@@ -527,29 +561,29 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                         {status === 'IN_STORAGE' && onInstallComponent && (
                           <button
                             onClick={() => onInstallComponent(comp)}
-                            title="Monta questo pezzo nel PC"
+                            title={t('archive_action_install_tooltip')}
                             className="btn btn-secondary micro-press"
                             style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--accent-primary)' }}
                           >
                             <Wrench size={11} />
-                            <span>Monta</span>
+                            <span>{t('archive_action_install')}</span>
                           </button>
                         )}
                         <button
                           onClick={() => onOpenEditModal(comp)}
-                          title="Modifica anagrafica componente"
+                          title={t('archive_action_edit_tooltip')}
                           className="btn btn-ghost micro-press"
                           style={{ padding: '5px' }}
-                          aria-label={`Modifica ${comp.name}`}
+                          aria-label={t('archive_action_edit_aria', { name: comp.name })}
                         >
                           <Edit2 size={13} />
                         </button>
                         <button
                           onClick={() => onOpenDeleteModal(comp)}
-                          title="Elimina pezzo dall'archivio"
+                          title={t('archive_action_delete_tooltip')}
                           className="btn btn-ghost micro-press"
                           style={{ padding: '5px', color: 'var(--accent-ruby)' }}
-                          aria-label={`Elimina ${comp.name}`}
+                          aria-label={t('archive_action_delete_aria', { name: comp.name })}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -580,34 +614,34 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') onSelectComponent(comp.id);
                 }}
-                title={`Visualizza dettaglio di ${comp.name}`}
-                aria-label={`Componente ${comp.name}, ${COMPONENT_CATEGORY_LABELS[comp.category]}, ${COMPONENT_STATUS_LABELS[status]}`}
+                title={t('archive_row_view_tooltip', { name: comp.name })}
+                aria-label={t('archive_card_aria_label', { name: comp.name, category: getCategoryLabel(comp.category), status: getStatusLabel(status) })}
               >
                 {/* Header Card: Categoria + Garanzia + Stato */}
                 <div style={styles.cardHeader}>
                   <div style={styles.categoryBadge} data-category={comp.category}>
                     {getCategoryIcon(comp.category, 15, comp.name)}
-                    <span>{COMPONENT_CATEGORY_LABELS[comp.category]}</span>
+                    <span>{getCategoryLabel(comp.category)}</span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {wInfo && wInfo.status === 'active' && (
                       <span className="badge badge-warranty-active" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
-                        <ShieldCheck size={10} /> Garanzia
+                        <ShieldCheck size={10} /> {t('archive_badge_warranty_active')}
                       </span>
                     )}
                     {wInfo && wInfo.status === 'expiring' && (
                       <span className="badge badge-warranty-expiring" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
-                        <ShieldAlert size={10} /> Scade a breve
+                        <ShieldAlert size={10} /> {t('archive_badge_warranty_expiring')}
                       </span>
                     )}
                     {wInfo && wInfo.status === 'expired' && selectedWarranty === 'expired' && (
                       <span className="badge badge-warranty-expired" style={{ fontSize: '10px', padding: '1px 6px' }} title={wInfo.humanLabel}>
-                        <ShieldX size={10} /> Scaduta
+                        <ShieldX size={10} /> {t('archive_badge_warranty_expired')}
                       </span>
                     )}
                     <span className={`badge ${getStatusBadgeClass(status)}`}>
-                      {COMPONENT_STATUS_LABELS[status]}
+                      {getStatusLabel(status)}
                     </span>
                   </div>
                 </div>
@@ -626,10 +660,10 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                     {computed?.purchaseDate ? (
                       <div style={styles.metaItem}>
                         <Calendar size={12} color="var(--text-muted)" />
-                        <span>{formatDate(computed.purchaseDate, settings.dateFormat)}</span>
+                        <span>{formatDate(computed.purchaseDate)}</span>
                       </div>
                     ) : (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Nessun acquisto</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('archive_card_no_purchase')}</span>
                     )}
 
                     {wInfo && (wInfo.status === 'active' || wInfo.status === 'expiring') && (
@@ -654,12 +688,12 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                         className="badge badge-in-use"
                         style={{ fontSize: '10px', padding: '1px 5px' }}
                       >
-                        {computed.daysInUse} gg
+                        {t('archive_card_days_badge', { days: computed.daysInUse })}
                       </span>
                     )}
                     {computed && computed.totalPurchaseCost > 0 && (
                       <span className="font-mono" style={styles.priceTag}>
-                        €{computed.totalPurchaseCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                        {formatCurrency(computed.totalPurchaseCost)}
                       </span>
                     )}
                   </div>
@@ -670,32 +704,32 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({
                   {status === 'IN_STORAGE' && onInstallComponent && (
                     <button
                       onClick={() => onInstallComponent(comp)}
-                      title="Monta questo pezzo nel PC"
+                      title={t('archive_action_install_tooltip')}
                       className="btn btn-secondary micro-press"
                       style={{ flex: 1, padding: '5px 10px', fontSize: '12px' }}
                     >
                       <Wrench size={12} />
-                      <span>Monta nel PC</span>
+                      <span>{t('archive_card_install_btn')}</span>
                     </button>
                   )}
 
                   <button
                     onClick={() => onOpenEditModal(comp)}
-                    title="Modifica anagrafica componente"
+                    title={t('archive_action_edit_tooltip')}
                     className="btn btn-ghost micro-press"
                     style={{ padding: '5px 8px', fontSize: '12px' }}
-                    aria-label={`Modifica ${comp.name}`}
+                    aria-label={t('archive_action_edit_aria', { name: comp.name })}
                   >
                     <Edit2 size={13} />
-                    <span>Modifica</span>
+                    <span>{t('archive_card_edit_btn')}</span>
                   </button>
 
                   <button
                     onClick={() => onOpenDeleteModal(comp)}
-                    title="Elimina pezzo dall'archivio"
+                    title={t('archive_action_delete_tooltip')}
                     className="btn btn-ghost micro-press"
                     style={{ padding: '5px 8px', fontSize: '12px', color: 'var(--accent-ruby)' }}
-                    aria-label={`Elimina ${comp.name}`}
+                    aria-label={t('archive_action_delete_aria', { name: comp.name })}
                   >
                     <Trash2 size={13} />
                   </button>

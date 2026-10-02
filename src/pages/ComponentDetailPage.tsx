@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePCStore } from '../store';
-import { formatDate } from '../utils';
 import {
   COMPONENT_CATEGORY_LABELS,
   COMPONENT_STATUS_LABELS,
@@ -8,6 +7,7 @@ import {
   EVENT_TYPE_LABELS,
   Component,
   ComponentEvent,
+  ComponentCategory,
   ComponentReceipt,
   NavSection,
   MaintenanceEntry,
@@ -30,6 +30,7 @@ import {
 import { EventEditModal, ReceiptVaultModal, ListingGeneratorModal } from '../components/components';
 import { MaintenanceEntryModal, TuningProfileModal, BiosParameterCardModal } from '../components/maintenance';
 import { HardwareIconBadge } from '../components/common/ComponentIcon';
+import { useI18n, TranslationKey } from '../locales';
 import {
   ArrowLeft,
   Edit2,
@@ -58,22 +59,45 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 
-const getBackLabel = (referrer?: NavSection | null): string => {
-  switch (referrer) {
-    case 'dashboard':
-      return 'Torna alla Dashboard';
-    case 'current-rig':
-      return 'Torna al Mio PC';
-    case 'upgrades':
-      return 'Torna agli Upgrade';
-    case 'marketplace':
-      return 'Torna a Vendite & Annunci';
-    case 'stats':
-      return 'Torna alle Statistiche';
-    case 'archive':
-    default:
-      return "Torna all'Archivio";
-  }
+const COMPONENT_STATUS_KEYS: Record<string, TranslationKey> = {
+  IN_USE: 'status_in_use',
+  IN_STORAGE: 'status_in_storage',
+  SOLD: 'status_sold',
+  GIFTED: 'status_gifted',
+  DISPOSED: 'status_disposed',
+};
+
+const COMPONENT_CATEGORY_KEYS: Record<ComponentCategory, TranslationKey> = {
+  cpu: 'category_cpu',
+  gpu: 'category_gpu',
+  motherboard: 'category_motherboard',
+  ram: 'category_ram',
+  storage: 'category_storage',
+  psu: 'category_psu',
+  case: 'category_case',
+  cooling: 'category_cooling',
+  monitor: 'category_monitor',
+  peripherals: 'category_peripherals',
+  accessories: 'category_accessories',
+  other: 'category_other',
+};
+
+const UNINSTALL_REASON_KEYS: Record<string, TranslationKey> = {
+  upgrade: 'uninstall_reason_upgrade',
+  maintenance: 'uninstall_reason_maintenance',
+  storage: 'uninstall_reason_storage',
+  defect: 'uninstall_reason_defect',
+  other: 'uninstall_reason_other',
+};
+
+const EVENT_TYPE_TITLE_KEYS: Record<string, TranslationKey> = {
+  PURCHASE: 'detail_event_title_purchase',
+  INSTALL: 'detail_event_title_install',
+  UNINSTALL: 'detail_event_title_uninstall',
+  SALE: 'detail_event_title_sale',
+  EXTRA_EXPENSE: 'detail_event_title_extra_expense',
+  GIFT: 'detail_event_title_gift',
+  DISPOSAL: 'detail_event_title_disposal',
 };
 
 interface ComponentDetailPageProps {
@@ -120,8 +144,10 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
     tuningProfiles,
     deleteMaintenanceEntry,
     deleteTuningProfile,
-    settings,
   } = usePCStore();
+
+  const { t, formatCurrency, formatDate } = useI18n();
+
   const [editingEvent, setEditingEvent] = useState<ComponentEvent | null>(null);
 
   // Modali Cura & Tuning per questo componente
@@ -144,6 +170,34 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   const component = components.find((c) => c.id === componentId);
   const computed = getComponentComputed(componentId);
   const events = getComponentEvents(componentId);
+
+  const getBackLabel = (referrer?: NavSection | null): string => {
+    switch (referrer) {
+      case 'dashboard':
+        return t('detail_back_dashboard');
+      case 'current-rig':
+        return t('detail_back_current_rig');
+      case 'upgrades':
+        return t('detail_back_upgrades');
+      case 'marketplace':
+        return t('detail_back_marketplace');
+      case 'stats':
+        return t('detail_back_stats');
+      case 'archive':
+      default:
+        return t('detail_back_archive');
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const key = COMPONENT_STATUS_KEYS[status];
+    return key ? t(key) : COMPONENT_STATUS_LABELS[status as keyof typeof COMPONENT_STATUS_LABELS] || status;
+  };
+
+  const getCategoryLabel = (category: ComponentCategory) => {
+    const key = COMPONENT_CATEGORY_KEYS[category];
+    return key ? t(key) : COMPONENT_CATEGORY_LABELS[category] || category;
+  };
 
   const componentMaintenance = React.useMemo(() => {
     return sortMaintenanceEntriesChronologically(
@@ -173,7 +227,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   };
 
   const handleDeleteMaintenance = async (entry: MaintenanceEntry) => {
-    if (window.confirm(`Sei sicuro di voler eliminare l'intervento "${entry.title}"?`)) {
+    if (window.confirm(t('detail_maintenance_delete_confirm', { title: entry.title }))) {
       try {
         await deleteMaintenanceEntry(entry.id);
       } catch (err) {
@@ -193,7 +247,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   };
 
   const handleDeleteTuning = async (profile: TuningProfile) => {
-    if (window.confirm(`Sei sicuro di voler eliminare il profilo tuning "${profile.name}"?`)) {
+    if (window.confirm(t('detail_tuning_delete_confirm', { name: profile.name }))) {
       try {
         await deleteTuningProfile(profile.id);
       } catch (err) {
@@ -224,11 +278,11 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   const handleProcessFile = async (file: File) => {
     const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
     if (!allowedMimeTypes.includes(file.type)) {
-      alert('Formato non supportato. Puoi caricare solo file PDF, PNG, JPG, JPEG o WEBP.');
+      alert(t('detail_receipts_error_mime'));
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert(`File troppo grande (${(file.size / (1024 * 1024)).toFixed(1)} MB). Il limite massimo consentito è di 10 MB.`);
+      alert(t('detail_receipts_error_size', { size: (file.size / (1024 * 1024)).toFixed(1) }));
       return;
     }
 
@@ -237,7 +291,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Errore durante la lettura del file.'));
+        reader.onerror = () => reject(new Error(t('detail_receipts_error_read')));
         reader.readAsDataURL(file);
       });
 
@@ -252,7 +306,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
       );
       setReceipts((prev) => [newReceipt, ...prev]);
     } catch (err) {
-      alert((err as Error).message || 'Errore durante il salvataggio del documento.');
+      alert((err as Error).message || t('detail_receipts_error_save'));
     } finally {
       setIsUploadingReceipt(false);
       if (fileInputRef.current) {
@@ -281,7 +335,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
   if (!component || !computed) {
     return (
       <div className="card" style={{ maxWidth: '480px', margin: '40px auto', textAlign: 'center' }}>
-        <p style={{ marginBottom: '16px' }}>Componente non trovato o eliminato.</p>
+        <p style={{ marginBottom: '16px' }}>{t('detail_not_found')}</p>
         <button onClick={onBack} className="btn btn-secondary">
           <ArrowLeft size={16} /> {getBackLabel(referrerSection)}
         </button>
@@ -293,14 +347,14 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
     if (!component) return;
     const check = canDeleteEvent(ev.id, events);
     if (!check.canDelete) {
-      alert(check.error || 'Impossibile eliminare questo evento.');
+      alert(check.error || t('detail_event_delete_error'));
       return;
     }
-    const typeLabel = EVENT_TYPE_LABELS[ev.type] || ev.type;
-    const dateFormatted = formatDate(ev.date, settings.dateFormat);
+    const typeLabel = (EVENT_TYPE_TITLE_KEYS[ev.type] ? t(EVENT_TYPE_TITLE_KEYS[ev.type]) : EVENT_TYPE_LABELS[ev.type]) || ev.type;
+    const dateFormatted = formatDate(ev.date);
     if (
       window.confirm(
-        `Sei sicuro di voler eliminare l'evento "${typeLabel}" del ${dateFormatted}? Lo stato e i costi del componente verranno ricalcolati automaticamente.`
+        t('detail_event_delete_confirm', { type: typeLabel, date: dateFormatted })
       )
     ) {
       try {
@@ -361,7 +415,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
             <button
               onClick={() => onUpgrade(component)}
               className="btn btn-secondary micro-press"
-              title="Avvia Upgrade / Sostituzione generazionale di questo componente"
+              title={t('detail_action_upgrade_tooltip')}
               style={{
                 color: 'var(--accent-primary)',
                 borderColor: 'var(--accent-primary-border)',
@@ -371,14 +425,14 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               }}
             >
               <ArrowUpRight size={14} />
-              <span>Upgrade</span>
+              <span>{t('detail_action_upgrade')}</span>
             </button>
           )}
 
           {computed.status === 'IN_STORAGE' && onInstall && (
             <button onClick={() => onInstall(component)} className="btn btn-primary" style={{ fontSize: '13px', padding: '6px 12px' }}>
               <Wrench size={14} />
-              <span>Monta nel PC</span>
+              <span>{t('detail_action_install')}</span>
             </button>
           )}
 
@@ -387,7 +441,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               {onReplace && (
                 <button onClick={() => onReplace(component)} className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px' }}>
                   <ArrowRightLeft size={14} />
-                  <span>Sostituisci</span>
+                  <span>{t('detail_action_replace')}</span>
                 </button>
               )}
               {onUninstall && (
@@ -397,7 +451,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                   style={{ color: 'var(--accent-amber)', borderColor: 'var(--accent-amber-border)', fontSize: '13px', padding: '6px 12px' }}
                 >
                   <Package size={14} />
-                  <span>Smonta dal PC</span>
+                  <span>{t('detail_action_uninstall')}</span>
                 </button>
               )}
             </>
@@ -410,22 +464,22 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                 <button
                   onClick={() => onSale(component)}
                   className="btn btn-secondary"
-                  title="Registra vendita di questo componente"
+                  title={t('detail_action_sale_tooltip')}
                   style={{ color: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald-border)', fontSize: '13px', padding: '6px 12px' }}
                 >
                   <DollarSign size={14} />
-                  <span>Vendi</span>
+                  <span>{t('detail_action_sale')}</span>
                 </button>
               )}
               {onExtraExpense && (
                 <button
                   onClick={() => onExtraExpense(component)}
                   className="btn btn-secondary"
-                  title="Registra spesa extra associata a questo pezzo"
+                  title={t('detail_action_extra_expense_tooltip')}
                   style={{ color: 'var(--accent-ruby)', borderColor: 'var(--accent-ruby-border)', fontSize: '13px', padding: '6px 12px' }}
                 >
                   <Receipt size={14} />
-                  <span>+ Spesa Extra</span>
+                  <span>{t('detail_action_extra_expense')}</span>
                 </button>
               )}
               {computed.status === 'IN_STORAGE' && (
@@ -434,7 +488,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                     type="button"
                     onClick={() => setIsListingModalOpen(true)}
                     className="btn btn-secondary micro-press"
-                    title="Genera testo annuncio per Subito.it, eBay, Vinted o Prompt IA"
+                    title={t('detail_action_generate_listing_tooltip')}
                     style={{
                       color: 'var(--accent-primary)',
                       borderColor: 'var(--accent-primary-border)',
@@ -444,28 +498,28 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                     }}
                   >
                     <Tag size={14} />
-                    <span>Genera Annuncio</span>
+                    <span>{t('detail_action_generate_listing')}</span>
                   </button>
                   {onGift && (
                     <button
                       onClick={() => onGift(component)}
                       className="btn btn-secondary"
-                      title="Dona o regala questo componente"
+                      title={t('detail_action_gift_tooltip')}
                       style={{ color: 'var(--accent-indigo)', borderColor: 'var(--accent-indigo-border)', fontSize: '13px', padding: '6px 12px' }}
                     >
                       <Gift size={14} />
-                      <span>Regala</span>
+                      <span>{t('detail_action_gift')}</span>
                     </button>
                   )}
                   {onDisposal && (
                     <button
                       onClick={() => onDisposal(component)}
                       className="btn btn-secondary"
-                      title="Smaltisci hardware"
+                      title={t('detail_action_disposal_tooltip')}
                       style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)', fontSize: '13px', padding: '6px 12px' }}
                     >
                       <Recycle size={14} />
-                      <span>Smaltisci</span>
+                      <span>{t('detail_action_disposal')}</span>
                     </button>
                   )}
                 </>
@@ -478,26 +532,26 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
             type="button"
             onClick={handleOpenNewMaintenance}
             className="btn btn-secondary micro-press"
-            title="Registra un intervento di cura, pulizia o pasta termica per questo pezzo"
+            title={t('detail_action_care_tooltip')}
             style={{ color: 'var(--accent-cyan)', borderColor: 'rgba(56, 189, 248, 0.25)', fontSize: '13px', padding: '6px 12px' }}
           >
             <Wrench size={14} />
-            <span>+ Cura</span>
+            <span>{t('detail_action_care')}</span>
           </button>
           <button
             type="button"
             onClick={handleOpenNewTuning}
             className="btn btn-secondary micro-press"
-            title="Aggiungi un profilo di tuning (undervolt, curve optimizer, RAM, ventole) per questo pezzo"
+            title={t('detail_action_tuning_tooltip')}
             style={{ color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.25)', fontSize: '13px', padding: '6px 12px' }}
           >
             <Sliders size={14} />
-            <span>+ Tuning</span>
+            <span>{t('detail_action_tuning')}</span>
           </button>
 
           <button onClick={() => onEdit(component)} className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px' }}>
             <Edit2 size={14} />
-            <span>Modifica</span>
+            <span>{t('detail_action_edit')}</span>
           </button>
           <button
             onClick={() => onDelete(component)}
@@ -505,7 +559,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
             style={{ color: 'var(--accent-ruby)', padding: '6px 10px', fontSize: '13px' }}
           >
             <Trash2 size={14} />
-            <span>Elimina</span>
+            <span>{t('detail_action_delete')}</span>
           </button>
         </div>
       </div>
@@ -517,14 +571,14 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={styles.badges}>
               <span className={`badge ${getStatusBadgeClass(computed.status)}`}>
-                {COMPONENT_STATUS_LABELS[computed.status]}
+                {getStatusLabel(computed.status)}
               </span>
               <span
                 className="category-chip"
                 data-category={component.category}
                 style={{ fontSize: '11.5px', padding: '2px 8px' }}
               >
-                {COMPONENT_CATEGORY_LABELS[component.category]}
+                {getCategoryLabel(component.category)}
               </span>
             </div>
             <h1 style={styles.title}>{component.name}</h1>
@@ -538,43 +592,43 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
       {/* Metriche Finanziarie e di Utilizzo (Apple-Style Staggered) */}
       <div style={styles.metricsGrid}>
         <div className="stat-card stat-card-ruby animate-slide-up stagger-2">
-          <span className="stat-label">Costo Acquisto Totale</span>
+          <span className="stat-label">{t('detail_metric_total_purchase')}</span>
           <span className="stat-value" style={{ color: 'var(--accent-ruby)' }}>
-            €{computed.totalPurchaseCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(computed.totalPurchaseCost)}
           </span>
-          <span className="stat-subtext">Prezzo iniziale + extra</span>
+          <span className="stat-subtext">{t('detail_metric_total_purchase_sub')}</span>
         </div>
 
         <div className="stat-card stat-card-emerald animate-slide-up stagger-2">
-          <span className="stat-label">Ricavo Vendita Netto</span>
+          <span className="stat-label">{t('detail_metric_total_revenue')}</span>
           <span className="stat-value" style={{ color: 'var(--accent-emerald)' }}>
-            €{computed.totalSaleRevenue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(computed.totalSaleRevenue)}
           </span>
-          <span className="stat-subtext">Netto commissioni e spedizione</span>
+          <span className="stat-subtext">{t('detail_metric_total_revenue_sub')}</span>
         </div>
 
         <div className="stat-card stat-card-primary animate-slide-up stagger-3">
-          <span className="stat-label">Costo Netto Reale</span>
+          <span className="stat-label">{t('detail_metric_net_cost')}</span>
           <span className="stat-value" style={{ color: 'var(--text-primary)' }}>
-            €{computed.netCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(computed.netCost)}
           </span>
-          <span className="stat-subtext">Spesa non recuperata</span>
+          <span className="stat-subtext">{t('detail_metric_net_cost_sub')}</span>
         </div>
 
         <div className="stat-card animate-slide-up stagger-3">
-          <span className="stat-label">Giorni di Utilizzo</span>
-          <span className="stat-value font-mono">{computed.daysInUse} gg</span>
-          <span className="stat-subtext">Montato fisicamente nel PC</span>
+          <span className="stat-label">{t('detail_metric_days_in_use')}</span>
+          <span className="stat-value font-mono">{t('detail_metric_days_count', { days: computed.daysInUse })}</span>
+          <span className="stat-subtext">{t('detail_metric_days_in_use_sub')}</span>
         </div>
 
         <div className="stat-card animate-slide-up stagger-4">
-          <span className="stat-label">Costo Giornaliero</span>
+          <span className="stat-label">{t('detail_metric_cost_per_day')}</span>
           <span className="stat-value font-mono">
             {computed.costPerDayInUse !== null
-              ? `€${computed.costPerDayInUse.toLocaleString('it-IT', { minimumFractionDigits: 2 })}/die`
+              ? t('detail_metric_cost_per_day_val', { amount: formatCurrency(computed.costPerDayInUse) })
               : '—'}
           </span>
-          <span className="stat-subtext">Ammortamento effettivo</span>
+          <span className="stat-subtext">{t('detail_metric_cost_per_day_sub')}</span>
         </div>
       </div>
 
@@ -584,39 +638,39 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FileText size={16} color="var(--accent-primary)" />
-            <span>Scheda Tecnica & Metadati</span>
+            <span>{t('detail_specs_heading')}</span>
           </h2>
 
           <div style={styles.specList}>
             <div style={styles.specRow}>
-              <span style={styles.specLabel}>Categoria:</span>
-              <span style={styles.specValue}>{COMPONENT_CATEGORY_LABELS[component.category]}</span>
+              <span style={styles.specLabel}>{t('detail_spec_category')}</span>
+              <span style={styles.specValue}>{getCategoryLabel(component.category)}</span>
             </div>
 
             <div style={styles.specRow}>
-              <span style={styles.specLabel}>Produttore / Marca:</span>
+              <span style={styles.specLabel}>{t('detail_spec_brand')}</span>
               <span style={styles.specValue}>{component.brand || '—'}</span>
             </div>
 
             <div style={styles.specRow}>
-              <span style={styles.specLabel}>Modello:</span>
+              <span style={styles.specLabel}>{t('detail_spec_model')}</span>
               <span style={styles.specValue}>{component.model || '—'}</span>
             </div>
 
             <div style={styles.specRow}>
-              <span style={styles.specLabel}>Numero Seriale:</span>
+              <span style={styles.specLabel}>{t('detail_spec_serial')}</span>
               <span className="font-mono" style={styles.specValue}>{component.serialNumber || '—'}</span>
             </div>
 
             <div style={styles.specRow}>
-              <span style={styles.specLabel}>Data Registrazione:</span>
-              <span style={styles.specValue}>{formatDate(component.createdAt, settings.dateFormat)}</span>
+              <span style={styles.specLabel}>{t('detail_spec_registered_at')}</span>
+              <span style={styles.specValue}>{formatDate(component.createdAt)}</span>
             </div>
           </div>
 
           {component.notes && (
             <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
-              <span style={styles.specLabel}>Note Personali:</span>
+              <span style={styles.specLabel}>{t('detail_spec_personal_notes')}</span>
               <p style={{ marginTop: '4px', fontSize: '13.5px', color: 'var(--text-primary)', whiteSpace: 'pre-line', lineHeight: 1.5 }}>
                 {component.notes}
               </p>
@@ -628,12 +682,12 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Clock size={16} color="var(--accent-primary)" />
-            <span>Cronologia Ciclo di Vita ({events.length})</span>
+            <span>{t('detail_timeline_heading', { count: events.length })}</span>
           </h2>
 
           {events.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '12px 0' }}>
-              Nessun evento ancora registrato per questo pezzo.
+              {t('detail_timeline_empty')}
             </p>
           ) : (
             <div style={styles.timeline}>
@@ -649,17 +703,11 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                   <div style={styles.timelineContent}>
                     <div style={styles.eventHeader}>
                       <span style={styles.eventTitle}>
-                        {ev.type === 'PURCHASE' && 'Acquisto Iniziale'}
-                        {ev.type === 'INSTALL' && 'Installazione nel PC'}
-                        {ev.type === 'UNINSTALL' && 'Rimozione dal PC'}
-                        {ev.type === 'SALE' && 'Vendita'}
-                        {ev.type === 'EXTRA_EXPENSE' && 'Spesa Extra'}
-                        {ev.type === 'GIFT' && 'Regalo / Donazione'}
-                        {ev.type === 'DISPOSAL' && 'Smaltimento'}
+                        {EVENT_TYPE_TITLE_KEYS[ev.type] ? t(EVENT_TYPE_TITLE_KEYS[ev.type]) : (EVENT_TYPE_LABELS[ev.type] || ev.type)}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span className="font-mono" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                          {formatDate(ev.date, settings.dateFormat)}
+                          {formatDate(ev.date)}
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                           <button
@@ -667,8 +715,8 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                             onClick={() => setEditingEvent(ev)}
                             className="btn btn-ghost"
                             style={{ padding: '3px 6px', height: '24px', color: 'var(--text-secondary)' }}
-                            title="Modifica questo evento"
-                            aria-label="Modifica evento"
+                            title={t('detail_event_edit_tooltip')}
+                            aria-label={t('detail_event_edit_tooltip')}
                           >
                             <Edit2 size={12} />
                           </button>
@@ -677,8 +725,8 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                             onClick={() => handleDeleteEvent(ev)}
                             className="btn btn-ghost"
                             style={{ padding: '3px 6px', height: '24px', color: 'var(--accent-ruby)' }}
-                            title="Elimina questo evento"
-                            aria-label="Elimina evento"
+                            title={t('detail_event_delete_tooltip')}
+                            aria-label={t('detail_event_delete_tooltip')}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -688,49 +736,49 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
 
                     {ev.type === 'PURCHASE' && (
                       <div style={styles.eventDesc}>
-                        Prezzo: <strong style={{ color: 'var(--accent-ruby)' }}>€{ev.price.toFixed(2)}</strong>
-                        {ev.store && ` • Negozio: ${ev.store}`}
-                        {ev.condition && ` • ${ev.condition === 'new' ? 'Nuovo' : 'Usato'}`}
+                        {t('detail_event_desc_purchase_price', { price: formatCurrency(ev.price) })}
+                        {ev.store && ` • ${t('detail_event_desc_store', { store: ev.store })}`}
+                        {ev.condition && ` • ${ev.condition === 'new' ? t('detail_event_desc_condition_new') : t('detail_event_desc_condition_used')}`}
                       </div>
                     )}
 
                     {ev.type === 'INSTALL' && (
                       <div style={styles.eventDesc}>
-                        {ev.slotOrLocation ? `Alloggiamento: ${ev.slotOrLocation}` : 'Montato nel computer'}
-                        {ev.notes && ` • Note: ${ev.notes}`}
+                        {ev.slotOrLocation ? t('detail_event_desc_install_slot', { slot: ev.slotOrLocation }) : t('detail_event_desc_install_pc')}
+                        {ev.notes && ` • ${t('detail_event_desc_notes', { notes: ev.notes })}`}
                       </div>
                     )}
 
                     {ev.type === 'UNINSTALL' && (
                       <div style={styles.eventDesc}>
-                        {ev.reason && `Motivo: ${UNINSTALL_REASON_LABELS[ev.reason] || ev.reason}`}
-                        {ev.notes && ` • Note: ${ev.notes}`}
+                        {ev.reason && `${t('detail_event_desc_uninstall_reason', { reason: (UNINSTALL_REASON_KEYS[ev.reason] ? t(UNINSTALL_REASON_KEYS[ev.reason]) : UNINSTALL_REASON_LABELS[ev.reason]) || ev.reason })}`}
+                        {ev.notes && ` • ${t('detail_event_desc_notes', { notes: ev.notes })}`}
                       </div>
                     )}
 
                     {ev.type === 'EXTRA_EXPENSE' && (
                       <div style={styles.eventDesc}>
-                        Importo: <strong style={{ color: 'var(--accent-ruby)' }}>€{ev.amount.toFixed(2)}</strong>
+                        {t('detail_event_desc_extra_amount', { amount: formatCurrency(ev.amount) })}
                         {ev.description && ` • ${ev.description}`}
                       </div>
                     )}
 
                     {ev.type === 'SALE' && (
                       <div style={styles.eventDesc}>
-                        Incasso lordo: <strong style={{ color: 'var(--accent-emerald)' }}>€{ev.price.toFixed(2)}</strong>
-                        {ev.platform && ` • Piattaforma: ${ev.platform}`}
+                        {t('detail_event_desc_sale_revenue', { price: formatCurrency(ev.price) })}
+                        {ev.platform && ` • ${t('detail_event_desc_platform', { platform: ev.platform })}`}
                       </div>
                     )}
 
                     {ev.type === 'GIFT' && ev.recipient && (
                       <div style={styles.eventDesc}>
-                        Destinatario: {ev.recipient}
+                        {t('detail_event_desc_gift_recipient', { recipient: ev.recipient })}
                       </div>
                     )}
 
                     {ev.type === 'DISPOSAL' && (
                       <div style={styles.eventDesc}>
-                        Metodo: {ev.disposalMethod}
+                        {t('detail_event_desc_disposal_method', { method: ev.disposalMethod })}
                       </div>
                     )}
                   </div>
@@ -753,7 +801,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <ShieldCheck size={16} color="var(--accent-primary)" />
-                  <span>Garanzia & Assistenza (RMA)</span>
+                  <span>{t('detail_warranty_heading')}</span>
                 </h2>
                 {warranty.status === 'active' && (
                   <span className="badge badge-warranty-active">
@@ -772,38 +820,38 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                 )}
                 {warranty.status === 'none' && (
                   <span className="badge" style={{ color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
-                    <ShieldOff size={12} /> Non specificata
+                    <ShieldOff size={12} /> {t('detail_warranty_unspecified')}
                   </span>
                 )}
               </div>
 
               <div style={styles.specList}>
                 <div style={styles.specRow}>
-                  <span style={styles.specLabel}>Stato Garanzia:</span>
+                  <span style={styles.specLabel}>{t('detail_warranty_status_label')}</span>
                   <span style={styles.specValue}>{warranty.humanLabel}</span>
                 </div>
                 <div style={styles.specRow}>
-                  <span style={styles.specLabel}>Data Scadenza:</span>
+                  <span style={styles.specLabel}>{t('detail_warranty_expiry_label')}</span>
                   <span className="font-mono" style={styles.specValue}>
-                    {warranty.expiryDate ? formatDate(warranty.expiryDate, settings.dateFormat) : 'Non registrata'}
+                    {warranty.expiryDate ? formatDate(warranty.expiryDate) : t('detail_warranty_unregistered')}
                   </span>
                 </div>
                 <div style={styles.specRow}>
-                  <span style={styles.specLabel}>Data Acquisto:</span>
+                  <span style={styles.specLabel}>{t('detail_warranty_purchase_date_label')}</span>
                   <span className="font-mono" style={styles.specValue}>
-                    {purchaseEvent?.date ? formatDate(purchaseEvent.date, settings.dateFormat) : '—'}
+                    {purchaseEvent?.date ? formatDate(purchaseEvent.date) : '—'}
                   </span>
                 </div>
                 <div style={styles.specRow}>
-                  <span style={styles.specLabel}>Negozio / Rivenditore:</span>
+                  <span style={styles.specLabel}>{t('detail_warranty_store_label')}</span>
                   <span style={styles.specValue}>{purchaseEvent?.store || '—'}</span>
                 </div>
                 <div style={styles.specRow}>
-                  <span style={styles.specLabel}>Numero Ordine / Fattura:</span>
+                  <span style={styles.specLabel}>{t('detail_warranty_order_label')}</span>
                   <span className="font-mono" style={styles.specValue}>{purchaseEvent?.orderNumber || '—'}</span>
                 </div>
                 <div style={styles.specRow}>
-                  <span style={styles.specLabel}>Numero Seriale (S/N):</span>
+                  <span style={styles.specLabel}>{t('detail_warranty_serial_label')}</span>
                   <span className="font-mono" style={styles.specValue}>{component.serialNumber || '—'}</span>
                 </div>
               </div>
@@ -815,10 +863,10 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                     onClick={() => setEditingEvent(purchaseEvent)}
                     className="btn btn-secondary micro-press"
                     style={{ fontSize: '12px', padding: '4px 10px' }}
-                    title="Modifica data di scadenza o dettagli d'acquisto"
+                    title={t('detail_warranty_edit_tooltip')}
                   >
                     <Edit2 size={12} />
-                    <span>{purchaseEvent.warrantyExpiryDate ? 'Modifica Garanzia' : 'Imposta Scadenza Garanzia'}</span>
+                    <span>{purchaseEvent.warrantyExpiryDate ? t('detail_warranty_edit_btn') : t('detail_warranty_set_btn')}</span>
                   </button>
                 </div>
               )}
@@ -831,9 +879,9 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
             <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <FileText size={16} color="var(--accent-primary)" />
-              <span>Cassaforte Ricevute & Fatture ({receipts.length})</span>
+              <span>{t('detail_receipts_heading', { count: receipts.length })}</span>
             </h2>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Local-First (IndexedDB)</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('detail_receipts_local_badge')}</span>
           </div>
 
           {/* Input file nascosto e Dropzone Apple-style */}
@@ -868,21 +916,21 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
           >
             <UploadCloud size={22} color="var(--accent-primary)" />
             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {isUploadingReceipt ? 'Salvataggio in corso...' : '+ Allega Fattura o Ricevuta'}
+              {isUploadingReceipt ? t('detail_receipts_uploading') : t('detail_receipts_upload_prompt')}
             </span>
             <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-              Trascina qui o clicca per selezionare (PDF o immagine PNG/JPG/WEBP, max 10MB)
+              {t('detail_receipts_dropzone_hint')}
             </span>
           </div>
 
           {/* Elenco Documenti Allegati */}
           {isLoadingReceipts ? (
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
-              Caricamento documenti dalla cassaforte locale...
+              {t('detail_receipts_loading')}
             </p>
           ) : receipts.length === 0 ? (
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
-              Nessun documento allegato. Carica qui la fattura d'acquisto o la ricevuta per averla sempre a portata di mano in caso di RMA o rivendita.
+              {t('detail_receipts_empty')}
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -902,7 +950,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                         <span className="receipt-card-meta">
                           <span>{sizeMb} MB</span>
                           <span>•</span>
-                          <span>{formatDate(rc.uploadedAt, settings.dateFormat)}</span>
+                          <span>{formatDate(rc.uploadedAt)}</span>
                         </span>
                       </div>
                     </div>
@@ -913,33 +961,33 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                         onClick={() => setViewingReceipt(rc)}
                         className="btn btn-secondary micro-press"
                         style={{ padding: '4px 8px', fontSize: '12px' }}
-                        title="Visualizza anteprima"
-                        aria-label={`Visualizza anteprima di ${rc.fileName}`}
+                        title={t('detail_receipts_open_tooltip')}
+                        aria-label={`${t('detail_receipts_open_tooltip')} ${rc.fileName}`}
                       >
                         <Eye size={13} />
-                        <span>Apri</span>
+                        <span>{t('detail_receipts_open_btn')}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDownloadReceipt(rc)}
                         className="btn btn-ghost micro-press"
                         style={{ padding: '4px 8px', fontSize: '12px' }}
-                        title="Scarica file originale"
-                        aria-label={`Scarica ${rc.fileName}`}
+                        title={t('detail_receipts_download_tooltip')}
+                        aria-label={`${t('detail_receipts_download_tooltip')} ${rc.fileName}`}
                       >
                         <Download size={13} />
                       </button>
                       <button
                         type="button"
                         onClick={async () => {
-                          if (window.confirm(`Vuoi eliminare definitivamente "${rc.fileName}" dalla cassaforte?`)) {
+                          if (window.confirm(t('detail_receipts_delete_confirm', { fileName: rc.fileName }))) {
                             await handleDeleteReceipt(rc.id);
                           }
                         }}
                         className="btn btn-ghost micro-press"
                         style={{ padding: '4px 8px', fontSize: '12px', color: 'var(--accent-ruby)' }}
-                        title="Elimina documento"
-                        aria-label={`Elimina ${rc.fileName}`}
+                        title={t('detail_receipts_delete_tooltip')}
+                        aria-label={`${t('detail_receipts_delete_tooltip')} ${rc.fileName}`}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -959,7 +1007,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
             <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Wrench size={16} color="var(--accent-cyan)" />
-              <span>Cura & Manutenzione ({componentMaintenance.length})</span>
+              <span>{t('detail_maintenance_heading', { count: componentMaintenance.length })}</span>
             </h2>
             <button
               type="button"
@@ -968,22 +1016,22 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               style={{ fontSize: '12px', padding: '4px 10px', color: 'var(--accent-cyan)', borderColor: 'rgba(56, 189, 248, 0.25)' }}
             >
               <Plus size={13} />
-              <span>Registra Cura</span>
+              <span>{t('detail_maintenance_record_btn')}</span>
             </button>
           </div>
 
           {/* Banner Pasta Termica (se registrata per questo pezzo) */}
           {latestThermalPaste && (() => {
             const days = Math.max(0, Math.floor((new Date().getTime() - new Date(latestThermalPaste.date).getTime()) / (1000 * 3600 * 24)));
-            let badgeText = `Fresca (${days} gg fa)`;
+            let badgeText = t('detail_maintenance_paste_fresh', { days });
             let badgeColor = 'var(--accent-emerald)';
             let badgeBg = 'rgba(16, 185, 129, 0.1)';
             if (days > 365) {
-              badgeText = `Da monitorare (${days} gg fa)`;
+              badgeText = t('detail_maintenance_paste_monitor', { days });
               badgeColor = 'var(--accent-amber)';
               badgeBg = 'rgba(245, 158, 11, 0.1)';
             } else if (days > 180) {
-              badgeText = `Buona (${days} gg fa)`;
+              badgeText = t('detail_maintenance_paste_good', { days });
               badgeColor = 'var(--accent-cyan)';
               badgeBg = 'rgba(56, 189, 248, 0.1)';
             }
@@ -1003,10 +1051,10 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               >
                 <div>
                   <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Pasta Termica Applicata
+                    {t('detail_maintenance_paste_title')}
                   </div>
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {formatDate(latestThermalPaste.date, settings.dateFormat)}
+                    {formatDate(latestThermalPaste.date)}
                     {latestThermalPaste.productUsed && ` • ${latestThermalPaste.productUsed}`}
                   </div>
                 </div>
@@ -1031,7 +1079,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
           {componentMaintenance.length === 0 ? (
             <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <p style={{ fontSize: '13px', marginBottom: '12px' }}>
-                Nessun intervento di cura (pulizia filtri, pasta termica, serraggio) registrato per questo componente.
+                {t('detail_maintenance_empty_desc')}
               </p>
               <button
                 type="button"
@@ -1039,7 +1087,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                 className="btn btn-secondary btn-sm"
               >
                 <Plus size={13} />
-                <span>Registra Primo Intervento</span>
+                <span>{t('detail_maintenance_empty_btn')}</span>
               </button>
             </div>
           ) : (
@@ -1076,7 +1124,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                           onClick={() => handleEditMaintenance(m)}
                           className="btn btn-ghost"
                           style={{ padding: '2px 5px', height: '22px', color: 'var(--text-secondary)' }}
-                          title="Modifica intervento"
+                          title={t('detail_maintenance_edit_tooltip')}
                         >
                           <Edit2 size={11} />
                         </button>
@@ -1085,7 +1133,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                           onClick={() => handleDeleteMaintenance(m)}
                           className="btn btn-ghost"
                           style={{ padding: '2px 5px', height: '22px', color: 'var(--accent-ruby)' }}
-                          title="Elimina intervento"
+                          title={t('detail_maintenance_delete_tooltip')}
                         >
                           <Trash2 size={11} />
                         </button>
@@ -1093,17 +1141,17 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                      <span className="font-mono">{formatDate(m.date, settings.dateFormat)}</span>
+                      <span className="font-mono">{formatDate(m.date)}</span>
                       {m.cost !== undefined && m.cost > 0 && (
                         <span className="font-mono" style={{ color: 'var(--accent-ruby)', fontWeight: 500 }}>
-                          €{m.cost.toFixed(2)}
+                          {formatCurrency(m.cost)}
                         </span>
                       )}
                     </div>
 
                     {(m.productUsed || m.notes) && (
                       <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: '2px' }}>
-                        {m.productUsed && <span style={{ color: 'var(--accent-cyan)' }}>Prodotto: {m.productUsed} </span>}
+                        {m.productUsed && <span style={{ color: 'var(--accent-cyan)' }}>{t('detail_maintenance_product_label', { product: m.productUsed })} </span>}
                         {m.notes && <span>{m.notes}</span>}
                       </div>
                     )}
@@ -1119,7 +1167,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
             <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Sliders size={16} color="var(--accent-amber)" />
-              <span>Profili di Tuning ({componentTuning.length})</span>
+              <span>{t('detail_tuning_heading', { count: componentTuning.length })}</span>
             </h2>
             <button
               type="button"
@@ -1128,14 +1176,14 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
               style={{ fontSize: '12px', padding: '4px 10px', color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.25)' }}
             >
               <Plus size={13} />
-              <span>Aggiungi Profilo</span>
+              <span>{t('detail_tuning_add_btn')}</span>
             </button>
           </div>
 
           {componentTuning.length === 0 ? (
             <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <p style={{ fontSize: '13px', marginBottom: '12px' }}>
-                Nessun profilo di undervolt, Curve Optimizer, RAM o curva ventole salvato per questo componente.
+                {t('detail_tuning_empty_desc')}
               </p>
               <button
                 type="button"
@@ -1143,7 +1191,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                 className="btn btn-secondary btn-sm"
               >
                 <Plus size={13} />
-                <span>Crea Primo Profilo Tuning</span>
+                <span>{t('detail_tuning_empty_btn')}</span>
               </button>
             </div>
           ) : (
@@ -1196,7 +1244,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                           }}
                           className="btn btn-ghost"
                           style={{ padding: '2px 5px', height: '22px', color: 'var(--accent-cyan)' }}
-                          title="Esporta Scheda Parametri BIOS"
+                          title={t('detail_tuning_export_bios_tooltip')}
                         >
                           <FileText size={11} />
                         </button>
@@ -1205,7 +1253,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                           onClick={() => handleEditTuning(p)}
                           className="btn btn-ghost"
                           style={{ padding: '2px 5px', height: '22px', color: 'var(--text-secondary)' }}
-                          title="Modifica profilo tuning"
+                          title={t('detail_tuning_edit_tooltip')}
                         >
                           <Edit2 size={11} />
                         </button>
@@ -1214,7 +1262,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                           onClick={() => handleDeleteTuning(p)}
                           className="btn btn-ghost"
                           style={{ padding: '2px 5px', height: '22px', color: 'var(--accent-ruby)' }}
-                          title="Elimina profilo tuning"
+                          title={t('detail_tuning_delete_tooltip')}
                         >
                           <Trash2 size={11} />
                         </button>
@@ -1223,7 +1271,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)' }}>
                       <span>{typeLabel}</span>
-                      <span className="font-mono">{formatDate(p.date, settings.dateFormat)}</span>
+                      <span className="font-mono">{formatDate(p.date)}</span>
                     </div>
 
                     {/* Parametri principali */}
@@ -1246,7 +1294,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                         ))}
                         {paramEntries.length > 3 && (
                           <span style={{ fontSize: '11px', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                            +{paramEntries.length - 3} altri
+                            {t('detail_tuning_more_params', { count: paramEntries.length - 3 })}
                           </span>
                         )}
                       </div>
@@ -1255,9 +1303,9 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
                     {/* Temperature e Potenza se presenti */}
                     {(p.temperatures?.idle !== undefined || p.temperatures?.load !== undefined || p.observedPowerWatts !== undefined) && (
                       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                        {p.temperatures?.idle !== undefined && <span>Idle: {p.temperatures.idle}°C</span>}
-                        {p.temperatures?.load !== undefined && <span>Load: {p.temperatures.load}°C</span>}
-                        {p.observedPowerWatts !== undefined && <span>{p.observedPowerWatts}W</span>}
+                        {p.temperatures?.idle !== undefined && <span>{t('detail_tuning_idle', { temp: p.temperatures.idle })}</span>}
+                        {p.temperatures?.load !== undefined && <span>{t('detail_tuning_load', { temp: p.temperatures.load })}</span>}
+                        {p.observedPowerWatts !== undefined && <span>{t('detail_tuning_power', { watts: p.observedPowerWatts })}</span>}
                       </div>
                     )}
                   </div>
@@ -1306,7 +1354,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
         entryToEdit={entryToEdit}
         initialValues={{
           componentIds: [component.id],
-          title: `Cura ${component.name}`,
+          title: t('detail_maintenance_initial_title', { name: component.name }),
         }}
       />
 
