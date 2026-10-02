@@ -107,7 +107,8 @@ export function classifyRecommendationCadence(rec: OptimizationRecommendation): 
     id === 'opt-clean-dust-filters' ||
     id === 'opt-replace-thermal-paste' ||
     id === 'opt-cooling-baseline-divergence' ||
-    id === 'opt-cpu-baseline-divergence'
+    id === 'opt-cpu-baseline-divergence' ||
+    id === 'opt-cpu-tuning-review'
   ) {
     return 'MANUAL_MAINTENANCE';
   }
@@ -117,6 +118,7 @@ export function classifyRecommendationCadence(rec: OptimizationRecommendation): 
     id === 'opt-ram-pressure-triage' ||
     id === 'opt-gpu-idle-thermals' ||
     id.startsWith('opt-chkdsk-scan-') ||
+    id.startsWith('opt-backup-disk-') ||
     rec.actionAvailability === 'READ_ONLY'
   ) {
     return 'DIAGNOSTIC';
@@ -128,6 +130,9 @@ export function classifyRecommendationCadence(rec: OptimizationRecommendation): 
     id === 'opt-empty-recycle-bin' ||
     id === 'opt-sfc-repair' ||
     id === 'opt-winget-updates' ||
+    id === 'opt-gpu-driver-recovery' ||
+    id.startsWith('opt-service-restore-') ||
+    id === 'opt-device-fault-inspection' ||
     actionId === 'empty-recycle-bin' ||
     actionId === 'open-cleanmgr'
   ) {
@@ -432,6 +437,8 @@ function getCooldownDaysForRecommendation(id: string): number {
   if (id === 'opt-clean-dust-filters') return DUST_FILTERS_COOLDOWN_DAYS;
   if (id === 'opt-replace-thermal-paste') return THERMAL_PASTE_COOLDOWN_DAYS;
   if (id.startsWith('opt-chkdsk-scan-')) return CHKDSK_COOLDOWN_DAYS;
+  if (id.startsWith('opt-backup-disk-')) return 7;
+  if (id === 'opt-cpu-tuning-review') return 7;
   return 14;
 }
 
@@ -469,7 +476,61 @@ function checkConditionIsActive(id: string, facts: SystemFactsInput): boolean {
   }
 
   if (id.startsWith('opt-chkdsk-scan-')) {
-    return (facts.smartDisks || []).some((d) => d.readErrorsTotal > 0 || d.writeErrorsTotal > 0);
+    const hasSmartErrors = (facts.smartDisks || []).some((d) => d.readErrorsTotal > 0 || d.writeErrorsTotal > 0);
+    const hasEventErrors = (facts.diagnostics?.eventLog?.events || []).some(
+      (e) =>
+        (e.provider.toLowerCase() === 'ntfs' && (e.eventId === 55 || e.eventId === 98)) ||
+        (e.provider.toLowerCase() === 'disk' && (e.eventId === 7 || e.eventId === 11 || e.eventId === 51))
+    );
+    return hasSmartErrors || hasEventErrors;
+  }
+
+  if (id.startsWith('opt-backup-disk-')) {
+    const hasCriticalSmart = (facts.smartDisks || []).some((d) => {
+      const s = (d.healthStatus || '').toLowerCase();
+      return (
+        s.includes('critical') ||
+        s.includes('warning') ||
+        s.includes('unhealthy') ||
+        d.readErrorsTotal > 0 ||
+        d.writeErrorsTotal > 0
+      );
+    });
+    const hasBadBlockEvent = (facts.diagnostics?.eventLog?.events || []).some(
+      (e) => e.provider.toLowerCase() === 'disk' && e.eventId === 7
+    );
+    return hasCriticalSmart || hasBadBlockEvent;
+  }
+
+  if (id === 'opt-gpu-driver-recovery') {
+    const hasTdr = (facts.diagnostics?.eventLog?.events || []).some(
+      (e) => e.eventId === 4101 || e.provider.toLowerCase() === 'display'
+    );
+    const hasGpuFault = (facts.diagnostics?.deviceProblems?.devicesWithProblems || []).some(
+      (d) =>
+        d.problemCode === 43 ||
+        d.severity === 'critical' ||
+        (d.severity === 'warning' &&
+          ((d.friendlyName || '').toLowerCase().includes('pci') ||
+            (d.deviceId || '').toLowerCase().includes('pci') ||
+            (d.friendlyName || '').toLowerCase().includes('geforce') ||
+            (d.friendlyName || '').toLowerCase().includes('radeon')))
+    );
+    return hasTdr || hasGpuFault;
+  }
+
+  if (id === 'opt-cpu-tuning-review') {
+    return (facts.diagnostics?.eventLog?.events || []).some(
+      (e) => e.provider.toLowerCase().includes('whea') || [17, 18, 19, 47].includes(e.eventId)
+    );
+  }
+
+  if (id.startsWith('opt-service-restore-')) {
+    const svcName = id.replace('opt-service-restore-', '').toLowerCase();
+    const services = facts.diagnostics?.systemServices?.services || [];
+    const targetService = services.find((s) => s.serviceName.toLowerCase() === svcName);
+    if (!targetService) return true;
+    return targetService.currentState === 'stopped' || targetService.startType === 'disabled' || targetService.win32ExitCode !== 0;
   }
 
   if (id === 'opt-gpu-idle-thermals') {
@@ -480,7 +541,6 @@ function checkConditionIsActive(id: string, facts: SystemFactsInput): boolean {
     }
     return primary.coreTemperatureCelsius.value >= 58;
   }
-
 
   return true;
 }

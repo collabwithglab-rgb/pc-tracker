@@ -243,4 +243,121 @@ describe('optimizationExecutionService - Full Action Lifecycle', () => {
     expect(record.errorMessage).toContain('Device I/O Error');
     expect(record.verificationStatus).toBe('failed');
   });
+
+  describe('Tranche 8D-4 Action Handlers', () => {
+    it('handles reinstall-gpu-driver with tab switch and guided evidence', async () => {
+      let switchedTab = '';
+      const rec: OptimizationRecommendation = {
+        id: 'opt-gpu-driver-recovery',
+        title: 'Esegui Ripristino Pulito del Driver Grafico',
+        category: 'performance',
+        reason: 'Crash TDR Display 4101',
+        evidence: 'Timeout driver grafico',
+        expectedBenefit: 'Stabilità 3D',
+        risk: 'LOW',
+        confidence: 'HIGH',
+        actionAvailability: 'ASSISTED',
+        rollbackAvailability: 'MANUAL_RESTORE',
+        actionId: 'reinstall-gpu-driver',
+      };
+
+      const res = await executeOptimizationWorkflow({
+        recommendation: rec,
+        facts: sampleFacts,
+        recordExecution: mockRecordExecution,
+        onSwitchTab: (tab) => { switchedTab = tab; },
+      });
+
+      expect(switchedTab).toBe('windows');
+      expect(res.notification.type).toBe('info');
+      expect(recordedInputs[0].verificationStatus).toBe('pending');
+      expect(String(recordedInputs[0].evidenceAfter)).toContain('reinstallazione pulita driver GPU');
+    });
+
+    it('handles inspect-tuning-profile with tab switch to tuning', async () => {
+      let switchedTab = '';
+      const rec: OptimizationRecommendation = {
+        id: 'opt-cpu-tuning-review',
+        title: 'Verifica Stabilità Profilo di Tuning CPU',
+        category: 'performance',
+        reason: 'WHEA Event 19',
+        evidence: 'profilo di tuning CPU presente nel contesto di analisi',
+        expectedBenefit: 'Verifica stabilità tensioni',
+        risk: 'NONE',
+        confidence: 'HIGH',
+        actionAvailability: 'MANUAL',
+        rollbackAvailability: 'NOT_APPLICABLE',
+        actionId: 'inspect-tuning-profile',
+        parameters: { profileId: 'tune-cpu' },
+      };
+
+      const res = await executeOptimizationWorkflow({
+        recommendation: rec,
+        facts: sampleFacts,
+        recordExecution: mockRecordExecution,
+        onSwitchTab: (tab) => { switchedTab = tab; },
+      });
+
+      expect(switchedTab).toBe('tuning');
+      expect(res.notification.type).toBe('info');
+      expect(recordedInputs[0].verificationStatus).toBe('pending');
+      expect(String(recordedInputs[0].evidenceAfter)).toContain('stabilità profilo CPU');
+    });
+
+    it('handles inspect-service with service name parameter and services.msc guidance', async () => {
+      const rec: OptimizationRecommendation = {
+        id: 'opt-service-restore-vss',
+        title: 'Ripristina Servizio Copia Shadow del Volume (VSS)',
+        category: 'system',
+        reason: 'VSS disabilitato',
+        evidence: 'Stato servizio VSS: Disabilitato',
+        expectedBenefit: 'Creazione punti di ripristino',
+        risk: 'LOW',
+        confidence: 'HIGH',
+        actionAvailability: 'ASSISTED',
+        rollbackAvailability: 'NOT_APPLICABLE',
+        actionId: 'inspect-service',
+        parameters: { serviceName: 'VSS' },
+      };
+
+      const res = await executeOptimizationWorkflow({
+        recommendation: rec,
+        facts: sampleFacts,
+        recordExecution: mockRecordExecution,
+      });
+
+      expect(res.notification.message).toContain('services.msc');
+      expect(res.notification.message).toContain('VSS');
+      expect(recordedInputs[0].verificationStatus).toBe('pending');
+      expect(String(recordedInputs[0].evidenceAfter)).toContain('VSS');
+    });
+
+    it('handles backup-disk with drive letter parameter and warning notification', async () => {
+      const rec: OptimizationRecommendation = {
+        id: 'opt-backup-disk-D',
+        title: 'Esegui Backup Preventivo dei Dati sull\'Unità D:',
+        category: 'storage',
+        reason: 'Bad blocks rilevati su disco D:',
+        evidence: 'Event 7 bad block',
+        expectedBenefit: 'Salvataggio dati',
+        risk: 'NONE',
+        confidence: 'HIGH',
+        actionAvailability: 'USER_CONFIRMED',
+        rollbackAvailability: 'NOT_APPLICABLE',
+        actionId: 'backup-disk',
+        parameters: { driveLetter: 'D' },
+      };
+
+      const res = await executeOptimizationWorkflow({
+        recommendation: rec,
+        facts: sampleFacts,
+        recordExecution: mockRecordExecution,
+      });
+
+      expect(res.notification.type).toBe('warning');
+      expect(res.notification.message).toContain('unità D');
+      expect(recordedInputs[0].verificationStatus).toBe('pending');
+      expect(String(recordedInputs[0].evidenceAfter)).toContain('unità D');
+    });
+  });
 });

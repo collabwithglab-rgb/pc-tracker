@@ -529,7 +529,7 @@ function evaluateDeviceProblems(facts: SystemFactsInput, findings: HealthFinding
       area: 'system',
       title: `Problema Periferica: ${devName}`,
       evidence: `${dev.problemLabel}: ${dev.problemDescription}`,
-      explanation: `Windows segnala uno stato anomalo per il dispositivo. Codice problema: ${dev.problemCode}. Stato flag: 0x${dev.statusFlags.toString(16).toUpperCase()}.`,
+      explanation: `Windows segnala uno stato anomalo per il dispositivo. Codice problema: ${dev.problemCode}. Stato flag: 0x${(dev.statusFlags ?? 0).toString(16).toUpperCase()}.`,
       confidence: 'HIGH',
       recommendedActionId: 'inspect-device-fault',
       metadata: { deviceId: dev.deviceId, problemCode: dev.problemCode },

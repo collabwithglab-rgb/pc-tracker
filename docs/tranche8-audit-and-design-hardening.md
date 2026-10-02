@@ -234,8 +234,8 @@ export interface DiagnosticCorrelation {
   - `8D-2`: Windows Services → Health Findings deterministici e Coverage a 15 canali [COMPLETATO].
   - `8D-2.1`: Semantica Hardware Gap (5 canali fisici) vs Coverage/Telemetry Gap [COMPLETATO].
   - `8D-3`: Correlation → Health Integration (Enrichment, Assorbimento e Anti-Double-Penalty) [COMPLETATO - Commit a64925a].
-  - `8D-4`: Optimization & Recommendation Integration [DA AVVIARE].
-- **Criterio di Completamento:** 15 canali coperti; score health isolato e non penalizzato se non supportato; commit locale Tranche 8D (senza push).
+  - `8D-4`: Optimization & Recommendation Integration [COMPLETATO] * [TAG: TRANCHE-8D-4-VERIFICATA-CHATGPT] *
+- **Criterio di Completamento:** 15 canali coperti; score health isolato e non penalizzato se non supportato; raccomandazioni collegate ai fatti diagnostici avanzati; commit locale Tranche 8D-4 (senza push).
 
 ### 8E — UI Presentation & Browser Verification
 - **Obiettivo:** Visualizzazione sobria e chiara dei fatti correlati in `CareOverviewTab.tsx` e `MaintenancePage.tsx` senza design ansiogeno.
@@ -313,4 +313,44 @@ Se l'anchor non possiede un proprio `recommendedActionId` e il secondario assorb
   `Storage → RAM → Commit → Device Faults → GPU/Thermal → Maintenance → Security → Event Log → Services`.
 - L'anchor mantiene la propria posizione canonica originale; il secondario viene rimosso.
 - All'interno del singolo finding, `correlations[]` viene ordinato deterministicamente per forza (`DIRECT_MATCH` > `RELATED_SIGNAL` > `WEAK_CONTEXT`) e `correlationId` alfabetico.
+
+---
+
+## 6. SPECIFICA FORMALE TRANCHE 8D-4 (OPTIMIZATION & RECOMMENDATION INTEGRATION) * [TAG: TRANCHE-8D-4-VERIFICATA-CHATGPT] *
+
+### 6.1 Ruolo Architetturale di 8D-4
+Tranche 8D-4 completa la convergenza tra i fatti diagnostici nativi, i finding di salute e il catalogo di raccomandazioni pure del sistema (`optimizationEngine.ts`, `optimizationLifecycleEngine.ts`, `optimizationExecutionService.ts`):
+- **Storage & Integrità File System:**
+  - Analisi congiunta di eventi NTFS (Event 55, Event 98) e Disk I/O (Event 7, 11, 51).
+  - Deduplicazione deterministica per lettera di unità (`resolveDriveLetter` da `targetContext`, contatori SMART e volumi attivi).
+  - Generazione di `opt-chkdsk-scan-{drive}` non distruttiva e `opt-backup-disk-{drive}` in presenza di bad block fisici.
+- **Ripristino Servizi di Sistema Windows:**
+  - Generazione mirata per i servizi catalogo essenziali non operativi:
+    - `opt-service-restore-vss`: Ripristino Volume Shadow Copy per salvaguardia snapshot e Punti di Ripristino.
+    - `opt-service-restore-eventlog`: Avvio Registro Eventi Windows per persistenza telemetria e diagnostica kernel.
+    - `opt-service-restore-wuauserv`: Abilitazione Windows Update per patch di sicurezza cumulative.
+    - `opt-service-restore-winmgmt`: Ripristino WMI per interrogazioni hardware e diagnostica di sistema.
+- **Prestazioni Grafiche & Driver Recovery:**
+  - `opt-clean-shader-cache`: Contestualizzazione dinamica in presenza di eventi Display 4101 (TDR), con incremento priorità da 65 a 75.
+  - `opt-gpu-driver-recovery`: Generazione assistita di ripristino pulito driver video (`reinstall-gpu-driver`) in presenza di correlazione `DIRECT_MATCH` o arresto periferica Code 43.
+- **Stabilità Tuning CPU & Rispetto Assoluto Regola 3 (Wording Neutro):**
+  - `opt-cpu-tuning-review`: Proposta di verifica profilo di tuning CPU (`inspect-tuning-profile`) su presenza di eventi WHEA (Event 17, 18, 19, 47).
+  - Obbligo tassativo della formula neutra: *"profilo di tuning CPU presente nel contesto di analisi"*, senza attribuzione causale o espressioni ansiogene.
+- **Ordinamento Deterministico delle Priorità (`sortRecommendationsByPriority`):**
+  - Scala gerarchica di pesi rigorosa:
+    - 100: `opt-sfc-repair`
+    - 96: `opt-service-restore-eventlog`
+    - 95: `opt-service-restore-winmgmt`
+    - 94: `opt-backup-disk-*`
+    - 90: `opt-cleanmgr-*`
+    - 88: `opt-chkdsk-scan-*`
+    - 81: `opt-empty-recycle-bin`
+    - 80: `opt-create-restore-point`
+    - 79: `opt-service-restore-vss`
+    - 78: `opt-cpu-tuning-review`
+    - 77: `opt-gpu-driver-recovery`
+    - 76: `opt-service-restore-wuauserv`
+    - 75: `opt-trim-*` / `opt-clean-shader-cache` (contextualized TDR)
+    - Tie-breaker alfabetico su `rec.id` in caso di parità.
+
 

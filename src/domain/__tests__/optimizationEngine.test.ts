@@ -10,9 +10,55 @@ import {
   DiskSmartHealth,
 } from '../../types/windowsTools';
 import { MonitoringSnapshot } from '../../types/monitoring';
+import { SystemDiagnosticsSnapshot } from '../../types/diagnostics';
 
 describe('optimizationEngine', () => {
   const baseRefDate = '2026-09-24T12:00:00.000Z';
+
+  const createDefaultDiagnostics = (
+    refDate: string,
+    overrides?: Partial<SystemDiagnosticsSnapshot>
+  ): SystemDiagnosticsSnapshot => ({
+    timestamp: refDate,
+    status: 'success',
+    collectionDurationMs: 5,
+    deviceProblems: {
+      availability: 'available',
+      source: 'CM_Get_DevNode_Status',
+      totalDevicesScanned: 100,
+      problemCount: 0,
+      devicesWithProblems: [],
+    },
+    memoryCommit: {
+      availability: 'available',
+      source: 'GetPerformanceInfo',
+      commitTotalBytes: 8_000_000_000,
+      commitLimitBytes: 32_000_000_000,
+      commitPeakBytes: 12_000_000_000,
+      physicalTotalBytes: 32_000_000_000,
+      physicalAvailableBytes: 24_000_000_000,
+      systemCacheBytes: 4_000_000_000,
+      kernelPagedBytes: 400_000_000,
+      kernelNonpagedBytes: 300_000_000,
+      processCount: 150,
+      threadCount: 2000,
+      commitUtilizationPercent: 25,
+      physicalUtilizationPercent: 25,
+    },
+    powerStatus: {
+      availability: 'available',
+      source: 'GetSystemPowerStatus',
+      acLineStatus: 1,
+      batteryFlag: 128,
+      batteryLifePercent: null,
+      batterySaverActive: false,
+      hasSystemBattery: false,
+      isOnAC: true,
+      isOnBattery: false,
+      powerArchitecture: 'desktop_like',
+    },
+    ...overrides,
+  });
 
   const defaultSecurityAudit: SecurityAuditData = {
     secureBootEnabled: true,
@@ -1118,5 +1164,392 @@ describe('optimizationEngine', () => {
       }
     });
   });
+
+  describe('Tranche 8D-4: Optimization & Recommendation Integration', () => {
+    it('generates CHKDSK recommendation from NTFS online scan finding (Event 98)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        drives: [createDrive('C:', 1_000_000_000_000, 500_000_000_000)],
+        maintenanceEntries: [createMaintenanceEntry('m1', 'Punto ripristino', '2026-09-20')],
+        diagnostics: createDefaultDiagnostics(baseRefDate, {
+          eventLog: {
+            availability: 'available',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 1,
+            truncated: false,
+            events: [
+              {
+                channel: 'System',
+                provider: 'Ntfs',
+                eventId: 98,
+                level: 3,
+                timestamp: baseRefDate,
+                targetContext: 'C:',
+                recordId: 101,
+              },
+            ],
+          },
+        }),
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const chkdskRec = report.recommendations.find((r) => r.id === 'opt-chkdsk-scan-C');
+
+      expect(chkdskRec).toBeDefined();
+      expect(chkdskRec?.category).toBe('storage');
+      expect(chkdskRec?.actionId).toBe('chkdsk-scan');
+      expect(chkdskRec?.parameters?.driveLetter).toBe('C');
+      expect(chkdskRec?.reason).toContain('NTFS');
+      expect(chkdskRec?.actionAvailability).toBe('ASSISTED');
+    });
+
+    it('generates CHKDSK and backup-disk recommendations from Disk bad block finding (Event 7)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        drives: [createDrive('D:', 1_000_000_000_000, 400_000_000_000)],
+        maintenanceEntries: [createMaintenanceEntry('m1', 'Punto ripristino', '2026-09-20')],
+        diagnostics: createDefaultDiagnostics(baseRefDate, {
+          eventLog: {
+            availability: 'available',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 3,
+            truncated: false,
+            events: [
+              {
+                channel: 'System',
+                provider: 'disk',
+                eventId: 7,
+                level: 2,
+                timestamp: baseRefDate,
+                targetContext: 'D:',
+                recordId: 102,
+              },
+            ],
+          },
+        }),
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const chkdskRec = report.recommendations.find((r) => r.id === 'opt-chkdsk-scan-D');
+      const backupRec = report.recommendations.find((r) => r.id === 'opt-backup-disk-D');
+
+      expect(chkdskRec).toBeDefined();
+      expect(chkdskRec?.actionId).toBe('chkdsk-scan');
+      expect(backupRec).toBeDefined();
+      expect(backupRec?.category).toBe('storage');
+      expect(backupRec?.actionId).toBe('backup-disk');
+      expect(backupRec?.parameters?.driveLetter).toBe('D');
+    });
+
+    it('deduplicates CHKDSK recommendations when both SMART errors and NTFS events exist on the same drive', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        drives: [createDrive('C:', 1_000_000_000_000, 500_000_000_000)],
+        maintenanceEntries: [createMaintenanceEntry('m1', 'Punto ripristino', '2026-09-20')],
+        smartDisks: [
+          {
+            deviceId: '0',
+            friendlyName: 'Drive C:',
+            mediaType: 'SSD',
+            readErrorsTotal: 4,
+            writeErrorsTotal: 1,
+            healthStatus: 'Warning',
+          },
+        ],
+        diagnostics: createDefaultDiagnostics(baseRefDate, {
+          eventLog: {
+            availability: 'available',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 1,
+            truncated: false,
+            events: [
+              {
+                channel: 'System',
+                provider: 'Ntfs',
+                eventId: 98,
+                level: 3,
+                timestamp: baseRefDate,
+                targetContext: 'C:',
+                recordId: 103,
+              },
+            ],
+          },
+        }),
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const chkdskRecs = report.recommendations.filter((r) => r.id === 'opt-chkdsk-scan-C');
+      expect(chkdskRecs).toHaveLength(1);
+    });
+
+    it('generates Windows Services restoration recommendations for VSS disabled, EventLog stopped, and wuauserv disabled', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        maintenanceEntries: [createMaintenanceEntry('m1', 'Punto ripristino', '2026-09-20')],
+        diagnostics: createDefaultDiagnostics(baseRefDate, {
+          systemServices: {
+            availability: 'available',
+            source: 'Advapi32_SCM',
+            scannedAt: baseRefDate,
+            catalogCount: 6,
+            services: [
+              {
+                serviceName: 'VSS',
+                displayName: 'Volume Shadow Copy',
+                operationalModel: 'on_demand',
+                currentState: 'stopped',
+                startType: 'disabled',
+                win32ExitCode: 0,
+              },
+              {
+                serviceName: 'EventLog',
+                displayName: 'Windows Event Log',
+                operationalModel: 'always_running',
+                currentState: 'stopped',
+                startType: 'auto',
+                win32ExitCode: 0,
+              },
+              {
+                serviceName: 'wuauserv',
+                displayName: 'Windows Update',
+                operationalModel: 'on_demand',
+                currentState: 'stopped',
+                startType: 'disabled',
+                win32ExitCode: 0,
+              },
+            ],
+          },
+        }),
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+
+      const vssRec = report.recommendations.find((r) => r.id === 'opt-service-restore-vss');
+      expect(vssRec).toBeDefined();
+      expect(vssRec?.category).toBe('system');
+      expect(vssRec?.actionId).toBe('inspect-service');
+      expect(vssRec?.parameters?.serviceName).toBe('VSS');
+
+      const eventLogRec = report.recommendations.find((r) => r.id === 'opt-service-restore-eventlog');
+      expect(eventLogRec).toBeDefined();
+      expect(eventLogRec?.category).toBe('system');
+      expect(eventLogRec?.actionId).toBe('inspect-service');
+      expect(eventLogRec?.parameters?.serviceName).toBe('EventLog');
+
+      const wuauservRec = report.recommendations.find((r) => r.id === 'opt-service-restore-wuauserv');
+      expect(wuauservRec).toBeDefined();
+      expect(wuauservRec?.category).toBe('system');
+      expect(wuauservRec?.parameters?.serviceName).toBe('wuauserv');
+    });
+
+    it('contextualizes shader cache and generates clean driver recovery on GPU TDR and device problem', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        maintenanceEntries: [createMaintenanceEntry('m1', 'Punto ripristino', '2026-09-20')],
+        currentRigComponents: [
+          {
+            id: 'gpu-1',
+            name: 'GeForce RTX 4080',
+            brand: 'NVIDIA',
+            model: 'RTX 4080',
+            category: 'gpu',
+          } as Component,
+        ],
+        diagnostics: createDefaultDiagnostics(baseRefDate, {
+          eventLog: {
+            availability: 'available',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 3,
+            truncated: false,
+            events: [
+              {
+                channel: 'System',
+                provider: 'Display',
+                eventId: 4101,
+                level: 3,
+                timestamp: baseRefDate,
+                targetContext: 'nvlddmkm',
+                recordId: 104,
+              },
+              {
+                channel: 'System',
+                provider: 'Display',
+                eventId: 4101,
+                level: 3,
+                timestamp: baseRefDate,
+                targetContext: 'nvlddmkm',
+                recordId: 105,
+              },
+            ],
+          },
+          deviceProblems: {
+            availability: 'available',
+            source: 'CfgMgr32_DevNode',
+            totalDevicesScanned: 50,
+            problemCount: 1,
+            devicesWithProblems: [
+              {
+                deviceId: 'PCI\\VEN_10DE&DEV_2704',
+                friendlyName: 'NVIDIA GeForce RTX 4080',
+                problemCode: 43,
+                problemLabel: 'Code 43 (Arrestato dal driver)',
+                problemDescription: 'Il dispositivo ha segnalato un problema.',
+                severity: 'warning',
+                statusFlags: 0x0180200a,
+              },
+            ],
+          },
+        }),
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+
+      const shaderRec = report.recommendations.find((r) => r.id === 'opt-clean-shader-cache');
+      expect(shaderRec).toBeDefined();
+      expect(shaderRec?.reason).toContain('4101');
+
+      const driverRecoveryRec = report.recommendations.find((r) => r.id === 'opt-gpu-driver-recovery');
+      expect(driverRecoveryRec).toBeDefined();
+      expect(driverRecoveryRec?.actionId).toBe('reinstall-gpu-driver');
+      expect(driverRecoveryRec?.category).toBe('performance');
+      expect(driverRecoveryRec?.risk).toBe('LOW');
+    });
+
+    it('generates CPU tuning review on WHEA events with neutral anti-causal wording (Rule 3)', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        maintenanceEntries: [createMaintenanceEntry('m1', 'Punto ripristino', '2026-09-20')],
+        tuningProfiles: [
+          createTuningProfile('tune-cpu-daily', 'Undervolt 5800X3D -30', 'cpu', 'daily', 68),
+        ],
+        diagnostics: createDefaultDiagnostics(baseRefDate, {
+          eventLog: {
+            availability: 'available',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 2,
+            truncated: false,
+            events: [
+              {
+                channel: 'System',
+                provider: 'Microsoft-Windows-WHEA-Logger',
+                eventId: 19,
+                level: 3,
+                timestamp: baseRefDate,
+                recordId: 106,
+              },
+            ],
+          },
+        }),
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const tuningRec = report.recommendations.find((r) => r.id === 'opt-cpu-tuning-review');
+
+      expect(tuningRec).toBeDefined();
+      expect(tuningRec?.category).toBe('performance');
+      expect(tuningRec?.actionId).toBe('inspect-tuning-profile');
+      expect(tuningRec?.risk).toBe('NONE');
+      expect(tuningRec?.confidence).toBe('HIGH');
+      expect(tuningRec?.parameters?.profileId).toBe('tune-cpu-daily');
+
+      // Rule 3: Anti-causal neutral formula verification
+      expect(tuningRec?.evidence.toLowerCase()).toContain('profilo di tuning cpu');
+      expect(tuningRec?.evidence).toContain('presente nel contesto di analisi');
+
+      // Bias & Slop Audit: forbidden alarmist words
+      const textToAudit = `${tuningRec?.title} ${tuningRec?.reason} ${tuningRec?.evidence} ${tuningRec?.expectedBenefit}`.toLowerCase();
+      expect(textToAudit).not.toContain('cpu guasta');
+      expect(textToAudit).not.toContain('cpu rotta');
+      expect(textToAudit).not.toContain('undervolt errato');
+      expect(textToAudit).not.toContain('guasto hardware');
+    });
+
+    it('orders recommendations strictly by deterministic priority weights', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: baseRefDate,
+        systemFilesStatus: 'corrupted', // opt-sfc-repair: 100
+        drives: [createDrive('C:', 1_000_000_000_000, 100_000_000_000)], // opt-cleanmgr-c: 90
+        recycleBin: { itemCount: 100, totalSizeBytes: 1024 * 1024 * 800 }, // opt-empty-recycle-bin: 81
+        maintenanceEntries: [createMaintenanceEntry('m1', 'Punto ripristino', '2026-08-01')], // opt-create-restore-point: 80
+        tuningProfiles: [createTuningProfile('t1', 'CPU Tuning', 'cpu', 'daily')],
+        currentRigComponents: [{ id: 'g1', name: 'GPU', brand: 'NVIDIA', model: 'RTX', category: 'gpu' } as Component],
+        diagnostics: createDefaultDiagnostics(baseRefDate, {
+          systemServices: {
+            availability: 'available',
+            source: 'Advapi32_SCM',
+            scannedAt: baseRefDate,
+            catalogCount: 6,
+            services: [
+              {
+                serviceName: 'EventLog',
+                displayName: 'Windows Event Log',
+                operationalModel: 'always_running',
+                currentState: 'stopped',
+                startType: 'auto',
+                win32ExitCode: 0,
+              },
+              {
+                serviceName: 'VSS',
+                displayName: 'Volume Shadow Copy',
+                operationalModel: 'on_demand',
+                currentState: 'stopped',
+                startType: 'disabled',
+                win32ExitCode: 0,
+              },
+            ],
+          },
+          eventLog: {
+            availability: 'available',
+            source: 'Wevtapi_SystemLog',
+            queryTimeWindowHours: 168,
+            maxEventsCap: 50,
+            returnedEventCount: 2,
+            truncated: false,
+            events: [
+              {
+                channel: 'System',
+                provider: 'Microsoft-Windows-WHEA-Logger',
+                eventId: 19,
+                level: 3,
+                timestamp: baseRefDate,
+                recordId: 107,
+              },
+              {
+                channel: 'System',
+                provider: 'Display',
+                eventId: 4101,
+                level: 3,
+                timestamp: baseRefDate,
+                recordId: 108,
+              },
+            ],
+          },
+        }),
+      };
+
+      const report = generateOptimizationRecommendations(facts);
+      const recIds = report.recommendations.map((r) => r.id);
+
+      // Verify hierarchical ranking order:
+      // sfc-repair (100) -> service-restore-eventlog (96) -> cleanmgr-c (90) -> empty-recycle-bin (81) -> restore-point (80) -> service-restore-vss (79) -> cpu-tuning-review (78)
+      expect(recIds.indexOf('opt-sfc-repair')).toBeLessThan(recIds.indexOf('opt-service-restore-eventlog'));
+      expect(recIds.indexOf('opt-service-restore-eventlog')).toBeLessThan(recIds.indexOf('opt-cleanmgr-c'));
+      expect(recIds.indexOf('opt-cleanmgr-c')).toBeLessThan(recIds.indexOf('opt-empty-recycle-bin'));
+      expect(recIds.indexOf('opt-empty-recycle-bin')).toBeLessThan(recIds.indexOf('opt-create-restore-point'));
+      expect(recIds.indexOf('opt-create-restore-point')).toBeLessThan(recIds.indexOf('opt-service-restore-vss'));
+      expect(recIds.indexOf('opt-service-restore-vss')).toBeLessThan(recIds.indexOf('opt-cpu-tuning-review'));
+    });
+  });
 });
+
 

@@ -271,6 +271,30 @@ export async function executeOptimizationWorkflow({
       evidenceAfterSummary = 'Indirizzato al Registro Manutenzione per tracciamento attività fisica';
       notificationType = 'info';
       notificationMessage = `Aperto Registro Manutenzione per: ${rec.title}`;
+    } else if (rec.actionId === 'reinstall-gpu-driver') {
+      onSwitchTab?.('windows');
+      verificationStatus = 'pending';
+      evidenceAfterSummary = 'Consultazione procedura reinstallazione pulita driver GPU avviata';
+      notificationType = 'info';
+      notificationMessage = 'Aperta sezione Strumenti Windows per indicazioni sul driver video.';
+    } else if (rec.actionId === 'inspect-tuning-profile') {
+      onSwitchTab?.('tuning');
+      verificationStatus = 'pending';
+      evidenceAfterSummary = 'Aperto diario di tuning per verifica stabilità profilo CPU';
+      notificationType = 'info';
+      notificationMessage = 'Aperta sezione Tuning per verificare i parametri del processore.';
+    } else if (rec.actionId === 'inspect-service') {
+      const svc = (rec.parameters?.serviceName as string) || 'servizio di sistema';
+      verificationStatus = 'pending';
+      evidenceAfterSummary = `Indicazioni fornite per verifica e ripristino del servizio ${svc} in services.msc`;
+      notificationType = 'info';
+      notificationMessage = `Apri Gestione Servizi (services.msc) per verificare la configurazione di ${svc}.`;
+    } else if (rec.actionId === 'backup-disk') {
+      const drive = (rec.parameters?.driveLetter as string) || '';
+      verificationStatus = 'pending';
+      evidenceAfterSummary = `Avviata procedura di salvataggio preventivo per l'unità ${drive}`;
+      notificationType = 'warning';
+      notificationMessage = `Salva tempestivamente i file importanti dell'unità ${drive} su un supporto esterno sicuro.`;
     } else if (rec.actionId === 'reboot-uefi') {
       onSwitchTab?.('windows');
       verificationStatus = 'pending';

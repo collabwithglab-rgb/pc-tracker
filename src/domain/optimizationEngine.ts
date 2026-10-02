@@ -35,14 +35,17 @@ export function generateOptimizationRecommendations(
   const health = providedHealthReport || evaluateSystemHealth(facts);
   const refDate = currentTimestamp || facts.referenceDate || new Date().toISOString();
 
-  // 1. Raccomandazioni su Storage e Manutenzione SSD/Cestino/CHKDSK
+  // 1. Raccomandazioni su Storage e Manutenzione SSD/Cestino/CHKDSK/Backup
   evaluateStorageRecommendations(facts, health, recommendations);
 
   // 2. Raccomandazioni su Sicurezza, Ripristino e Component Store Windows
   evaluateSafetyAndIntegrityRecommendations(facts, health, recommendations, refDate);
 
-  // 3. Raccomandazioni su Performance, Cache, RAM e WinGet
-  evaluatePerformanceRecommendations(facts, recommendations);
+  // 2b. Raccomandazioni sui Servizi Windows Critici (Tranche 8D-4)
+  evaluateWindowsServicesRecommendations(facts, health, recommendations);
+
+  // 3. Raccomandazioni su Performance, Cache, GPU TDR, CPU WHEA, RAM e WinGet
+  evaluatePerformanceRecommendations(facts, health, recommendations);
 
   // 4. Raccomandazioni su Termiche e Manutenzione Fisica (con Personal Baseline)
   evaluateThermalAndMaintenanceRecommendations(facts, health, recommendations, refDate);
@@ -71,9 +74,30 @@ export function generateOptimizationRecommendations(
 // 1. STORAGE RECOMMENDATIONS
 // ---------------------------------------------------------------------------
 
+function resolveDriveLetter(facts: SystemFactsInput, target?: string, friendlyName?: string): string {
+  if (target) {
+    const match = target.match(/^([a-zA-Z]):/);
+    if (match) return match[1].toUpperCase();
+    const driveByLabel = (facts.drives || []).find((d) =>
+      target.toLowerCase().includes(d.driveLetter.toLowerCase()) ||
+      (d.label && target.toLowerCase().includes(d.label.toLowerCase()))
+    );
+    if (driveByLabel) return driveByLabel.driveLetter.toUpperCase().replace(':', '');
+  }
+  if (friendlyName) {
+    const matchingDrive = (facts.drives || []).find(
+      (d) =>
+        (d.friendlyName && d.friendlyName.toLowerCase() === friendlyName.toLowerCase()) ||
+        (d.label && friendlyName.toLowerCase().includes(d.label.toLowerCase()))
+    );
+    if (matchingDrive) return matchingDrive.driveLetter.toUpperCase().replace(':', '');
+  }
+  return (facts.drives && facts.drives[0]?.driveLetter.toUpperCase().replace(':', '')) || 'C';
+}
+
 function evaluateStorageRecommendations(
   facts: SystemFactsInput,
-  _health: SystemHealthReport,
+  health: SystemHealthReport,
   recommendations: OptimizationRecommendation[]
 ): void {
   // A. Ottimizzazione TRIM su SSD
@@ -155,23 +179,85 @@ function evaluateStorageRecommendations(
     });
   }
 
-  // D. Scansione Integrità File System (CHKDSK read-only) su dischi con errori I/O
+  // D. Scansione Integrità File System (CHKDSK read-only) su dischi con errori SMART o Eventi NTFS / Disk
   const disksWithErrors = (facts.smartDisks || []).filter(
     (d) => d.readErrorsTotal > 0 || d.writeErrorsTotal > 0
   );
+
+  const ntfsOnlineFinding = health.findings.find(
+    (f) => f.id === 'event-ntfs-98-check-required' || (f.id.startsWith('event-ntfs-') && f.recommendedActionId === 'chkdsk-scan')
+  );
+  const ntfsOfflineFinding = health.findings.find((f) => f.id === 'event-ntfs-55-corruption');
+  const diskBadBlockFinding = health.findings.find((f) => f.id.startsWith('event-disk-7-'));
+  const diskControllerFinding = health.findings.find((f) => f.id === 'event-disk-11-communication');
+  const diskPagingFinding = health.findings.find((f) => f.id === 'event-disk-51-paging');
+
+  // Mappa di tutte le unità da analizzare con CHKDSK
+  const targetDrivesForChkdsk = new Set<string>();
+
   for (const disk of disksWithErrors) {
-    const matchingDrive = (facts.drives || []).find(
-      (d) => (disk.friendlyName && d.friendlyName && d.friendlyName.toLowerCase() === disk.friendlyName.toLowerCase()) ||
-             (d.label && disk.friendlyName && disk.friendlyName.toLowerCase().includes(d.label.toLowerCase()))
-    ) || (facts.drives && facts.drives[0]);
-    const letter = matchingDrive ? matchingDrive.driveLetter.toUpperCase().replace(':', '') : 'C';
+    const letter = resolveDriveLetter(facts, undefined, disk.friendlyName);
+    targetDrivesForChkdsk.add(letter);
+  }
+
+  // Qualsiasi finding con recommendedActionId === 'chkdsk-scan'
+  for (const f of health.findings) {
+    if (f.recommendedActionId === 'chkdsk-scan') {
+      const targetCtx = f.metadata?.targetContext as string | undefined;
+      targetDrivesForChkdsk.add(resolveDriveLetter(facts, targetCtx));
+    }
+  }
+
+  if (ntfsOnlineFinding) {
+    const targetCtx = ntfsOnlineFinding.metadata?.targetContext as string | undefined;
+    targetDrivesForChkdsk.add(resolveDriveLetter(facts, targetCtx));
+  }
+
+  if (ntfsOfflineFinding) {
+    const targetCtx = ntfsOfflineFinding.metadata?.targetContext as string | undefined;
+    targetDrivesForChkdsk.add(resolveDriveLetter(facts, targetCtx));
+  }
+
+  if (diskBadBlockFinding) {
+    const targetCtx = diskBadBlockFinding.metadata?.targetContext as string | undefined;
+    targetDrivesForChkdsk.add(resolveDriveLetter(facts, targetCtx));
+  }
+
+  if (diskControllerFinding) {
+    const targetCtx = diskControllerFinding.metadata?.targetContext as string | undefined;
+    targetDrivesForChkdsk.add(resolveDriveLetter(facts, targetCtx));
+  }
+
+  if (diskPagingFinding) {
+    const targetCtx = diskPagingFinding.metadata?.targetContext as string | undefined;
+    targetDrivesForChkdsk.add(resolveDriveLetter(facts, targetCtx));
+  }
+
+  for (const letter of targetDrivesForChkdsk) {
+    const diskError = disksWithErrors.find(
+      (d) => resolveDriveLetter(facts, undefined, d.friendlyName) === letter
+    );
+
+    let reason = 'I contatori fisici del controller indicano errori di lettura/scrittura. Si raccomanda una verifica online non distruttiva del file system.';
+    let evidence = diskError
+      ? `Errori I/O rilevati: ${diskError.readErrorsTotal} lettura, ${diskError.writeErrorsTotal} scrittura su ${diskError.friendlyName}`
+      : `Anomalie di integrità file system o I/O registrate per l'unità ${letter}:`;
+
+    if (ntfsOnlineFinding || ntfsOfflineFinding) {
+      const finding = ntfsOfflineFinding || ntfsOnlineFinding;
+      reason = 'Il registro di sistema ha registrato segnalazioni di integrità del file system NTFS. Si raccomanda una scansione di verifica online non distruttiva.';
+      evidence = finding?.evidence || `Segnalazioni di integrità NTFS registrate sull'unità ${letter}:`;
+    } else if (diskBadBlockFinding) {
+      reason = 'Il registro di sistema ha rilevato blocchi danneggiati (bad blocks) durante operazioni di lettura o scrittura. Si raccomanda una verifica del file system.';
+      evidence = diskBadBlockFinding.evidence;
+    }
 
     recommendations.push({
       id: `opt-chkdsk-scan-${letter}`,
       title: `Esegui Scansione File System (CHKDSK) su Unità ${letter}:`,
       category: 'storage',
-      reason: `I contatori fisici del controller per ${disk.friendlyName} indicano errori di lettura/scrittura. Si raccomanda una verifica online non distruttiva del file system.`,
-      evidence: `Errori I/O rilevati: ${disk.readErrorsTotal} lettura, ${disk.writeErrorsTotal} scrittura su ${disk.friendlyName}`,
+      reason,
+      evidence,
       expectedBenefit: 'Verifica la coerenza dei metadati NTFS e identifica eventuali corruzioni di indici o directory prima che si aggravino.',
       risk: 'NONE',
       confidence: 'HIGH',
@@ -180,6 +266,43 @@ function evaluateStorageRecommendations(
       actionId: 'chkdsk-scan',
       actionDescription: `Esecuzione del comando chkdsk ${letter}: /scan in modalità non distruttiva e online`,
       verificationMethod: 'Report diagnostico CHKDSK privo di violazioni e assenza di ulteriori errori di I/O',
+      parameters: { driveLetter: letter },
+    });
+  }
+
+  // E. Backup Preventivo dei Dati per Unità con Degrado Hardware o Blocchi Danneggiati
+  const backupFinding = health.findings.find((f) => f.recommendedActionId === 'backup-disk');
+  const criticalSmartDisk = (facts.smartDisks || []).find((d) => {
+    const status = (d.healthStatus || '').toLowerCase();
+    return status.includes('critical') || status.includes('unhealthy') || status.includes('warning');
+  });
+
+  if (backupFinding || criticalSmartDisk || diskBadBlockFinding) {
+    const letter = resolveDriveLetter(
+      facts,
+      backupFinding?.metadata?.targetContext as string | undefined,
+      criticalSmartDisk?.friendlyName
+    );
+
+    const evidence = backupFinding?.evidence ||
+      (criticalSmartDisk
+        ? `Stato di affidabilità controller ${criticalSmartDisk.friendlyName}: ${criticalSmartDisk.healthStatus}`
+        : (diskBadBlockFinding?.evidence || `Blocchi danneggiati segnalati sull'unità ${letter}:`));
+
+    recommendations.push({
+      id: `opt-backup-disk-${letter}`,
+      title: `Esegui Backup Preventivo dei Dati sull'Unità ${letter}:`,
+      category: 'storage',
+      reason: 'L\'unità di archiviazione presenta indicatori di usura avanzata, blocchi danneggiati o anomalie fisiche. È prioritario mettere in sicurezza i file personali.',
+      evidence,
+      expectedBenefit: 'Previene la perdita permanente di dati in caso di guasto progressivo del supporto di memoria.',
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'USER_CONFIRMED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'backup-disk',
+      actionDescription: 'Salvataggio e sincronizzazione immediata dei file importanti su disco esterno o unità di backup',
+      verificationMethod: 'Completamento del salvataggio dei file critici su supporto indipendente',
       parameters: { driveLetter: letter },
     });
   }
@@ -293,36 +416,215 @@ function evaluateSafetyAndIntegrityRecommendations(
 }
 
 // ---------------------------------------------------------------------------
+// 2b. WINDOWS SERVICES RESTORATION RECOMMENDATIONS (Tranche 8D-4)
+// ---------------------------------------------------------------------------
+
+function evaluateWindowsServicesRecommendations(
+  facts: SystemFactsInput,
+  health: SystemHealthReport,
+  recommendations: OptimizationRecommendation[]
+): void {
+  const serviceFindings = health.findings.filter((f) => f.id.startsWith('service-'));
+  const services = facts.diagnostics?.systemServices?.services || [];
+
+  // A. VSS (Volume Shadow Copy) — Essenziale per i Punti di Ripristino
+  const vssFinding = serviceFindings.find((f) => f.id === 'service-vss-disabled');
+  const vssService = services.find((s) => s.serviceName.toLowerCase() === 'vss');
+  if (vssFinding || (vssService && vssService.startType === 'disabled')) {
+    recommendations.push({
+      id: 'opt-service-restore-vss',
+      title: 'Ripristina Tipo di Avvio Servizio Copia Shadow (VSS)',
+      category: 'system',
+      reason: 'Il servizio Volume Shadow Copy (VSS) è impostato su Disabilitato, impedendo la creazione dei Punti di Ripristino e delle copie shadow di Windows.',
+      evidence: vssFinding?.evidence || 'Stato servizio VSS: Disabilitato (necessario per protezione sistema e Punti di Ripristino)',
+      expectedBenefit: 'Ripristina la capacità di Windows di creare snapshot del volume e Punti di Ripristino di sicurezza prima di aggiornamenti critici.',
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'inspect-service',
+      actionDescription: 'Impostazione del tipo di avvio del servizio Copia Shadow del volume su Manuale (Richiesta) in Gestione Servizi (services.msc)',
+      verificationMethod: 'Servizio VSS non disabilitato e creazione di un punto di ripristino con esito positivo',
+      parameters: { serviceName: 'VSS' },
+    });
+  }
+
+  // B. EventLog (Windows Event Log) — Essenziale per la diagnostica
+  const eventLogFinding = serviceFindings.find((f) => f.id.startsWith('service-eventlog'));
+  const eventLogService = services.find((s) => s.serviceName.toLowerCase() === 'eventlog');
+  if (eventLogFinding || (eventLogService && (eventLogService.currentState === 'stopped' || eventLogService.startType === 'disabled' || eventLogService.win32ExitCode !== 0))) {
+    recommendations.push({
+      id: 'opt-service-restore-eventlog',
+      title: 'Avvia Servizio Registro Eventi di Windows (EventLog)',
+      category: 'system',
+      reason: 'Il servizio Registro eventi di Windows è arrestato o disabilitato. La diagnostica di sistema, la registrazione di anomalie kernel e la sicurezza risultano compromesse.',
+      evidence: eventLogFinding?.evidence || 'Stato servizio EventLog: non in esecuzione o disabilitato',
+      expectedBenefit: 'Ripristina la registrazione diagnostica di errori hardware, arresti anomali del kernel e telemetria essenziale.',
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'inspect-service',
+      actionDescription: 'Avvio e impostazione su Automatico del servizio Registro eventi di Windows in services.msc',
+      verificationMethod: 'Servizio EventLog in esecuzione (Running)',
+      parameters: { serviceName: 'EventLog' },
+    });
+  }
+
+  // C. wuauserv (Windows Update) — Essenziale per la sicurezza e patch
+  const wuauservFinding = serviceFindings.find((f) => f.id === 'service-wuauserv-disabled');
+  const wuauservService = services.find((s) => s.serviceName.toLowerCase() === 'wuauserv');
+  if (wuauservFinding || (wuauservService && wuauservService.startType === 'disabled')) {
+    recommendations.push({
+      id: 'opt-service-restore-wuauserv',
+      title: 'Ripristina Servizio Windows Update (wuauserv)',
+      category: 'system',
+      reason: 'Il servizio Windows Update è disabilitato, impedendo la ricezione e l\'applicazione di aggiornamenti di sicurezza e fix per il sistema operativo.',
+      evidence: wuauservFinding?.evidence || 'Stato servizio wuauserv: Disabilitato',
+      expectedBenefit: 'Consente l\'installazione di patch di sicurezza cumulative e fix per la stabilità del sistema operativo.',
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'inspect-service',
+      actionDescription: 'Ripristino del servizio Windows Update su Avvio Manuale (Richiesta) in Gestione Servizi (services.msc)',
+      verificationMethod: 'Servizio wuauserv configurato con avvio Manuale o Automatico',
+      parameters: { serviceName: 'wuauserv' },
+    });
+  }
+
+  // D. Winmgmt (WMI) — Essenziale per interrogazioni e gestione
+  const winmgmtFinding = serviceFindings.find((f) => f.id.startsWith('service-winmgmt'));
+  const winmgmtService = services.find((s) => s.serviceName.toLowerCase() === 'winmgmt');
+  if (winmgmtFinding || (winmgmtService && (winmgmtService.currentState === 'stopped' || winmgmtService.startType === 'disabled' || winmgmtService.win32ExitCode !== 0))) {
+    recommendations.push({
+      id: 'opt-service-restore-winmgmt',
+      title: 'Ripristina Servizio Strumentazione Gestione Windows (Winmgmt)',
+      category: 'system',
+      reason: 'Il servizio WMI (Windows Management Instrumentation) è arrestato o disabilitato, compromettendo le interrogazioni hardware e le funzionalità di diagnostica.',
+      evidence: winmgmtFinding?.evidence || 'Stato servizio Winmgmt: non in esecuzione o disabilitato',
+      expectedBenefit: 'Garantisce il corretto funzionamento delle interrogazioni hardware, telemetria di sistema e strumenti di diagnostica.',
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'inspect-service',
+      actionDescription: 'Avvio del servizio Winmgmt e impostazione dell\'avvio su Automatico in services.msc',
+      verificationMethod: 'Servizio Winmgmt in esecuzione (Running)',
+      parameters: { serviceName: 'Winmgmt' },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 3. PERFORMANCE & CACHE RECOMMENDATIONS
 // ---------------------------------------------------------------------------
 
 function evaluatePerformanceRecommendations(
   facts: SystemFactsInput,
+  health: SystemHealthReport,
   recommendations: OptimizationRecommendation[]
 ): void {
-  // A. Pulizia Shader Cache GPU
+  // A. Pulizia Shader Cache GPU & GPU TDR Recovery
   const hasDiscreteGpu = (facts.monitoring?.gpus || []).some((g) => g.isDiscrete)
     || (facts.currentRigComponents || []).some((c) => c.category === 'gpu');
 
+  const tdrFinding = health.findings.find((f) => f.id.startsWith('event-display-tdr'));
+  const gpuCorrelation = health.findings
+    .flatMap((f) => f.correlations || [])
+    .find((c) => c.correlationId.startsWith('correlation:gpu:') || c.correlationId.includes('gpu'));
+  const hasDeviceFaultGpu = (facts.diagnostics?.deviceProblems?.devicesWithProblems || []).some(
+    (d) =>
+      d.problemCode === 43 ||
+      (d.friendlyName || '').toLowerCase().includes('nvidia') ||
+      (d.friendlyName || '').toLowerCase().includes('geforce') ||
+      (d.friendlyName || '').toLowerCase().includes('radeon') ||
+      (d.friendlyName || '').toLowerCase().includes('rtx') ||
+      (d.friendlyName || '').toLowerCase().includes('arc') ||
+      (d.deviceId || '').toLowerCase().includes('ven_10de') ||
+      (d.deviceId || '').toLowerCase().includes('ven_1002') ||
+      (d.deviceId || '').toLowerCase().includes('ven_8086') ||
+      ((d.severity === 'critical' || d.severity === 'warning') &&
+        ((d.friendlyName || '').toLowerCase().includes('pci') || (d.deviceId || '').toLowerCase().includes('pci')))
+  );
+
   if (hasDiscreteGpu) {
+    const isTdrContextualized = Boolean(tdrFinding || gpuCorrelation);
     recommendations.push({
       id: 'opt-clean-shader-cache',
-      title: 'Ottimizza Shader Cache DirectX & GPU',
+      title: isTdrContextualized
+        ? 'Ottimizza Shader Cache & Stabilità Rendering GPU'
+        : 'Ottimizza Shader Cache DirectX & GPU',
       category: 'performance',
-      reason: 'L\'accumulo prolungato di shader compilati da driver precedenti può provocare conflitti e micro-stuttering nei videogiochi.',
-      evidence: 'GPU dedicata presente nel sistema',
+      reason: isTdrContextualized
+        ? 'Il driver grafico ha subito uno o più eventi di timeout e ripristino (Display 4101). L\'eliminazione degli shader compilati obsoleti favorisce la stabilità 3D.'
+        : 'L\'accumulo prolungato di shader compilati da driver precedenti può provocare conflitti e micro-stuttering nei videogiochi.',
+      evidence: isTdrContextualized && tdrFinding
+        ? tdrFinding.evidence
+        : 'GPU dedicata presente nel sistema',
       expectedBenefit: 'Favorisce la risoluzione di problemi di stuttering e texture corrotte; la cache verrà rigenerata al primo avvio di ciascun gioco.',
       risk: 'LOW',
-      confidence: 'MEDIUM',
+      confidence: isTdrContextualized ? 'HIGH' : 'MEDIUM',
       actionAvailability: 'USER_CONFIRMED',
       rollbackAvailability: 'NOT_APPLICABLE',
       actionId: 'clean-shader-cache',
       actionDescription: 'Eliminazione dei file temporanei dalla cache grafica DirectX (D3DSCache) e dai repository driver',
       verificationMethod: 'Conteggio file rimossi e byte liberati, rigenerazione trasparente al successivo avvio 3D',
     });
+
+    // Se c'è una correlazione forte con errore dispositivo (Code 43 / crash driver) o azione esplicita reinstall-gpu-driver
+    const directGpuRecovery = gpuCorrelation?.strength === 'DIRECT_MATCH' ||
+      health.findings.some((f) => f.recommendedActionId === 'reinstall-gpu-driver') ||
+      Boolean(tdrFinding && hasDeviceFaultGpu) ||
+      Boolean(gpuCorrelation && hasDeviceFaultGpu);
+
+    if (directGpuRecovery) {
+      recommendations.push({
+        id: 'opt-gpu-driver-recovery',
+        title: 'Esegui Ripristino Pulito del Driver Grafico',
+        category: 'performance',
+        reason: 'La scheda grafica registra ripristini ripetuti del driver (TDR) o anomalie nel caricamento della periferica. Un\'installazione pulita del driver ufficiale vendor risolve tipicamente gli stati corrotti del kernel grafico.',
+        evidence: gpuCorrelation ? gpuCorrelation.explanation : (tdrFinding?.evidence || 'Timeout driver grafico correlato ad anomalia hardware/driver'),
+        expectedBenefit: 'Rimuove librerie e configurazioni residue corrotte del driver grafico, ripristinando la piena stabilità nelle applicazioni 3D senza interventi fisici.',
+        risk: 'LOW',
+        confidence: 'HIGH',
+        actionAvailability: 'ASSISTED',
+        rollbackAvailability: 'MANUAL_RESTORE',
+        actionId: 'reinstall-gpu-driver',
+        actionDescription: 'Apertura della sezione strumenti e indicazioni per il download/reinstallazione pulita del driver dal sito del produttore',
+        verificationMethod: 'Assenza di nuovi eventi Display 4101 o arresti del dispositivo nei successivi cicli di carico grafico',
+      });
+    }
   }
 
-  // B. Schema Prestazioni Elevate per Utenti con Profilo Tuning (Rule K - Power Policy)
+  // B. CPU WHEA & Undervolt Tuning Stability Review (Regola 3: Wording Neutro)
+  const wheaFinding = health.findings.find((f) => f.id.startsWith('event-whea-'));
+  const wheaCorrelation = health.findings
+    .flatMap((f) => f.correlations || [])
+    .find((c) => c.correlationId.startsWith('correlation:cpu:') || c.correlationId.includes('undervolt_whea'));
+  const cpuProfile = (facts.tuningProfiles || []).find((p) => p.category === 'cpu');
+
+  if (wheaCorrelation || (wheaFinding && cpuProfile)) {
+    const profileName = cpuProfile ? ` "${cpuProfile.name}"` : '';
+    recommendations.push({
+      id: 'opt-cpu-tuning-review',
+      title: 'Verifica Stabilità Profilo di Tuning CPU',
+      category: 'performance',
+      reason: 'Il registro di sistema ha rilevato eventi di errore hardware del processore (WHEA) in presenza di un profilo di tuning.',
+      evidence: `Profilo di tuning CPU${profileName} presente nel contesto di analisi con eventi WHEA registrati nel log di sistema`,
+      expectedBenefit: 'Favorisce la stabilità del sistema sotto carichi intensivi ed evita riavvii imprevisti calibrando i margini di tensione o verificando la stabilità con stress test di calcolo dedicati.',
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'MANUAL',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'inspect-tuning-profile',
+      actionDescription: 'Apertura del diario di tuning per verificare le impostazioni del profilo ed eseguire test di stabilità computazionale (es. Prime95 / Cinebench)',
+      verificationMethod: 'Assenza di nuovi eventi WHEA nel registro eventi Windows sotto carichi prolungati',
+      parameters: cpuProfile ? { profileId: cpuProfile.id } : undefined,
+    });
+  }
+
+  // C. Schema Prestazioni Elevate per Utenti con Profilo Tuning (Rule K - Power Policy)
   const hasTuningDaily = (facts.tuningProfiles || []).some((p) => p.stability === 'daily');
   const power = facts.diagnostics?.powerStatus;
   const isBatteryActive = power?.isOnBattery === true || power?.batterySaverActive === true;
@@ -352,7 +654,7 @@ function evaluatePerformanceRecommendations(
     });
   }
 
-  // C. Triage Pressione Memoria RAM e Spazio di Commit (Rule B.2, J)
+  // D. Triage Pressione Memoria RAM e Spazio di Commit (Rule B.2, J)
   const mem = facts.monitoring?.memory;
   const commit = facts.diagnostics?.memoryCommit;
   const isHighRam = mem && mem.totalBytes > 0 && mem.utilizationPercent >= 88;
@@ -382,8 +684,8 @@ function evaluatePerformanceRecommendations(
     });
   }
 
-  // D. Ispezione Periferiche con Errore Windows (Rule L & M)
-  const deviceProblems = (facts.diagnostics?.deviceProblems.devicesWithProblems || [])
+  // E. Ispezione Periferiche con Errore Windows (Rule L & M)
+  const deviceProblems = (facts.diagnostics?.deviceProblems?.devicesWithProblems || [])
     .filter((d) => d.severity === 'critical' || d.severity === 'warning');
 
   if (deviceProblems.length > 0) {
@@ -407,7 +709,7 @@ function evaluatePerformanceRecommendations(
     });
   }
 
-  // D. Aggiornamento Software di Supporto e Runtime con WinGet
+  // F. Aggiornamento Software di Supporto e Runtime con WinGet
   if (facts.wingetUpdates && facts.wingetUpdates.length > 0) {
     const count = facts.wingetUpdates.length;
     const names = facts.wingetUpdates.slice(0, 2).map((u) => u.name).join(', ');
@@ -575,20 +877,28 @@ function evaluateThermalAndMaintenanceRecommendations(
 function sortRecommendationsByPriority(recs: OptimizationRecommendation[]): void {
   // Punteggio di priorità per ordinamento deterministico:
   // 1. Correzioni integrità file di sistema Windows (SFC)
-  // 2. Azioni critiche su volumi saturi e corruzioni file system (Cleanmgr C:, CHKDSK)
-  // 3. Anomalie termiche rispetto a baseline validata (GPU/CPU baseline divergence)
-  // 4. Pressione memoria RAM e Cestino saturo (RAM triage, Recycle Bin)
-  // 5. Misure preventive e manutenzione SSD (Restore Point, TRIM, WinSxS)
-  // 6. Manutenzioni fisiche e aggiornamenti (Pasta termica, Shader cache, WinGet, filtri)
-  // 7. Ottimizzazioni prestazionali e firmware (Ultimate Performance, Idle thermals, Secure Boot)
+  // 2. Ripristino servizi critici OS e backup preventivo dischi a rischio (EventLog, Winmgmt, Backup Disk)
+  // 3. Azioni critiche su volumi saturi e corruzioni file system (Cleanmgr C:, CHKDSK)
+  // 4. Anomalie termiche rispetto a baseline validata (GPU/CPU baseline divergence)
+  // 5. Pressione memoria RAM e Cestino saturo (RAM triage, Recycle Bin)
+  // 6. Misure preventive e manutenzione sistema (Restore Point, VSS, CPU Tuning Review, GPU Driver Recovery, Windows Update)
+  // 7. Manutenzioni storage e componenti Windows (TRIM, WinSxS)
+  // 8. Manutenzioni fisiche e aggiornamenti (Pasta termica, Shader cache, WinGet, filtri)
+  // 9. Ottimizzazioni prestazionali e firmware (Ultimate Performance, Idle thermals, Secure Boot)
   const priorityWeight: Record<string, number> = {
     'opt-sfc-repair': 100,
+    'opt-service-restore-eventlog': 96,
+    'opt-service-restore-winmgmt': 95,
     'opt-cleanmgr-c': 90,
     'opt-cooling-baseline-divergence': 85,
     'opt-cpu-baseline-divergence': 84,
     'opt-ram-pressure-triage': 82,
     'opt-empty-recycle-bin': 81,
     'opt-create-restore-point': 80,
+    'opt-service-restore-vss': 79,
+    'opt-cpu-tuning-review': 78,
+    'opt-gpu-driver-recovery': 77,
+    'opt-service-restore-wuauserv': 76,
     'opt-clean-component-store': 72,
     'opt-replace-thermal-paste': 70,
     'opt-clean-shader-cache': 65,
@@ -599,18 +909,24 @@ function sortRecommendationsByPriority(recs: OptimizationRecommendation[]): void
     'opt-enable-secure-boot': 50,
   };
 
-  const getWeight = (id: string, risk: OptimizationRisk): number => {
+  const getWeight = (rec: OptimizationRecommendation): number => {
+    const id = rec.id;
     if (priorityWeight[id] !== undefined) {
+      if (id === 'opt-clean-shader-cache' && (rec.reason.includes('4101') || rec.reason.includes('timeout'))) {
+        return 75;
+      }
       return priorityWeight[id];
     }
+    if (id.startsWith('opt-backup-disk-')) return 94;
     if (id.startsWith('opt-chkdsk-scan')) return 88;
     if (id.startsWith('opt-trim-')) return 75;
-    return risk === 'NONE' ? 40 : 30;
+    if (id.startsWith('opt-service-restore-')) return 76;
+    return rec.risk === 'NONE' ? 40 : 30;
   };
 
   recs.sort((a, b) => {
-    const weightA = getWeight(a.id, a.risk);
-    const weightB = getWeight(b.id, b.risk);
+    const weightA = getWeight(a);
+    const weightB = getWeight(b);
     if (weightB !== weightA) {
       return weightB - weightA;
     }
