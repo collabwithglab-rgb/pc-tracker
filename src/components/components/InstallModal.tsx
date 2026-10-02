@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Component, ComponentCategory, COMPONENT_CATEGORY_LABELS } from '../../types';
 import { usePCStore } from '../../store';
+import { useTranslation } from '../../locales';
 import { Wrench, AlertCircle } from 'lucide-react';
 
 interface InstallModalProps {
@@ -19,6 +20,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
   targetCategory,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const { getAvailableForInstallComponents, installComponent } = usePCStore();
 
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
@@ -50,12 +52,12 @@ export const InstallModal: React.FC<InstallModalProps> = ({
     setError('');
 
     if (!selectedComponentId) {
-      setError('Seleziona un componente da installare.');
+      setError(t('modal_install_error_no_comp'));
       return;
     }
 
     if (!date) {
-      setError('La data di installazione è obbligatoria.');
+      setError(t('modal_install_error_no_date'));
       return;
     }
 
@@ -98,8 +100,8 @@ export const InstallModal: React.FC<InstallModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Installa Componente nel PC"
-      subtitle="Registra il montaggio fisico all'interno della macchina"
+      title={t('modal_install_title')}
+      subtitle={t('modal_install_sub')}
       maxWidth="520px"
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -114,7 +116,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
         {!preSelectedComponent ? (
           <div className="form-group">
             <label className="form-label">
-              Componente da Installare (in Magazzino) <span className="form-required">*</span>
+              {t('modal_install_select_label')} <span className="form-required">*</span>
             </label>
             {availableComponents.length === 0 ? (
               <div
@@ -127,7 +129,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
                   color: 'var(--text-secondary)',
                 }}
               >
-                Nessun componente in magazzino disponibile per {targetCategory ? COMPONENT_CATEGORY_LABELS[targetCategory] : 'questa categoria'}. Aggiungi prima un componente all'Archivio.
+                {t('modal_install_empty', { category: targetCategory ? COMPONENT_CATEGORY_LABELS[targetCategory] : 'questa categoria' })}
               </div>
             ) : (
               <select
@@ -170,7 +172,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
         {/* Data di Installazione */}
         <div className="form-group">
           <label className="form-label">
-            Data di Installazione <span className="form-required">*</span>
+            {t('modal_install_date_label')} <span className="form-required">*</span>
           </label>
           <input
             type="date"
@@ -184,7 +186,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
         {/* Slot / Alloggiamento Hardware */}
         <div className="form-group">
           <label className="form-label">
-            Alloggiamento / Slot Hardware (Opzionale)
+            {t('modal_install_slot_label')}
           </label>
           <input
             type="text"
@@ -197,12 +199,12 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
         {/* Note Opzionali */}
         <div className="form-group">
-          <label className="form-label">Note Aggiuntive (Opzionale)</label>
+          <label className="form-label">{t('modal_install_notes_label')}</label>
           <input
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="es. Pasta termica Kryonaut, viti M.2 originali"
+            placeholder={t('modal_install_notes_placeholder')}
             className="form-input"
           />
         </div>
@@ -215,7 +217,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
             className="btn btn-secondary"
             disabled={isSubmitting}
           >
-            Annulla
+            {t('modal_install_btn_cancel')}
           </button>
           <button
             type="submit"
@@ -223,7 +225,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
             disabled={isSubmitting || (!preSelectedComponent && availableComponents.length === 0)}
           >
             <Wrench size={15} />
-            <span>{isSubmitting ? 'Salvataggio...' : 'Installa Componente'}</span>
+            <span>{isSubmitting ? t('modal_install_btn_submitting') : t('modal_install_btn_submit')}</span>
           </button>
         </div>
       </form>

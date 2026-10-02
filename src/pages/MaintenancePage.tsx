@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { usePCStore } from '../store';
+import { useTranslation } from '../locales';
 import {
   MaintenanceEntry,
   MaintenanceEntryInput,
@@ -138,6 +139,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     settings,
     showNotification,
   } = usePCStore();
+  const { t, formatCurrency } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<MaintenanceTab>(
     requestedTab ? normalizeMaintenanceTab(requestedTab) : 'registro'
@@ -614,7 +616,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           className={`settings-tab-btn ${activeTab === 'panoramica' ? 'is-active' : ''}`}
         >
           <ShieldCheck size={15} />
-          <span>Panoramica & Salute</span>
+          <span>{t('maintenance_tab_overview')}</span>
         </button>
 
         <button
@@ -626,7 +628,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           className={`settings-tab-btn ${activeTab === 'live' ? 'is-active' : ''}`}
         >
           <Activity size={15} />
-          <span>Monitoraggio Live</span>
+          <span>{t('maintenance_tab_live')}</span>
         </button>
 
         <button
@@ -638,7 +640,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           className={`settings-tab-btn ${activeTab === 'registro' ? 'is-active' : ''}`}
         >
           <Wrench size={15} />
-          <span>Registro Interventi</span>
+          <span>{t('nav_maintenance')}</span>
           {maintenanceEntries.length > 0 && (
             <span
               style={{
@@ -664,7 +666,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           className={`settings-tab-btn ${activeTab === 'windows' ? 'is-active' : ''}`}
         >
           <Terminal size={15} />
-          <span>Sistema Windows</span>
+          <span>{t('maintenance_tab_tools')}</span>
         </button>
 
         <button
@@ -699,10 +701,10 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
             className="contextual-help-pill micro-press"
             style={{ marginLeft: 'auto', alignSelf: 'center' }}
             onClick={() => onOpenWikiArticle('windows-tools-explained')}
-            title="Cosa fanno gli strumenti di pulizia Windows? Leggi la guida ufficiale"
+            title={t('maintenance_wiki_tooltip')}
           >
             <BookOpen size={13} color="var(--accent-primary)" />
-            <span>Guida Strumenti Windows</span>
+            <span>{t('maintenance_wiki_btn')}</span>
           </button>
         )}
       </nav>
@@ -907,10 +909,10 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                 value={maintTypeFilter}
                 onChange={(e) => setMaintTypeFilter(e.target.value)}
               >
-                <option value="all">Tutte le tipologie</option>
-                {(Object.keys(MAINTENANCE_TYPE_LABELS) as MaintenanceType[]).map((t) => (
-                  <option key={t} value={t}>
-                    {MAINTENANCE_TYPE_LABELS[t]}
+                <option value="all">{t('maintenance_filter_all_types')}</option>
+                {(Object.keys(MAINTENANCE_TYPE_LABELS) as MaintenanceType[]).map((typeKey) => (
+                  <option key={typeKey} value={typeKey}>
+                    {MAINTENANCE_TYPE_LABELS[typeKey]}
                   </option>
                 ))}
               </select>
@@ -927,7 +929,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '36px' }}
             >
               <Plus size={16} />
-              <span>Registra Intervento</span>
+              <span>{t('maintenance_btn_new_entry')}</span>
             </button>
           </div>
 
@@ -943,11 +945,10 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
             >
               <Wrench size={38} style={{ opacity: 0.3, marginBottom: '12px' }} />
               <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Nessun intervento registrato nel Registro Manutenzione
+                {t('maintenance_log_empty_title')}
               </div>
               <div style={{ fontSize: '0.85rem', marginTop: '6px', maxWidth: '440px', margin: '6px auto 16px' }}>
-                Registra la pulizia dei filtri, la sostituzione della pasta termica o le operazioni di
-                manutenzione periodica per conservare lo storico del tuo hardware.
+                {t('maintenance_log_empty_desc')}
               </div>
               <button
                 type="button"
@@ -959,7 +960,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                 }}
               >
                 <Plus size={14} style={{ marginRight: '6px' }} />
-                Registra il primo intervento
+                {t('maintenance_log_empty_btn')}
               </button>
             </div>
           ) : (
@@ -995,7 +996,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                         )}
                         {entry.cost !== undefined && (
                           <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--accent-ruby)', fontFamily: 'var(--font-mono)' }}>
-                            €{entry.cost.toFixed(2)}
+                            {formatCurrency(entry.cost)}
                           </span>
                         )}
                         {entry.nextDueDate && (
@@ -1015,7 +1016,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                             setEntryToEdit(entry);
                             setIsEntryModalOpen(true);
                           }}
-                          title="Modifica intervento"
+                          title={t('maintenance_entry_edit_tooltip')}
                         >
                           <Edit2 size={13} />
                         </button>
@@ -1024,11 +1025,11 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                           className="btn btn-ghost"
                           style={{ padding: '4px 6px', color: 'var(--accent-ruby)' }}
                           onClick={async () => {
-                            if (window.confirm(`Eliminare l'intervento "${entry.title}"?`)) {
+                            if (window.confirm(t('maintenance_entry_delete_confirm', { title: entry.title }))) {
                               await deleteMaintenanceEntry(entry.id);
                             }
                           }}
-                          title="Elimina intervento"
+                          title={t('maintenance_entry_delete_tooltip')}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -2211,7 +2212,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                 value={tuningStabFilter}
                 onChange={(e) => setTuningStabFilter(e.target.value)}
               >
-                <option value="all">Tutte le stabilità</option>
+                <option value="all">{t('maintenance_tuning_filter_all_stability')}</option>
                 {(Object.keys(TUNING_STABILITY_LABELS) as TuningStability[]).map((s) => (
                   <option key={s} value={s}>
                     {TUNING_STABILITY_LABELS[s]}
@@ -2230,7 +2231,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '36px' }}
             >
               <Plus size={16} />
-              <span>Nuovo Profilo Tuning</span>
+              <span>{t('maintenance_btn_new_tuning')}</span>
             </button>
           </div>
 
@@ -2246,11 +2247,10 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
             >
               <Sliders size={38} style={{ opacity: 0.3, marginBottom: '12px' }} />
               <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Nessun profilo di tuning registrato nel Journal
+                {t('maintenance_tuning_empty_title')}
               </div>
               <div style={{ fontSize: '0.85rem', marginTop: '6px', maxWidth: '440px', margin: '6px auto 16px' }}>
-                Annota i profili Curve Optimizer di AMD, gli undervolt GPU (es. 950mV @ 2650MHz), i sub-timings
-                RAM e le curve ventole per non perdere mai le tue impostazioni ottimali.
+                {t('maintenance_tuning_empty_desc')}
               </div>
               <button
                 type="button"
@@ -2261,7 +2261,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                 }}
               >
                 <Plus size={14} style={{ marginRight: '6px' }} />
-                Registra il primo profilo
+                {t('maintenance_tuning_empty_btn')}
               </button>
             </div>
           ) : (

@@ -18,6 +18,7 @@ import {
   sortCheckpointsChronologically,
 } from '../domain';
 import { formatDate } from '../utils';
+import { useTranslation } from '../locales';
 import { CheckpointModal, CheckpointEditModal } from '../components/checkpoint';
 import { ComponentIcon } from '../components/common/ComponentIcon';
 import {
@@ -44,6 +45,7 @@ interface TimeTravelPageProps {
 
 export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticle, onOpenComparison }) => {
   const { components, events, checkpoints, deleteCheckpoint } = usePCStore();
+  const { t, formatCurrency } = useTranslation();
 
   // Calcola estremi ed eventi della timeline
   const bounds = useMemo(() => getTimelineBounds(events), [events]);
@@ -221,7 +223,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
 
   // Eliminazione checkpoint
   const handleDeleteCheckpointClick = async (cp: Checkpoint) => {
-    if (window.confirm(`Sei sicuro di voler eliminare il checkpoint "${cp.name}"? L'eliminazione non modificherà componenti o eventi storici.`)) {
+    if (window.confirm(t('timetravel_confirm_delete_checkpoint'))) {
       if (activeCheckpoint?.id === cp.id) {
         setActiveCheckpoint(null);
         setViewMode('reconstruction');
@@ -260,10 +262,10 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
   // Descrizione posizione temporale
   const getPositionDescription = () => {
     if (boundary === 'start_of_day') {
-      return 'Inizio giornata (prima di qualsiasi evento del giorno)';
+      return t('timetravel_boundary_bod');
     }
     if (boundary === 'end_of_day') {
-      return 'Fine giornata (tutti gli eventi del giorno inclusi)';
+      return t('timetravel_boundary_eod');
     }
     if (anchorEventId) {
       const idx = dayEvents.findIndex((e) => e.id === anchorEventId);
@@ -274,7 +276,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
       }
       return `Subito dopo l'evento #${ord} (${ev ? getEventLabel(ev.type) : ''})`;
     }
-    return 'Posizione standard';
+    return t('timetravel_boundary_eod');
   };
 
   // Empty State Assoluto (0 componenti e 0 eventi)
@@ -284,9 +286,9 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
         <div style={styles.emptyStateIcon}>
           <History size={36} color="var(--text-muted)" />
         </div>
-        <h2 style={styles.emptyStateTitle}>Nessun Evento Storico Registrato</h2>
+        <h2 style={styles.emptyStateTitle}>{t('timetravel_no_milestones')}</h2>
         <p style={styles.emptyStateText}>
-          Non sono ancora presenti eventi o acquisti nella cronologia del PC. Aggiungi il tuo primo componente o registra un acquisto per esplorare la macchina indietro nel tempo.
+          {t('stats_empty_desc')}
         </p>
       </div>
     );
@@ -299,11 +301,11 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <History size={19} color="var(--accent-primary)" />
-            <h2 style={styles.headerTitle}>Time Travel</h2>
+            <h2 style={styles.headerTitle}>{t('timetravel_title')}</h2>
             <span style={styles.historicalBadge}>NAVIGAZIONE STORICA</span>
           </div>
           <p style={styles.headerSubtitle}>
-            Stai guardando il tuo PC nel passato. La configurazione e i costi riflettono fedelmente lo stato alla posizione temporale selezionata.
+            {t('timetravel_subtitle')}
           </p>
         </div>
 
@@ -313,10 +315,10 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
               type="button"
               className="contextual-help-pill micro-press"
               onClick={() => onOpenWikiArticle('checkpoints-immutability')}
-              title="Come funziona la differenza tra Time Travel e Checkpoint? Leggi la guida ufficiale"
+              title={t('timetravel_wiki_tooltip')}
             >
               <BookOpen size={13} color="var(--accent-primary)" />
-              <span>Guida Time Travel</span>
+              <span>{t('timetravel_wiki_btn')}</span>
             </button>
           )}
 
@@ -324,20 +326,20 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
             onClick={() => setIsCheckpointListOpen(!isCheckpointListOpen)}
             className="btn btn-secondary"
             style={{ fontSize: '13px', padding: '7px 14px' }}
-            title="Visualizza e gestisci tutti i checkpoint salvati"
+            title={t('timetravel_modal_checkpoints_sub')}
           >
             <Bookmark size={15} color="var(--accent-amber)" />
-            <span>Checkpoint ({checkpoints.length})</span>
+            <span>{t('timetravel_btn_checkpoint_list', { count: checkpoints.length })}</span>
           </button>
 
           <button
             onClick={() => setIsSaveModalOpen(true)}
             className="btn btn-primary"
             style={{ fontSize: '13px', padding: '7px 14px' }}
-            title="Salva esattamente la configurazione visualizzata come checkpoint immutabile"
+            title={t('timetravel_btn_save_checkpoint')}
           >
             <Sparkles size={15} />
-            <span>Salva configurazione</span>
+            <span>{t('timetravel_btn_save_checkpoint')}</span>
           </button>
         </div>
       </div>
@@ -351,28 +353,28 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
               onClick={handleJumpToEarliest}
               className="btn btn-secondary"
               disabled={currentMilestoneIndex === 0}
-              title="Salta alla prima data registrata (Origine)"
+              title={t('timetravel_first_date_tooltip')}
               style={styles.navBtn}
             >
               <ChevronsLeft size={16} />
-              <span className="hide-mobile">Origine</span>
+              <span className="hide-mobile">{t('timetravel_first_date_tooltip')}</span>
             </button>
             <button
               onClick={handlePrevDate}
               className="btn btn-secondary"
               disabled={currentMilestoneIndex <= 0}
-              title="Data storica precedente"
+              title={t('timetravel_prev_date_tooltip')}
               style={styles.navBtn}
             >
               <ChevronLeft size={16} />
-              <span>Data Prec</span>
+              <span>{t('timetravel_prev_date_tooltip')}</span>
             </button>
           </div>
 
           {/* Selettore Diretto di Data & Data Picker Nativo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Calendar size={16} color="var(--accent-primary)" />
-            <span style={styles.datePickerLabel}>Data visualizzata:</span>
+            <span style={styles.datePickerLabel}>{t('timetravel_date_label')}</span>
             <input
               type="date"
               className="form-input font-mono"
@@ -381,7 +383,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
               max={bounds.maxDate || new Date().toISOString().split('T')[0]}
               onChange={(e) => handleSelectDate(e.target.value)}
               style={styles.dateInput}
-              aria-label="Seleziona data della cronologia"
+              aria-label={t('timetravel_date_label')}
             />
           </div>
 
@@ -391,20 +393,20 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
               onClick={handleNextDate}
               className="btn btn-secondary"
               disabled={currentMilestoneIndex === -1 || currentMilestoneIndex >= milestoneDates.length - 1}
-              title="Data storica successiva"
+              title={t('timetravel_next_date_tooltip')}
               style={styles.navBtn}
             >
-              <span>Data Succ</span>
+              <span>{t('timetravel_next_date_tooltip')}</span>
               <ChevronRight size={16} />
             </button>
             <button
               onClick={handleJumpToLatest}
               className="btn btn-secondary"
               disabled={currentMilestoneIndex === milestoneDates.length - 1}
-              title="Salta alla data più recente registrata"
+              title={t('timetravel_last_date_tooltip')}
               style={styles.navBtn}
             >
-              <span className="hide-mobile">Più Recente</span>
+              <span className="hide-mobile">{t('timetravel_last_date_tooltip')}</span>
               <ChevronsRight size={16} />
             </button>
           </div>
@@ -415,10 +417,10 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={styles.milestoneHeader}>
               <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Tappe Storiche Registrate ({milestoneDates.length})
+                {t('timetravel_summary_day_events')} ({milestoneDates.length})
               </span>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Clicca su una data o checkpoint per saltare al punto temporale
+                {t('timetravel_subtitle')}
               </span>
             </div>
 
@@ -449,23 +451,23 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
       {/* 3. Context Bar Compatta (Area Informativa Sintetica) */}
       <div className="time-travel-context-strip">
         <div style={styles.contextItem}>
-          <span style={styles.contextLabel}>Punto Temporale:</span>
+          <span style={styles.contextLabel}>{t('timetravel_mode_label')}</span>
           <span style={styles.contextValue}>{getPositionDescription()}</span>
         </div>
 
         <div style={styles.contextDivider} />
 
         <div style={styles.contextItem}>
-          <span style={styles.contextLabel}>Componenti Montati:</span>
+          <span style={styles.contextLabel}>{t('timetravel_summary_mounted_count')}:</span>
           <span className="font-mono" style={styles.contextValueNum}>{rigSummary.componentCount}</span>
         </div>
 
         <div style={styles.contextDivider} />
 
         <div style={styles.contextItem}>
-          <span style={styles.contextLabel}>Costo Storico Rig:</span>
+          <span style={styles.contextLabel}>{t('timetravel_summary_rig_value')}:</span>
           <span className="font-mono" style={{ ...styles.contextValueNum, color: 'var(--accent-emerald)' }}>
-            €{rigSummary.rigPurchaseCost.toFixed(2)}
+            {formatCurrency(rigSummary.rigPurchaseCost)}
           </span>
         </div>
 
@@ -575,17 +577,17 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                       onClick={() => handleSelectBeforeEvent(ev.id)}
                       className={`btn btn-secondary ${isBefore ? 'active' : ''}`}
                       style={{ fontSize: '11px', padding: '4px 8px' }}
-                      title={`Posiziona la timeline subito prima di questo evento`}
+                      title={t('timetravel_tooltip_before')}
                     >
-                      Prima di questo
+                      {t('timetravel_btn_before_this')}
                     </button>
                     <button
                       onClick={() => handleSelectAfterEvent(ev.id)}
                       className={`btn btn-secondary ${isAfter ? 'active' : ''}`}
                       style={{ fontSize: '11px', padding: '4px 8px' }}
-                      title={`Posiziona la timeline subito dopo questo evento`}
+                      title={t('timetravel_tooltip_after')}
                     >
-                      Dopo questo
+                      {t('timetravel_btn_after_this')}
                     </button>
                   </div>
                 </div>
@@ -606,7 +608,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                   Checkpoint: {activeCheckpoint.name}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px' }}>
-                  ({formatDate(activeCheckpoint.referenceDate)} • {activeCheckpoint.summary.componentCount} componenti • €{activeCheckpoint.summary.rigPurchaseCost.toFixed(2)})
+                  ({formatDate(activeCheckpoint.referenceDate)} • {activeCheckpoint.summary.componentCount} • {formatCurrency(activeCheckpoint.summary.rigPurchaseCost)})
                 </span>
               </div>
             </div>
@@ -618,14 +620,14 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                 className={`btn btn-secondary ${viewMode === 'checkpoint_snapshot' ? 'active' : ''}`}
                 style={{ fontSize: '12px', padding: '5px 12px' }}
               >
-                Fotografia Congelata
+                {t('timetravel_view_snapshot')}
               </button>
               <button
                 onClick={() => setViewMode('reconstruction')}
                 className={`btn btn-secondary ${viewMode === 'reconstruction' ? 'active' : ''}`}
                 style={{ fontSize: '12px', padding: '5px 12px' }}
               >
-                Ricostruzione Dinamica Timeline
+                {t('timetravel_view_reconstruction')}
               </button>
 
               {onOpenComparison && (
@@ -633,10 +635,10 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                   onClick={() => onOpenComparison(`checkpoint-${activeCheckpoint.id}`, 'current')}
                   className="btn btn-secondary"
                   style={{ fontSize: '12px', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                  title="Confronta questo Checkpoint con il PC Attuale"
+                  title={t('timetravel_compare_with_current')}
                 >
                   <GitCompare size={13} color="var(--accent-primary)" />
-                  <span>Confronta con PC Attuale</span>
+                  <span>{t('timetravel_compare_with_current')}</span>
                 </button>
               )}
             </div>
@@ -648,19 +650,10 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
               <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12.5px' }}>
                 <span style={{ fontWeight: 600 }}>
-                  La ricostruzione della timeline differisce dalla fotografia salvata in questo checkpoint.
+                  {t('timetravel_discrepancy_title')}
                 </span>
                 <span>
-                  {checkpointDiscrepancy.costDifference !== 0 && (
-                    <>Differenza economica riscontrata: <strong>{checkpointDiscrepancy.costDifference > 0 ? `+€${checkpointDiscrepancy.costDifference.toFixed(2)}` : `-€${Math.abs(checkpointDiscrepancy.costDifference).toFixed(2)}`}</strong>. </>
-                  )}
-                  {checkpointDiscrepancy.missingInReconstruction.length > 0 && (
-                    <>Componenti non più presenti nella ricostruzione: {checkpointDiscrepancy.missingInReconstruction.map((c) => c.name).join(', ')}. </>
-                  )}
-                  {checkpointDiscrepancy.addedInReconstruction.length > 0 && (
-                    <>Componenti aggiuntivi nella ricostruzione: {checkpointDiscrepancy.addedInReconstruction.map((c) => c.name).join(', ')}. </>
-                  )}
-                  La fotografia originale del checkpoint è stata integralmente preservata.
+                  {t('timetravel_discrepancy_desc', { diffCount: (checkpointDiscrepancy.missingInReconstruction.length + checkpointDiscrepancy.addedInReconstruction.length) || 1 })}
                 </span>
               </div>
             </div>
@@ -672,11 +665,11 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
           <h3 style={styles.rigSectionHeading}>
-            CONFIGURAZIONE — {selectedDate ? formatDate(selectedDate).toUpperCase() : 'STORICA'}
+            {t('timetravel_config_heading', { date: selectedDate ? formatDate(selectedDate).toUpperCase() : 'STORICA' })}
           </h3>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            {displayedComponents.length} {displayedComponents.length === 1 ? 'componente montato' : 'componenti montati'}
-            {viewMode === 'checkpoint_snapshot' ? ' (da Snapshot congelato)' : ' (da Ricostruzione dinamica)'}
+            {displayedComponents.length} {t('stats_components_count', { count: displayedComponents.length })}
+            {viewMode === 'checkpoint_snapshot' ? ` ${t('timetravel_from_snapshot')}` : ` ${t('timetravel_from_reconstruction')}`}
           </span>
         </div>
 
@@ -684,7 +677,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
           <div style={styles.emptyRigBox}>
             <Package size={24} color="var(--text-muted)" />
             <span style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              Nessun componente risultava fisicamente montato nella macchina in questo preciso punto temporale.
+              {t('timetravel_rig_empty')}
             </span>
           </div>
         ) : (
@@ -696,7 +689,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                     {getCategoryIcon(comp.category, comp.name)}
                     <span>{COMPONENT_CATEGORY_LABELS[comp.category] || comp.category}</span>
                   </div>
-                  <span style={styles.statusInstalledBadge}>MONTATO</span>
+                  <span style={styles.statusInstalledBadge}>{t('status_installed')}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -708,13 +701,13 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
 
                 <div style={styles.compCardFooter}>
                   {comp.slotOrLocation ? (
-                    <span style={styles.slotText}>Slot: {comp.slotOrLocation}</span>
+                    <span style={styles.slotText}>{t('timetravel_slot_label', { slot: comp.slotOrLocation })}</span>
                   ) : (
-                    <span style={styles.slotText}>Montato nel PC</span>
+                    <span style={styles.slotText}>{t('timetravel_mounted_in_pc')}</span>
                   )}
                   {comp.purchasePrice !== undefined && (
                     <span className="font-mono" style={styles.priceText}>
-                      €{comp.purchasePrice.toFixed(2)}
+                      {formatCurrency(comp.purchasePrice)}
                     </span>
                   )}
                 </div>
@@ -731,7 +724,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Bookmark size={17} color="var(--accent-amber)" />
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Tutti i Checkpoint Salvati ({sortedCheckpoints.length})
+                {t('timetravel_modal_checkpoints_title')} ({sortedCheckpoints.length})
               </h4>
             </div>
             <button
@@ -739,14 +732,14 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
               className="btn btn-secondary"
               style={{ fontSize: '12px', padding: '4px 10px' }}
             >
-              Chiudi Pannello
+              {t('action_close')}
             </button>
           </div>
 
           {sortedCheckpoints.length === 0 ? (
             <div style={styles.emptyCheckpointsBox}>
               <Bookmark size={20} color="var(--text-muted)" />
-              <span>Nessun checkpoint salvato. Puoi salvare la configurazione corrente o storica con il pulsante &quot;★ Salva questa configurazione&quot;.</span>
+              <span>{t('timetravel_empty_checkpoints')}</span>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -771,9 +764,9 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                       </span>
                     )}
                     <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', gap: '10px' }}>
-                      <span>{cp.summary.componentCount} componenti</span>
+                      <span>{cp.summary.componentCount} {t('stats_components_count', { count: cp.summary.componentCount })}</span>
                       <span>•</span>
-                      <span className="font-mono">€{cp.summary.rigPurchaseCost.toFixed(2)}</span>
+                      <span className="font-mono">{formatCurrency(cp.summary.rigPurchaseCost)}</span>
                     </div>
                   </div>
 
@@ -782,15 +775,15 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                       onClick={() => handleOpenCheckpoint(cp)}
                       className="btn btn-primary"
                       style={{ fontSize: '11.5px', padding: '5px 10px' }}
-                      title="Apri questo checkpoint nella Time Travel"
+                      title={t('timetravel_btn_load_checkpoint')}
                     >
-                      Apri in Time Travel
+                      {t('timetravel_btn_load_checkpoint')}
                     </button>
                     <button
                       onClick={() => setCheckpointToEdit(cp)}
                       className="btn btn-secondary"
                       style={{ fontSize: '11.5px', padding: '5px 8px' }}
-                      title="Modifica nome e note del checkpoint"
+                      title={t('timetravel_btn_edit_checkpoint')}
                     >
                       <Edit3 size={13} />
                     </button>
@@ -798,7 +791,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                       onClick={() => handleDeleteCheckpointClick(cp)}
                       className="btn btn-secondary"
                       style={{ fontSize: '11.5px', padding: '5px 8px', color: 'var(--accent-ruby)' }}
-                      title="Elimina questo checkpoint"
+                      title={t('timetravel_btn_delete_checkpoint')}
                     >
                       <Trash2 size={13} />
                     </button>

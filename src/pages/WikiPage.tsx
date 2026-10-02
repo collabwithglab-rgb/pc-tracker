@@ -31,6 +31,7 @@ import { WIKI_CATEGORIES } from '../constants/wikiData';
 import { WikiActionLink, WikiArticle, WikiBadge, WikiCategory } from '../types/wiki';
 import { searchWikiArticles, getWikiStats, formatArticleForClipboard, getAllWikiArticles } from '../domain/wikiEngine';
 import { NavSection } from '../components/layout/Sidebar';
+import { useTranslation } from '../locales';
 
 interface WikiPageProps {
   initialArticleId?: string | null;
@@ -41,31 +42,6 @@ interface WikiPageProps {
   onOpenQuickSetup?: () => void;
 }
 
-const getReferrerLabel = (section: NavSection): string => {
-  switch (section) {
-    case 'dashboard':
-      return 'Dashboard';
-    case 'current-rig':
-      return 'Il Mio PC Attuale';
-    case 'time-travel':
-      return 'Time Travel';
-    case 'archive':
-      return 'Archivio Componenti';
-    case 'upgrades':
-      return 'Storico Upgrade';
-    case 'marketplace':
-      return 'Vendite & Annunci';
-    case 'stats':
-      return 'Statistiche & Finanze';
-    case 'maintenance':
-      return 'Windows Maintenance Center';
-    case 'settings':
-      return 'Impostazioni';
-    default:
-      return 'Schermata Precedente';
-  }
-};
-
 export const WikiPage: React.FC<WikiPageProps> = ({
   initialArticleId,
   referrerSection,
@@ -74,6 +50,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
   onOpenMovementSelector,
   onOpenQuickSetup,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<WikiCategory>('all');
   const [activeBadge, setActiveBadge] = useState<WikiBadge | 'ALL'>('ALL');
@@ -81,6 +58,31 @@ export const WikiPage: React.FC<WikiPageProps> = ({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['first-rig-setup', 'the-four-financial-metrics']));
   const [targetHighlightId, setTargetHighlightId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const getReferrerLabel = (section: NavSection): string => {
+    switch (section) {
+      case 'dashboard':
+        return t('nav_dashboard');
+      case 'current-rig':
+        return t('nav_current_rig');
+      case 'time-travel':
+        return t('nav_time_travel');
+      case 'archive':
+        return t('nav_archive');
+      case 'upgrades':
+        return t('nav_upgrades');
+      case 'marketplace':
+        return t('nav_marketplace');
+      case 'stats':
+        return t('nav_stats');
+      case 'maintenance':
+        return t('nav_maintenance');
+      case 'settings':
+        return t('nav_settings');
+      default:
+        return 'App';
+    }
+  };
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -309,11 +311,11 @@ export const WikiPage: React.FC<WikiPageProps> = ({
   };
 
   const BADGE_OPTIONS: Array<{ id: WikiBadge | 'ALL'; label: string }> = [
-    { id: 'ALL', label: 'Tutti i formati' },
+    { id: 'ALL', label: t('wiki_category_all') },
     { id: 'RELEASE', label: 'Release' },
     { id: 'TUTORIAL', label: 'Tutorial' },
     { id: 'CONCETTO CHIAVE', label: 'Concetti Chiave' },
-    { id: 'TIP PRO', label: 'Tip Pro' },
+    { id: 'TIP PRO', label: t('wiki_pro_tip') },
     { id: 'FINANZE', label: 'Finanze' },
     { id: 'WINDOWS', label: 'Windows' },
     { id: 'FAQ', label: 'FAQ' },
@@ -331,10 +333,10 @@ export const WikiPage: React.FC<WikiPageProps> = ({
             id="btn-wiki-back-to-referrer"
           >
             <ArrowLeft size={14} />
-            <span>Torna a {getReferrerLabel(referrerSection)}</span>
+            <span>{t('wiki_back_to_referrer', { section: getReferrerLabel(referrerSection) })}</span>
           </button>
           <span className="wiki-referrer-hint">
-            Stavi visualizzando questa sezione prima di aprire la guida
+            {t('wiki_referrer_hint')}
           </span>
         </div>
       )}
@@ -345,20 +347,20 @@ export const WikiPage: React.FC<WikiPageProps> = ({
           <div className="wiki-hero-title-group">
             <h2 className="wiki-hero-title">
               <BookOpen size={24} color="var(--accent-primary)" />
-              <span>Wiki & Guida Ufficiale</span>
+              <span>{t('wiki_title')}</span>
             </h2>
             <p className="wiki-hero-subtitle">
-              Manuale d'uso interattivo, dizionario hardware per enthusiast, spiegazione formule finanziarie e risposte immediate.
+              {t('wiki_subtitle')}
             </p>
           </div>
 
           <div className="wiki-hero-stats">
             <span className="wiki-stat-pill" title="Totale guide e schede tecniche disponibili">
-              <strong>{stats.totalArticles}</strong> Guide & Voci
+              <strong>{stats.totalArticles}</strong> {t('wiki_kpi_total_articles')}
             </span>
             <span className="wiki-stat-pill" title="Architettura 100% in locale su IndexedDB">
               <ShieldCheck size={14} color="var(--accent-emerald)" />
-              100% Offline & Locale
+              {t('wiki_offline_badge')}
             </span>
           </div>
         </div>
@@ -370,7 +372,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
             ref={searchInputRef}
             type="text"
             className="wiki-search-input"
-            placeholder="Cerca qualsiasi argomento o premi '/' per cercare (es. subito, ram, formula, shader, pcie, undervolt)..."
+            placeholder={t('wiki_search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             id="input-wiki-search"
@@ -385,7 +387,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                 setSearchQuery('');
                 searchInputRef.current?.focus();
               }}
-              title="Azzera ricerca (Esc)"
+              title={t('wiki_clear_search')}
               id="btn-wiki-search-clear"
             >
               <X size={16} />
@@ -407,7 +409,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
           style={onlyBookmarks ? { borderColor: '#f59e0b', color: '#f59e0b' } : {}}
         >
           <Star size={13} fill={onlyBookmarks ? '#f59e0b' : 'none'} color="#f59e0b" />
-          <span>Salvati</span>
+          <span>{t('wiki_filter_bookmarks')}</span>
           <span className="wiki-chip-count">{bookmarkedIds.size}</span>
         </button>
 
@@ -458,22 +460,22 @@ export const WikiPage: React.FC<WikiPageProps> = ({
             className="btn btn-secondary micro-press"
             onClick={handleExpandAll}
             style={{ fontSize: '12px', padding: '5px 10px' }}
-            title="Espandi tutte le schede visibili"
+            title={t('wiki_expand_all')}
             id="btn-wiki-expand-all"
           >
             <ChevronsDownUp size={14} />
-            <span>Espandi Tutto</span>
+            <span>{t('wiki_expand_all')}</span>
           </button>
           <button
             type="button"
             className="btn btn-secondary micro-press"
             onClick={handleCollapseAll}
             style={{ fontSize: '12px', padding: '5px 10px' }}
-            title="Comprimi tutte le schede"
+            title={t('wiki_collapse_all')}
             id="btn-wiki-collapse-all"
           >
             <ChevronsUpDown size={14} />
-            <span>Comprimi Tutto</span>
+            <span>{t('wiki_collapse_all')}</span>
           </button>
         </div>
       </div>
@@ -482,11 +484,11 @@ export const WikiPage: React.FC<WikiPageProps> = ({
       {filteredArticles.length === 0 ? (
         <div className="wiki-empty-state">
           <HelpCircle size={44} className="wiki-empty-icon" />
-          <h3 className="wiki-empty-title">Nessun argomento trovato</h3>
+          <h3 className="wiki-empty-title">{t('wiki_no_results_title')}</h3>
           <p className="wiki-empty-desc">
             {onlyBookmarks
               ? 'Non hai ancora salvato alcuna guida nei preferiti. Clicca sulla stella in alto a destra su qualsiasi articolo per ritrovarlo qui!'
-              : 'Non ci sono guide o risposte che corrispondono ai criteri di ricerca attuali. Prova con termini generici o ripristina i filtri.'}
+              : t('wiki_no_results_desc')}
           </p>
           <button
             type="button"
@@ -495,7 +497,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
             style={{ marginTop: '8px' }}
           >
             <RotateCcw size={15} />
-            <span>Ripristina Tutti i Filtri</span>
+            <span>{t('wiki_reset_filters')}</span>
           </button>
         </div>
       ) : (
@@ -530,7 +532,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                           {catMeta.label}
                         </span>
                       )}
-                      <span className="wiki-read-time">{article.readTime} di lettura</span>
+                      <span className="wiki-read-time">{article.readTime} {t('wiki_read_time')}</span>
                     </div>
 
                     <h3 className="wiki-article-title">{renderHighlighted(article.title)}</h3>
@@ -543,7 +545,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                       type="button"
                       className={`wiki-icon-btn wiki-copy-btn ${isCopied ? 'copied' : ''}`}
                       onClick={(e) => handleCopyArticle(article, e)}
-                      title={isCopied ? 'Copiato negli appunti!' : 'Copia guida/scheda formattata'}
+                      title={isCopied ? t('wiki_link_copied') : t('wiki_copy_link')}
                     >
                       {isCopied ? <Check size={15} /> : <Copy size={15} />}
                     </button>
@@ -553,7 +555,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                       type="button"
                       className={`wiki-icon-btn wiki-bookmark-btn ${isBookmarked ? 'bookmarked' : ''}`}
                       onClick={(e) => toggleBookmark(article.id, e)}
-                      title={isBookmarked ? 'Rimuovi dai preferiti' : 'Salva tra le guide preferite'}
+                      title={isBookmarked ? t('wiki_bookmark_remove') : t('wiki_bookmark_add')}
                     >
                       <Star size={15} fill={isBookmarked ? '#f59e0b' : 'none'} />
                     </button>
@@ -579,7 +581,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                       <div className="wiki-steps-container">
                         <div className="wiki-steps-title">
                           <CheckCircle2 size={15} />
-                          <span>Procedura Passo-Passo</span>
+                          <span>{t('wiki_step_by_step')}</span>
                         </div>
                         {article.steps.map((step, idx) => (
                           <div key={idx} className="wiki-step-item">
@@ -607,7 +609,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                       <div className="wiki-tip-box">
                         <div className="wiki-tip-title">
                           <Lightbulb size={15} />
-                          <span>Consiglio Pro</span>
+                          <span>{t('wiki_pro_tip')}</span>
                         </div>
                         {article.tips.map((tip, idx) => (
                           <p key={idx} className="wiki-tip-item">
@@ -620,7 +622,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                     {/* Action Bar Deep-Link Interattiva */}
                     {article.actionLinks && article.actionLinks.length > 0 && (
                       <div className="wiki-action-bar">
-                        <span className="wiki-action-label">Azioni rapide collegate:</span>
+                        <span className="wiki-action-label">{t('wiki_related_sections')}</span>
                         {article.actionLinks.map((link, idx) => (
                           <button
                             key={idx}

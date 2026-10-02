@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Component, COMPONENT_CATEGORY_LABELS, InstallEvent } from '../../types';
 import { usePCStore } from '../../store';
+import { useTranslation } from '../../locales';
 import { ArrowRightLeft, AlertCircle } from 'lucide-react';
 
 interface ReplaceModalProps {
@@ -19,6 +20,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
   lastInstallEvent,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const { getAvailableForInstallComponents, replaceComponent } = usePCStore();
 
   const [newComponentId, setNewComponentId] = useState<string>('');
@@ -50,12 +52,12 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
     setError('');
 
     if (!newComponentId) {
-      setError('Seleziona il nuovo componente da installare al posto di quello attuale.');
+      setError(t('modal_replace_error_no_comp'));
       return;
     }
 
     if (!date) {
-      setError('La data di sostituzione è obbligatoria.');
+      setError(t('modal_replace_error_no_date'));
       return;
     }
 
@@ -79,8 +81,8 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Sostituisci Componente"
-      subtitle="Smonta il pezzo attuale e installa un componente dal magazzino"
+      title={t('modal_replace_title')}
+      subtitle={t('modal_replace_sub')}
       maxWidth="540px"
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -104,7 +106,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
           }}
         >
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Componente Attuale (Verrà spostato in Magazzino):
+            {t('modal_replace_current_label')}:
           </span>
           <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '14.5px' }}>
             {oldComponent.name}
@@ -117,7 +119,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
         {/* Selezione Nuovo Componente */}
         <div className="form-group">
           <label className="form-label">
-            Nuovo Componente da Montare <span className="form-required">*</span>
+            {t('modal_replace_new_label')} <span className="form-required">*</span>
           </label>
           {availableSameCategory.length === 0 ? (
             <div
@@ -130,7 +132,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
                 color: 'var(--text-secondary)',
               }}
             >
-              Nessun altro componente di categoria <strong>{COMPONENT_CATEGORY_LABELS[oldComponent.category]}</strong> disponibile in magazzino. Aggiungi prima il nuovo pezzo all'Archivio.
+              {t('modal_replace_empty', { category: COMPONENT_CATEGORY_LABELS[oldComponent.category] })}
             </div>
           ) : (
             <select
@@ -150,7 +152,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
         {/* Data di Sostituzione */}
         <div className="form-group">
           <label className="form-label">
-            Data di Sostituzione <span className="form-required">*</span>
+            {t('modal_replace_date_label')} <span className="form-required">*</span>
           </label>
           <input
             type="date"
@@ -163,7 +165,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
 
         {/* Slot Hardware Ereditato */}
         <div className="form-group">
-          <label className="form-label">Alloggiamento / Slot Hardware (Opzionale)</label>
+          <label className="form-label">{t('modal_replace_slot_label')}</label>
           <input
             type="text"
             value={slotOrLocation}
@@ -181,7 +183,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
             className="btn btn-secondary"
             disabled={isSubmitting}
           >
-            Annulla
+            {t('modal_replace_btn_cancel')}
           </button>
           <button
             type="submit"
@@ -189,7 +191,7 @@ export const ReplaceModal: React.FC<ReplaceModalProps> = ({
             disabled={isSubmitting || availableSameCategory.length === 0}
           >
             <ArrowRightLeft size={15} />
-            <span>{isSubmitting ? 'Sostituzione...' : 'Conferma Sostituzione'}</span>
+            <span>{isSubmitting ? t('modal_replace_btn_submitting') : t('modal_replace_btn_submit')}</span>
           </button>
         </div>
       </form>

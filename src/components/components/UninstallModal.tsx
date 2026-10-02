@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Component, UNINSTALL_REASON_LABELS, UninstallEvent } from '../../types';
 import { usePCStore } from '../../store';
+import { useTranslation } from '../../locales';
 import { Package, AlertCircle } from 'lucide-react';
 
 interface UninstallModalProps {
@@ -17,6 +18,7 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
   component,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const { uninstallComponent } = usePCStore();
 
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -39,7 +41,7 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
     setError('');
 
     if (!date) {
-      setError('La data di rimozione è obbligatoria.');
+      setError(t('modal_uninstall_error_no_date'));
       return;
     }
 
@@ -63,8 +65,8 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Rimuovi Componente dal PC"
-      subtitle="Registra lo smontaggio e lo spostamento a magazzino"
+      title={t('modal_uninstall_title')}
+      subtitle={t('modal_uninstall_sub')}
       maxWidth="500px"
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -101,7 +103,7 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
         {/* Data di Rimozione */}
         <div className="form-group">
           <label className="form-label">
-            Data di Rimozione / Smontaggio <span className="form-required">*</span>
+            {t('modal_uninstall_date_label')} <span className="form-required">*</span>
           </label>
           <input
             type="date"
@@ -115,7 +117,7 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
         {/* Motivo Rimozione */}
         <div className="form-group">
           <label className="form-label">
-            Motivo dello Smontaggio <span className="form-required">*</span>
+            {t('modal_uninstall_reason_label')} <span className="form-required">*</span>
           </label>
           <select
             value={reason}
@@ -132,12 +134,12 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
 
         {/* Note Rimozione */}
         <div className="form-group">
-          <label className="form-label">Note Aggiuntive (Opzionale)</label>
+          <label className="form-label">{t('modal_uninstall_notes_label')}</label>
           <input
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="es. Smontato per cambio pasta termica / riposto in scatola originale"
+            placeholder={t('modal_uninstall_notes_placeholder')}
             className="form-input"
           />
         </div>
@@ -150,7 +152,7 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
             className="btn btn-secondary"
             disabled={isSubmitting}
           >
-            Annulla
+            {t('modal_uninstall_btn_cancel')}
           </button>
           <button
             type="submit"
@@ -159,7 +161,7 @@ export const UninstallModal: React.FC<UninstallModalProps> = ({
             disabled={isSubmitting}
           >
             <Package size={15} />
-            <span>{isSubmitting ? 'Registrazione...' : 'Registra Rimozione'}</span>
+            <span>{isSubmitting ? t('modal_uninstall_btn_submitting') : t('modal_uninstall_btn_submit')}</span>
           </button>
         </div>
       </form>

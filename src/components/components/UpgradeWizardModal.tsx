@@ -8,6 +8,7 @@ import {
   Upgrade,
 } from '../../types';
 import { usePCStore } from '../../store';
+import { useTranslation } from '../../locales';
 import { formatDate as formatWithSettings } from '../../utils';
 import { VALID_CATEGORIES } from '../../domain/validators';
 import {
@@ -43,6 +44,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
     executeUpgrade,
     settings,
   } = usePCStore();
+  const { t, formatCurrency } = useTranslation();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const stepContainerRef = useRef<HTMLDivElement>(null);
@@ -310,7 +312,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       onBack={currentStep === 1 ? onBack : undefined}
-      title="Wizard Cambio Generazionale / Upgrade"
+      title={t('upgrade_wizard_modal_title')}
       maxWidth="680px"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -321,21 +323,13 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
           aria-valuenow={currentStep}
           aria-valuemin={1}
           aria-valuemax={4}
-          aria-valuetext={`Passaggio ${currentStep} di 4: ${
-            currentStep === 1
-              ? 'Vecchio Pezzo'
-              : currentStep === 2
-              ? 'Nuovo Pezzo'
-              : currentStep === 3
-              ? 'Economia'
-              : 'Conferma'
-          }`}
+          aria-valuetext={`Passaggio ${currentStep} di 4`}
         >
           {[
-            { num: 1, label: 'Vecchio Pezzo' },
-            { num: 2, label: 'Nuovo Pezzo' },
-            { num: 3, label: 'Economia' },
-            { num: 4, label: 'Conferma' },
+            { num: 1, label: t('upgrade_step_1_title') },
+            { num: 2, label: t('upgrade_step_2_title') },
+            { num: 3, label: t('upgrade_step_3_title') },
+            { num: 4, label: t('upgrade_step_4_title') },
           ].map((s) => {
             const isCompleted = currentStep > s.num;
             const isActive = currentStep === s.num;
@@ -381,7 +375,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
         {currentStep === 1 && (
           <div ref={stepContainerRef} className="wizard-step-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-              Scegli il componente attualmente nel PC o conservato a magazzino che intendi sostituire:
+              {t('upgrade_step_1_select_label')}
             </p>
 
             {nonTerminalComponents.length === 0 ? (
@@ -394,12 +388,12 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   fontSize: '13px',
                 }}
               >
-                Nessun componente attivo o a magazzino disponibile per l'upgrade.
+                {t('upgrade_step_1_empty')}
               </div>
             ) : (
               <div className="form-group">
                 <label className="form-label">
-                  Componente da Sostituire <span className="form-required">*</span>
+                  {t('upgrade_step_1_select_label')} <span className="form-required">*</span>
                 </label>
                 <select
                   className="form-select"
@@ -455,7 +449,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
 
                 {oldCompComputed && (
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Costo storico d'acquisto: <span className="font-mono">€ {oldCompComputed.totalPurchaseCost.toFixed(2)}</span>
+                    Costo storico d'acquisto: <span className="font-mono">{formatCurrency(oldCompComputed.totalPurchaseCost)}</span>
                   </div>
                 )}
 
@@ -476,11 +470,11 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
             <div className="form-actions">
               {onBack ? (
                 <button type="button" className="btn btn-secondary" onClick={onBack}>
-                  Indietro
+                  {t('upgrade_step_btn_back')}
                 </button>
               ) : (
                 <button type="button" className="btn btn-secondary" onClick={onClose}>
-                  Annulla
+                  {t('upgrade_step_btn_cancel')}
                 </button>
               )}
               <button
@@ -489,7 +483,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 onClick={handleNextFromStep1}
                 disabled={!oldComponentId}
               >
-                <span>Avanti: Seleziona Nuovo</span>
+                <span>{t('upgrade_step_btn_next')}</span>
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -519,7 +513,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 }}
               >
                 <Sparkles size={16} />
-                <span>Nuovo Acquisto</span>
+                <span>{t('upgrade_condition_new')}</span>
               </button>
 
               <button
@@ -540,7 +534,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 }}
               >
                 <Package size={16} />
-                <span>Pezzo dal Magazzino ({availableStoredComponents.length})</span>
+                <span>{t('upgrade_step_2_select_stored')} ({availableStoredComponents.length})</span>
               </button>
             </div>
 
@@ -557,19 +551,19 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     lineHeight: 1.4,
                   }}
                 >
-                  Nessun pezzo disponibile attualmente a magazzino. Passa alla modalità <strong>Nuovo Acquisto</strong> per registrare il componente subentrante.
+                  {t('upgrade_step_2_no_stored')}
                 </div>
               ) : (
                 <div className="form-group">
                   <label className="form-label">
-                    Componente dal Magazzino <span className="form-required">*</span>
+                    {t('upgrade_step_2_select_stored')} <span className="form-required">*</span>
                   </label>
                   <select
                     className="form-select"
                     value={existingNewComponentId}
                     onChange={(e) => setExistingNewComponentId(e.target.value)}
                   >
-                    <option value="">-- Seleziona pezzo da magazzino --</option>
+                    <option value="">-- {t('upgrade_step_2_select_stored')} --</option>
                     {availableStoredComponents.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name} ({c.brand}) — [{COMPONENT_CATEGORY_LABELS[c.category]}]
@@ -584,7 +578,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">
-                      Nome Nuovo Pezzo <span className="form-required">*</span>
+                      {t('upgrade_field_name')} <span className="form-required">*</span>
                     </label>
                     <input
                       type="text"
@@ -597,7 +591,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Categoria</label>
+                    <label className="form-label">{t('upgrade_field_category')}</label>
                     <select
                       className="form-select"
                       value={newCategory}
@@ -614,7 +608,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div className="form-group">
-                    <label className="form-label">Marca</label>
+                    <label className="form-label">{t('upgrade_field_brand')}</label>
                     <input
                       type="text"
                       placeholder="es. MSI, ASUS, Corsair"
@@ -625,7 +619,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Modello / Specifiche</label>
+                    <label className="form-label">{t('upgrade_field_model')}</label>
                     <input
                       type="text"
                       placeholder="es. Gaming OC 16GB"
@@ -638,7 +632,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div className="form-group">
-                    <label className="form-label">Prezzo Acquisto (€)</label>
+                    <label className="form-label">{t('upgrade_field_price')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -651,7 +645,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Negozio / Store</label>
+                    <label className="form-label">{t('upgrade_field_store')}</label>
                     <input
                       type="text"
                       placeholder="es. Amazon, LDLC, Usato"
@@ -666,10 +660,10 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
 
             <div className="form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setCurrentStep(1)}>
-                Indietro
+                {t('upgrade_step_btn_back')}
               </button>
               <button type="button" className="btn btn-primary" onClick={handleNextFromStep2}>
-                <span>Avanti: Economia & Data</span>
+                <span>{t('upgrade_step_btn_next')}</span>
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -682,7 +676,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div className="form-group">
                 <label className="form-label">
-                  Data Upgrade <span className="form-required">*</span>
+                  {t('upgrade_field_date')} <span className="form-required">*</span>
                 </label>
                 <input
                   type="date"
@@ -694,7 +688,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Slot / Posizione Montaggio</label>
+                <label className="form-label">{t('upgrade_field_slot')}</label>
                 <input
                   type="text"
                   placeholder="es. PCIe Slot 1, Socket LGA 1700"
@@ -725,7 +719,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   style={{ width: '16px', height: '16px' }}
                 />
                 <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Ho venduto contestualmente il vecchio componente ({selectedOldComp?.name})
+                  {t('upgrade_sale_checkbox_label')} ({selectedOldComp?.name})
                 </span>
               </label>
 
@@ -733,7 +727,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                     <div className="form-group">
-                      <label className="form-label">Prezzo Lordo (€) *</label>
+                      <label className="form-label">{t('upgrade_sale_price')} *</label>
                       <input
                         type="number"
                         step="0.01"
@@ -747,7 +741,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Spedizione (€)</label>
+                      <label className="form-label">{t('upgrade_sale_shipping')}</label>
                       <input
                         type="number"
                         step="0.01"
@@ -760,7 +754,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Commissioni (€)</label>
+                      <label className="form-label">{t('upgrade_sale_fees')}</label>
                       <input
                         type="number"
                         step="0.01"
@@ -775,7 +769,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div className="form-group">
-                      <label className="form-label">Piattaforma</label>
+                      <label className="form-label">{t('upgrade_sale_platform')}</label>
                       <input
                         type="text"
                         placeholder="es. Subito, eBay, Subito.it"
@@ -786,7 +780,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Acquirente</label>
+                      <label className="form-label">{t('upgrade_sale_buyer')}</label>
                       <input
                         type="text"
                         placeholder="es. Marco R."
@@ -802,7 +796,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
 
             {/* Note Generali sull'Upgrade */}
             <div className="form-group">
-              <label className="form-label">Note Generali sull'Upgrade (opzionale)</label>
+              <label className="form-label">{t('upgrade_field_upgrade_notes')} (opzionale)</label>
               <textarea
                 rows={2}
                 placeholder="es. Passaggio generazionale per gaming in 4K a 144Hz..."
@@ -827,25 +821,25 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
             >
               <div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                  Costo Nuovo
+                  {t('upgrade_summary_cost_new')}
                 </div>
                 <div className="font-mono" style={{ fontSize: '15px', color: 'var(--accent-ruby)', fontWeight: 600 }}>
-                  € {calculatedNewCost.toFixed(2)}
+                  {formatCurrency(calculatedNewCost)}
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                  Recupero Vecchio
+                  {t('upgrade_summary_revenue_old')}
                 </div>
                 <div className="font-mono" style={{ fontSize: '15px', color: calculatedOldRecovered > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)', fontWeight: 600 }}>
-                  {calculatedOldRecovered > 0 ? `+ € ${calculatedOldRecovered.toFixed(2)}` : '€ 0,00'}
+                  {calculatedOldRecovered > 0 ? `+ ${formatCurrency(calculatedOldRecovered)}` : formatCurrency(0)}
                 </div>
               </div>
 
               <div style={{ borderLeft: '1px solid var(--border-subtle)', paddingLeft: '12px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                  Costo Netto Upgrade
+                  {t('upgrade_summary_net_cost')}
                 </div>
                 <div
                   className="font-mono"
@@ -855,17 +849,17 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     fontWeight: 700,
                   }}
                 >
-                  € {calculatedNetUpgradeCost.toFixed(2)}
+                  {formatCurrency(calculatedNetUpgradeCost)}
                 </div>
               </div>
             </div>
 
             <div className="form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setCurrentStep(2)}>
-                Indietro
+                {t('upgrade_step_btn_back')}
               </button>
               <button type="button" className="btn btn-primary" onClick={handleNextFromStep3}>
-                <span>Avanti: Riepilogo & Conferma</span>
+                <span>{t('upgrade_step_btn_next')}</span>
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -876,7 +870,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
         {currentStep === 4 && (
           <div ref={stepContainerRef} className="wizard-step-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-              Verifica il riepilogo prima di confermare e salvare il cambio generazionale:
+              {t('upgrade_step_4_desc')}
             </p>
 
             {/* Confronto VECCHIO → NUOVO */}
@@ -884,7 +878,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
               {/* Box Vecchio */}
               <div className="upgrade-component-box">
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Componente Precedente
+                  {t('upgrade_summary_old')}
                 </span>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflowWrap: 'break-word' }}>
                   {selectedOldComp?.name}
@@ -894,13 +888,13 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 </div>
                 <div style={{ fontSize: '11.5px', marginTop: '4px', color: 'var(--text-secondary)' }}>
                   {saleOldComponent ? (
-                    <span>Recupero: <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ € {calculatedOldRecovered.toFixed(2)}</strong></span>
+                    <span>{t('upgrade_summary_recovery')} <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ € {calculatedOldRecovered.toFixed(2)}</strong></span>
                   ) : (
-                    <span>Costo storico: <span className="font-mono">€ {(oldCompComputed?.totalPurchaseCost || 0).toFixed(2)}</span></span>
+                    <span>{t('upgrade_summary_historical_cost')} <span className="font-mono">€ {(oldCompComputed?.totalPurchaseCost || 0).toFixed(2)}</span></span>
                   )}
                 </div>
                 <div style={{ fontSize: '11px', color: saleOldComponent ? 'var(--accent-emerald)' : 'var(--accent-amber)', marginTop: '2px', fontWeight: 500 }}>
-                  Destinazione: <strong>{saleOldComponent ? 'Venduto contestualmente' : 'A magazzino (In Storage)'}</strong>
+                  {t('upgrade_summary_dest_label')} <strong>{saleOldComponent ? t('upgrade_dest_sold') : t('upgrade_dest_storage')}</strong>
                 </div>
               </div>
 
@@ -910,14 +904,14 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   <ArrowRight size={16} />
                 </div>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  Sostituito con
+                  {t('upgrade_summary_replaced_with')}
                 </span>
               </div>
 
               {/* Box Nuovo */}
               <div className="upgrade-component-box" style={{ borderColor: 'var(--border-default)' }}>
                 <span style={{ fontSize: '10px', color: 'var(--accent-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Componente Subentrante
+                  {t('upgrade_summary_new')}
                 </span>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflowWrap: 'break-word' }}>
                   {newMode === 'new' ? newName : selectedNewExistingComp?.name}
@@ -926,10 +920,10 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   {newMode === 'new' ? `${newBrand} • ${newModel}` : `${selectedNewExistingComp?.brand} • ${selectedNewExistingComp?.model}`}
                 </div>
                 <div style={{ fontSize: '11.5px', marginTop: '4px', color: 'var(--text-secondary)' }}>
-                  Acquisto: <strong className="font-mono" style={{ color: 'var(--accent-ruby)' }}>€ {calculatedNewCost.toFixed(2)}</strong>
+                  {t('upgrade_summary_purchase_label')} <strong className="font-mono" style={{ color: 'var(--accent-ruby)' }}>€ {calculatedNewCost.toFixed(2)}</strong>
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--accent-primary)', marginTop: '2px', fontWeight: 500 }}>
-                  Destinazione: <strong>Installato nel PC (In Uso)</strong>
+                  {t('upgrade_summary_dest_label')} <strong>{t('upgrade_dest_installed')}</strong>
                 </div>
               </div>
             </div>
@@ -956,17 +950,17 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 }}
               >
                 <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                  Operazione di Sostituzione
+                  {t('upgrade_summary_operation_title')}
                 </span>
                 <div>
-                  Data: <strong>{formatWithSettings(upgradeDate, settings.dateFormat)}</strong>
+                  {t('upgrade_summary_date_label')} <strong>{formatWithSettings(upgradeDate, settings.dateFormat)}</strong>
                 </div>
                 <div>
-                  Slot / Socket: <strong>{slotOrLocation.trim() || 'Non specificato'}</strong>
+                  {t('upgrade_summary_slot_label')} <strong>{slotOrLocation.trim() || t('upgrade_summary_unspecified')}</strong>
                 </div>
                 {upgradeNotes.trim() && (
                   <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Note: <em>{upgradeNotes.trim()}</em>
+                    {t('upgrade_summary_notes_label')} <em>{upgradeNotes.trim()}</em>
                   </div>
                 )}
               </div>
@@ -986,22 +980,22 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   }}
                 >
                   <span style={{ fontSize: '10.5px', color: 'var(--accent-emerald)', textTransform: 'uppercase', fontWeight: 600 }}>
-                    Vendita Contestuale Vecchio
+                    {t('upgrade_summary_sale_title')}
                   </span>
                   <div>
-                    Lordo: <strong className="font-mono">€ {parseFloat(salePrice || '0').toFixed(2)}</strong>
+                    {t('upgrade_summary_gross_label')} <strong className="font-mono">€ {parseFloat(salePrice || '0').toFixed(2)}</strong>
                     {(parseFloat(shippingCost || '0') > 0 || parseFloat(fees || '0') > 0) && (
                       <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>
-                        (Sped: € {parseFloat(shippingCost || '0').toFixed(2)} | Comm: € {parseFloat(fees || '0').toFixed(2)})
+                        ({t('upgrade_summary_shipping_abbr')} € {parseFloat(shippingCost || '0').toFixed(2)} | {t('upgrade_summary_fees_abbr')} € {parseFloat(fees || '0').toFixed(2)})
                       </span>
                     )}
                   </div>
                   <div>
-                    Recupero netto: <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ € {calculatedOldRecovered.toFixed(2)}</strong>
+                    {t('upgrade_summary_net_recovery')} <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ € {calculatedOldRecovered.toFixed(2)}</strong>
                   </div>
                   {(salePlatform || saleBuyer) && (
                     <div style={{ color: 'var(--text-secondary)' }}>
-                      Canale: {salePlatform || 'Diretto'} {saleBuyer ? `• Acquirente: ${saleBuyer}` : ''}
+                      {t('upgrade_summary_channel_label')} {salePlatform || t('upgrade_summary_direct')} {saleBuyer ? `• ${t('upgrade_summary_buyer_label')} ${saleBuyer}` : ''}
                     </div>
                   )}
                 </div>
@@ -1022,10 +1016,13 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
             >
               <div>
                 <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>
-                  Costo Netto Upgrade
+                  {t('upgrade_summary_net_cost')}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Costo nuovo (€ {calculatedNewCost.toFixed(2)}) − Recupero vecchio (€ {calculatedOldRecovered.toFixed(2)})
+                  {t('upgrade_summary_net_formula', {
+                    newCost: calculatedNewCost.toFixed(2),
+                    oldRecovered: calculatedOldRecovered.toFixed(2)
+                  })}
                 </div>
               </div>
               <div
@@ -1056,7 +1053,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
             >
               <Bookmark size={14} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
               <span>
-                Dopo la registrazione potrai salvare questa nuova configurazione come Checkpoint milestone nella cronologia storica del PC.
+                {t('upgrade_checkpoint_hint')}
               </span>
             </div>
 
@@ -1067,7 +1064,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 onClick={() => setCurrentStep(3)}
                 disabled={isSubmitting}
               >
-                Indietro
+                {t('upgrade_step_btn_back')}
               </button>
               <button
                 type="button"
@@ -1076,7 +1073,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 disabled={isSubmitting}
               >
                 <CheckCircle2 size={16} />
-                <span>{isSubmitting ? 'Registrazione Atomica in corso...' : 'Conferma ed Esegui Upgrade'}</span>
+                <span>{isSubmitting ? t('upgrade_btn_executing') : t('upgrade_btn_execute')}</span>
               </button>
             </div>
           </div>

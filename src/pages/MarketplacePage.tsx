@@ -9,6 +9,7 @@ import {
   VALID_MARKETPLACE_TABS,
 } from '../types';
 import { formatUsageDuration } from '../domain';
+import { useTranslation } from '../locales';
 import {
   Tag,
   DollarSign,
@@ -51,6 +52,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
     getComponentWarranty,
     settings,
   } = usePCStore();
+  const { t, formatCurrency } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<MarketplaceTab>(
     requestedTab && VALID_MARKETPLACE_TABS.includes(requestedTab) ? requestedTab : 'storage'
@@ -111,10 +113,10 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
         <div>
           <h1 style={styles.title}>
             <Tag size={22} color="var(--accent-primary)" />
-            <span>Vendite & Annunci Marketplace</span>
+            <span>{t('marketplace_title')}</span>
           </h1>
           <p style={styles.subtitle}>
-            Gestisci l'hardware a magazzino, genera annunci istantanei per Subito.it, eBay, Vinted e monitora gli incassi.
+            {t('marketplace_subtitle')}
           </p>
         </div>
 
@@ -124,10 +126,10 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               type="button"
               className="contextual-help-pill micro-press"
               onClick={() => onOpenWikiArticle('listing-generator-guide')}
-              title="Consigli per creare annunci efficaci e massimizzare il realizzo? Leggi la guida"
+              title={t('marketplace_wiki_tooltip')}
             >
               <BookOpen size={13} color="var(--accent-primary)" />
-              <span>Guida Vendite & Annunci</span>
+              <span>{t('marketplace_wiki_btn')}</span>
             </button>
           )}
 
@@ -144,7 +146,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
             }}
           >
             <DollarSign size={15} />
-            <span>+ Registra Vendita</span>
+            <span>{t('marketplace_register_sale_btn')}</span>
           </button>
         </div>
       </div>
@@ -152,35 +154,35 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
       {/* Mini-Dashboard KPI Mercato Hardware */}
       <div style={styles.metricsGrid}>
         <div className="stat-card stat-card-indigo animate-slide-up stagger-1">
-          <span className="stat-label">Pezzi a Magazzino</span>
+          <span className="stat-label">{t('marketplace_kpi_storage_count')}</span>
           <span className="stat-value font-mono" style={{ color: 'var(--accent-amber)' }}>
             {storageComponents.length}
           </span>
-          <span className="stat-subtext">Hardware pronto da vendere</span>
+          <span className="stat-subtext">{t('marketplace_kpi_storage_sub')}</span>
         </div>
 
         <div className="stat-card stat-card-emerald animate-slide-up stagger-2">
-          <span className="stat-label">Totale Recuperato</span>
-          <span className="stat-value" style={{ color: 'var(--accent-emerald)' }}>
-            €{totalRecoveredSales.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+          <span className="stat-label">{t('marketplace_kpi_recovered')}</span>
+          <span className="stat-value font-mono" style={{ color: 'var(--accent-emerald)' }}>
+            {formatCurrency(totalRecoveredSales)}
           </span>
-          <span className="stat-subtext">Netto da tutte le vendite storiche</span>
+          <span className="stat-subtext">{t('marketplace_kpi_recovered_sub')}</span>
         </div>
 
         <div className="stat-card animate-slide-up stagger-3">
-          <span className="stat-label">Capitale a Magazzino</span>
+          <span className="stat-label">{t('marketplace_kpi_storage_value')}</span>
           <span className="stat-value font-mono">
-            €{storageTotalValue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(storageTotalValue)}
           </span>
-          <span className="stat-subtext">Costo d'acquisto pezzi fermi</span>
+          <span className="stat-subtext">{t('marketplace_kpi_storage_value_sub')}</span>
         </div>
 
         <div className="stat-card animate-slide-up stagger-4">
-          <span className="stat-label">Pezzi Venduti</span>
+          <span className="stat-label">{t('marketplace_kpi_sold_count')}</span>
           <span className="stat-value font-mono" style={{ color: 'var(--text-primary)' }}>
             {soldComponents.length}
           </span>
-          <span className="stat-subtext">Transazioni concluse nel tempo</span>
+          <span className="stat-subtext">{t('marketplace_kpi_sold_sub')}</span>
         </div>
       </div>
 
@@ -193,20 +195,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           style={{ fontSize: '13px', padding: '8px 16px' }}
         >
           <Package size={15} />
-          <span>Pronti da Vendere (A Magazzino)</span>
-          <span
-            style={{
-              fontSize: '11.5px',
-              padding: '2px 7px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: activeTab === 'storage' ? 'var(--accent-primary-subtle)' : 'var(--bg-surface)',
-              color: activeTab === 'storage' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              border: '1px solid var(--border-subtle)',
-              fontWeight: 600,
-            }}
-          >
-            {storageComponents.length}
-          </span>
+          <span>{t('marketplace_tab_storage', { count: storageComponents.length })}</span>
         </button>
 
         <button
@@ -216,20 +205,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           style={{ fontSize: '13px', padding: '8px 16px' }}
         >
           <DollarSign size={15} />
-          <span>Hardware Venduto (Storico)</span>
-          <span
-            style={{
-              fontSize: '11.5px',
-              padding: '2px 7px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: activeTab === 'sold' ? 'var(--accent-emerald-subtle)' : 'var(--bg-surface)',
-              color: activeTab === 'sold' ? 'var(--accent-emerald)' : 'var(--text-secondary)',
-              border: '1px solid var(--border-subtle)',
-              fontWeight: 600,
-            }}
-          >
-            {soldComponents.length}
-          </span>
+          <span>{t('marketplace_tab_sold', { count: soldComponents.length })}</span>
         </button>
       </div>
 
@@ -241,10 +217,9 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               <div className="empty-state-icon">
                 <Package size={26} color="var(--accent-amber)" />
               </div>
-              <h3 className="empty-state-title">Nessun pezzo a magazzino</h3>
+              <h3 className="empty-state-title">{t('marketplace_storage_empty_title')}</h3>
               <p className="empty-state-desc">
-                Tutti i componenti registrati sono attualmente installati nel PC oppure sono già stati venduti.
-                Quando smonti un pezzo dal computer, comparirà subito qui pronto per la vendita.
+                {t('marketplace_storage_empty_desc')}
               </p>
             </div>
           ) : (
@@ -261,11 +236,13 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                         <span className="category-chip">
                           {COMPONENT_CATEGORY_LABELS[comp.category]}
                         </span>
-                        <span className="badge badge-in-storage">A Magazzino</span>
+                        <span className="badge badge-in-storage">{t('stats_status_storage')}</span>
                       </div>
 
                       <span className="font-mono" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        Costo: €{computed?.totalPurchaseCost.toFixed(2)}
+                        {t('marketplace_purchase_cost', {
+                          amount: formatCurrency(computed?.totalPurchaseCost || 0),
+                        })}
                       </span>
                     </div>
 
@@ -280,14 +257,18 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                     <div style={styles.metaRow}>
                       <div style={styles.metaItem}>
                         <Layers size={13} color="var(--text-muted)" />
-                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{usageText}</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                          {usageText === 'Mai montato' ? t('marketplace_never_installed') : t('marketplace_used_for', { duration: usageText })}
+                        </span>
                       </div>
 
                       {warranty.hasWarranty && warranty.status === 'active' && (
                         <div style={styles.metaItem}>
                           <ShieldCheck size={13} color="var(--accent-emerald)" />
                           <span style={{ fontSize: '12px', color: 'var(--accent-emerald)' }}>
-                            Garanzia fino al {formatDate(warranty.expiryDate, settings.dateFormat)}
+                            {t('marketplace_warranty_active', {
+                              date: formatDate(warranty.expiryDate, settings.dateFormat),
+                            })}
                           </span>
                         </div>
                       )}
@@ -296,7 +277,9 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                         <div style={styles.metaItem}>
                           <ShieldAlert size={13} color="var(--accent-amber)" />
                           <span style={{ fontSize: '12px', color: 'var(--accent-amber)' }}>
-                            In scadenza ({warranty.humanLabel.toLowerCase()})
+                            {t('marketplace_warranty_expiring', {
+                              date: formatDate(warranty.expiryDate, settings.dateFormat),
+                            })}
                           </span>
                         </div>
                       )}
@@ -304,7 +287,13 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                       {(!warranty.hasWarranty || warranty.status === 'expired') && (
                         <div style={styles.metaItem}>
                           <ShieldX size={13} color="var(--text-secondary)" />
-                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Garanzia terminata</span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            {warranty.hasWarranty
+                              ? t('marketplace_warranty_expired', {
+                                  date: formatDate(warranty.expiryDate, settings.dateFormat),
+                                })
+                              : t('marketplace_warranty_none')}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -316,10 +305,10 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                         onClick={() => onOpenListingModal(comp)}
                         className="btn btn-primary micro-press"
                         style={{ fontSize: '12.5px', padding: '6px 14px', flex: 1 }}
-                        title="Genera testo annuncio per Subito.it, eBay, Vinted o Prompt IA"
+                        title={t('marketplace_btn_generate_listing')}
                       >
                         <Sparkles size={14} />
-                        <span>Genera Annuncio</span>
+                        <span>{t('marketplace_btn_generate_listing')}</span>
                       </button>
 
                       <button
@@ -332,10 +321,10 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                           color: 'var(--accent-emerald)',
                           borderColor: 'var(--accent-emerald-border)',
                         }}
-                        title="Registra vendita di questo componente"
+                        title={t('marketplace_btn_sell')}
                       >
                         <DollarSign size={14} />
-                        <span>Vendi</span>
+                        <span>{t('marketplace_btn_sell')}</span>
                       </button>
 
                       <button
@@ -343,7 +332,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                         onClick={() => onSelectComponent(comp.id)}
                         className="btn btn-ghost micro-press"
                         style={{ fontSize: '12px', padding: '6px 10px' }}
-                        title="Visualizza scheda tecnica completa"
+                        title={t('marketplace_btn_view_component')}
                       >
                         <FileText size={14} />
                       </button>
@@ -364,10 +353,9 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               <div className="empty-state-icon">
                 <DollarSign size={26} color="var(--accent-emerald)" />
               </div>
-              <h3 className="empty-state-title">Nessuna vendita registrata</h3>
+              <h3 className="empty-state-title">{t('marketplace_sold_empty_title')}</h3>
               <p className="empty-state-desc">
-                Non hai ancora registrato vendite di componenti. Quando venderai un pezzo a magazzino,
-                troverai qui tutto lo storico dettagliato con prezzi, piattaforme e ricavi.
+                {t('marketplace_sold_empty_desc')}
               </p>
             </div>
           ) : (
@@ -384,11 +372,11 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                         <span className="category-chip">
                           {COMPONENT_CATEGORY_LABELS[comp.category]}
                         </span>
-                        <span className="badge badge-sold">Venduto</span>
+                        <span className="badge badge-sold">{t('stats_status_sold')}</span>
                       </div>
 
                       <span className="font-mono" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-emerald)' }}>
-                        +€{netPrice.toFixed(2)}
+                        +{formatCurrency(netPrice)}
                       </span>
                     </div>
 
@@ -404,7 +392,9 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                       <div style={styles.metaItem}>
                         <Calendar size={13} color="var(--text-muted)" />
                         <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                          Venduto il {saleEvent?.date ? formatDate(saleEvent.date, settings.dateFormat) : '—'}
+                          {t('marketplace_sold_on', {
+                            date: saleEvent?.date ? formatDate(saleEvent.date, settings.dateFormat) : '—',
+                          })}
                         </span>
                       </div>
 
@@ -412,7 +402,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                         <div style={styles.metaItem}>
                           <ShoppingBag size={13} color="var(--accent-primary)" />
                           <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            Piattaforma: <strong>{saleEvent.platform}</strong>
+                            {t('marketplace_platform_label', { platform: saleEvent.platform })}
                           </span>
                         </div>
                       )}
@@ -420,7 +410,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                       {saleEvent?.buyer && (
                         <div style={styles.metaItem}>
                           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            Acquirente: {saleEvent.buyer}
+                            {t('marketplace_buyer_label', { buyer: saleEvent.buyer })}
                           </span>
                         </div>
                       )}
@@ -428,10 +418,12 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
 
                     <div style={{ ...styles.metaRow, paddingTop: '6px', borderTop: '1px solid var(--border-subtle)' }}>
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Costo acquisto originario: €{computed?.totalPurchaseCost.toFixed(2)}
+                        {t('marketplace_purchase_cost', {
+                          amount: formatCurrency(computed?.totalPurchaseCost || 0),
+                        })}
                       </span>
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Costo netto reale: €{computed?.netCost.toFixed(2)}
+                        {t('stats_top_net', { amount: formatCurrency(computed?.netCost || 0) })}
                       </span>
                     </div>
 
@@ -442,7 +434,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                         className="btn btn-secondary micro-press"
                         style={{ fontSize: '12px', padding: '5px 12px' }}
                       >
-                        <span>Visualizza Scheda</span>
+                        <span>{t('marketplace_btn_view_component')}</span>
                         <ArrowRight size={13} />
                       </button>
                     </div>

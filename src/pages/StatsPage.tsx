@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { usePCStore } from '../store';
 import { COMPONENT_CATEGORY_LABELS, ComponentCategory } from '../types';
+import { useTranslation } from '../locales';
 
 interface StatsPageProps {
   onSelectComponent?: (id: string) => void;
@@ -23,6 +24,7 @@ interface StatsPageProps {
 
 export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenWikiArticle }) => {
   const { rigStats } = usePCStore();
+  const { t, formatCurrency } = useTranslation();
 
   const {
     timeRange,
@@ -45,10 +47,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
         <div className="stats-header-banner">
           <div>
             <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-              Statistiche & Analisi Storica
+              {t('stats_title')}
             </h2>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-              Analisi economica, longevità hardware e andamento investimenti derivati deterministicamente dalla cronologia eventi.
+              {t('stats_subtitle')}
             </p>
           </div>
         </div>
@@ -64,10 +66,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
         >
           <Layers size={36} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-md)', opacity: 0.5 }} />
           <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
-            Nessun dato registrato
+            {t('stats_empty_title')}
           </h3>
           <p style={{ fontSize: 'var(--text-sm)', maxWidth: '460px', margin: '0 auto', lineHeight: 1.5 }}>
-            Aggiungi componenti o registra acquisti e movimenti per popolare i grafici e visualizzare le metriche storiche del PC.
+            {t('stats_empty_desc')}
           </p>
         </div>
       </div>
@@ -80,10 +82,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
       <div className="stats-header-banner">
         <div>
           <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-            Statistiche & Analisi Storica
+            {t('stats_title')}
           </h2>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-            Analisi economica, longevità hardware e andamento investimenti derivati deterministicamente dalla cronologia eventi.
+            {t('stats_subtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -92,21 +94,27 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               type="button"
               className="contextual-help-pill micro-press"
               onClick={() => onOpenWikiArticle('the-four-financial-metrics')}
-              title="Come vengono calcolate le 4 metriche finanziarie? Leggi la guida ufficiale"
+              title={t('stats_wiki_tooltip')}
             >
               <BookOpen size={13} color="var(--accent-primary)" />
-              <span>Guida Formule Finanziarie</span>
+              <span>{t('stats_wiki_btn')}</span>
             </button>
           )}
           <div className="stats-time-pill">
             <Calendar size={13} />
             <span>
               {timeRange.firstYear && timeRange.lastYear
-                ? `${timeRange.firstYear} → ${timeRange.lastYear} (${timeRange.totalYearsCount} anni solari)`
-                : 'Nessun evento registrato'}
+                ? t('stats_time_range', {
+                    firstYear: timeRange.firstYear,
+                    lastYear: timeRange.lastYear,
+                    years: timeRange.totalYearsCount,
+                  })
+                : t('stats_no_events')}
             </span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span style={{ color: 'var(--text-primary)' }}>{timeRange.totalComponentsCount} componenti</span>
+            <span style={{ color: 'var(--text-primary)' }}>
+              {t('stats_components_count', { count: timeRange.totalComponentsCount })}
+            </span>
           </div>
         </div>
       </div>
@@ -122,55 +130,61 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
         {/* KPI 1: Spesa Storica Totale */}
         <div className="stat-card stat-card-ruby">
           <div className="stat-card-header">
-            <span className="stat-label">Spesa Storica Totale</span>
+            <span className="stat-label">{t('stats_kpi_total_spent')}</span>
             <div className="stat-icon-badge">
               <ShoppingBag size={18} />
             </div>
           </div>
-          <div className="stat-value">
-            € {financial.totalPurchased.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+          <div className="stat-value font-mono">
+            {formatCurrency(financial.totalPurchased)}
           </div>
           <div className="stat-subtext">
-            Totale uscite per acquisti hardware e spese accessorie
+            {t('stats_kpi_total_spent_sub')}
           </div>
         </div>
 
         {/* KPI 2: Costo Netto Storico */}
         <div className="stat-card stat-card-primary">
           <div className="stat-card-header">
-            <span className="stat-label">Costo Netto Storico</span>
+            <span className="stat-label">{t('stats_kpi_net_cost')}</span>
             <div className="stat-icon-badge">
               <Activity size={18} />
             </div>
           </div>
-          <div className="stat-value">
-            € {financial.historicalNetCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+          <div className="stat-value font-mono">
+            {formatCurrency(financial.historicalNetCost)}
           </div>
           <div className="stat-subtext">
-            Spesa reale a fondo perduto al netto dei ricavi da vendita
+            {t('stats_kpi_net_cost_sub')}
           </div>
         </div>
 
         {/* KPI 3: Recuperato dalle Vendite */}
         <div className="stat-card stat-card-emerald">
           <div className="stat-card-header">
-            <span className="stat-label">Recuperato dalle Vendite</span>
+            <span className="stat-label">{t('stats_kpi_recovered')}</span>
             <div className="stat-icon-badge">
               <TrendingUp size={18} />
             </div>
           </div>
-          <div className="stat-value">
-            € {financial.totalRecovered.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+          <div className="stat-value font-mono">
+            {formatCurrency(financial.totalRecovered)}
           </div>
           <div className="stat-subtext">
             {financial.soldComponentsCount > 0 ? (
-              <>
-                {financial.soldComponentsCount}{' '}
-                {financial.soldComponentsCount === 1 ? 'pezzo venduto' : 'pezzi venduti'} (
-                {financial.recoveryRateOnSold}% recupero sul venduto)
-              </>
+              financial.soldComponentsCount === 1 ? (
+                t('stats_kpi_recovered_sub_single', {
+                  count: 1,
+                  rate: financial.recoveryRateOnSold,
+                })
+              ) : (
+                t('stats_kpi_recovered_sub_multi', {
+                  count: financial.soldComponentsCount,
+                  rate: financial.recoveryRateOnSold,
+                })
+              )
             ) : (
-              'Nessun componente venduto finora'
+              t('stats_kpi_recovered_none')
             )}
           </div>
         </div>
@@ -178,14 +192,17 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
         {/* KPI 4: Media Giorni d'Uso */}
         <div className="stat-card stat-card-indigo">
           <div className="stat-card-header">
-            <span className="stat-label">Media Giorni d'Uso</span>
+            <span className="stat-label">{t('stats_kpi_avg_days')}</span>
             <div className="stat-icon-badge">
               <Clock size={18} />
             </div>
           </div>
-          <div className="stat-value">{longevity.avgDaysInUseActive} gg</div>
+          <div className="stat-value font-mono">{longevity.avgDaysInUseActive} {t('stats_days_unit')}</div>
           <div className="stat-subtext">
-            Mediana: {longevity.medianDaysInUse} gg • {longevity.neverMountedCount} mai montati
+            {t('stats_kpi_avg_days_sub', {
+              median: longevity.medianDaysInUse,
+              never: longevity.neverMountedCount,
+            })}
           </div>
         </div>
       </div>
@@ -196,10 +213,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           <div className="stats-section-title-group">
             <h3 className="stats-section-title">
               <Layers size={18} style={{ color: 'var(--accent-primary)' }} />
-              Spesa per Categoria Hardware
+              {t('stats_section_cat_title')}
             </h3>
             <span className="stats-section-subtitle">
-              Distribuzione percentuale e valore monetario cumulato (acquisti ed extra spese).
+              {t('stats_section_cat_sub')}
             </span>
           </div>
         </div>
@@ -213,7 +230,9 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                     {COMPONENT_CATEGORY_LABELS[cat.category] || cat.category}
                   </span>
                   <span className="stats-category-count-badge">
-                    {cat.componentsCount} {cat.componentsCount === 1 ? 'componente' : 'componenti'}
+                    {cat.componentsCount === 1
+                      ? t('stats_cat_component_single')
+                      : t('stats_cat_component_multi', { count: cat.componentsCount })}
                   </span>
                   {idx === 0 && cat.totalSpent > 0 && (
                     <span
@@ -231,13 +250,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                         textTransform: 'uppercase',
                       }}
                     >
-                      Top Spesa
+                      {t('stats_top_spending_badge')}
                     </span>
                   )}
                 </div>
                 <div className="stats-category-right">
-                  <span className="stats-category-spent">
-                    € {cat.totalSpent.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  <span className="stats-category-spent font-mono">
+                    {formatCurrency(cat.totalSpent)}
                   </span>
                   <span className="stats-category-pct-badge">{cat.percentage}%</span>
                 </div>
@@ -255,7 +274,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           ))}
           {categories.length === 0 && (
             <div style={{ textAlign: 'center', padding: 'var(--space-md)', color: 'var(--text-muted)' }}>
-              Nessuna categoria presente.
+              {t('stats_cat_empty')}
             </div>
           )}
         </div>
@@ -267,10 +286,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           <div className="stats-section-title-group">
             <h3 className="stats-section-title">
               <Calendar size={18} style={{ color: 'var(--accent-primary)' }} />
-              Spesa nel Tempo (Evoluzione Annuale Cash Flow)
+              {t('stats_section_years_title')}
             </h3>
             <span className="stats-section-subtitle">
-              Flussi finanziari per data di acquisto o spesa accessoria sostenuta.
+              {t('stats_section_years_sub')}
             </span>
           </div>
           {peakYear && (
@@ -289,7 +308,11 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               }}
             >
               <Flame size={13} style={{ color: 'var(--accent-ruby)' }} />
-              Anno di Picco: {peakYear.year} (€ {peakYear.totalSpent.toLocaleString('it-IT', { minimumFractionDigits: 2 })} • {peakYear.percentage}%)
+              {t('stats_peak_year_badge', {
+                year: peakYear.year,
+                amount: formatCurrency(peakYear.totalSpent),
+                pct: peakYear.percentage,
+              })}
             </span>
           )}
         </div>
@@ -297,7 +320,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
         {/* Timeline Sequenziale Compatta */}
         {years.length > 0 && (
           <div className="stats-years-timeline-strip">
-            <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Andamento:</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{t('stats_trend_label')}</span>
             {years.map((y, index) => (
               <React.Fragment key={y.year}>
                 <span
@@ -307,7 +330,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                     fontWeight: y.isPeakYear ? 700 : 500,
                   }}
                 >
-                  {y.year} (€ {y.totalSpent.toLocaleString('it-IT', { minimumFractionDigits: 2 })})
+                  {y.year} ({formatCurrency(y.totalSpent)})
                 </span>
                 {index < years.length - 1 && (
                   <span style={{ color: 'var(--text-muted)' }}>→</span>
@@ -342,7 +365,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                     }}
                   >
                     <Flame size={11} style={{ color: 'var(--accent-ruby)' }} />
-                    Picco
+                    {t('stats_peak_badge')}
                   </div>
                 )}
                 <span className="stats-year-label">{y.year}</span>
@@ -356,17 +379,17 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                  <span className="stats-year-amount">
-                    € {y.totalSpent.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  <span className="stats-year-amount font-mono">
+                    {formatCurrency(y.totalSpent)}
                   </span>
-                  <span className="stats-year-pct">{y.percentage}% del totale</span>
+                  <span className="stats-year-pct">{t('stats_year_pct_of_total', { pct: y.percentage })}</span>
                 </div>
               </div>
             );
           })}
           {years.length === 0 && (
             <div style={{ textAlign: 'center', padding: 'var(--space-md)', color: 'var(--text-muted)' }}>
-              Nessun dato annuale disponibile.
+              {t('stats_years_empty')}
             </div>
           )}
         </div>
@@ -378,10 +401,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           <div className="stats-section-title-group">
             <h3 className="stats-section-title">
               <Clock size={18} style={{ color: 'var(--accent-indigo)' }} />
-              Longevità Hardware & Ammortamento (€/die)
+              {t('stats_section_longevity_title')}
             </h3>
             <span className="stats-section-subtitle">
-              Analisi dell'effettivo tempo di utilizzo nel PC e del costo al giorno per ciascun pezzo.
+              {t('stats_section_longevity_sub')}
             </span>
           </div>
         </div>
@@ -402,18 +425,24 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           >
             <div className="stats-spotlight-badge" style={{ color: 'var(--accent-indigo)' }}>
               <Award size={14} />
-              Componente Più Longevo
+              {t('stats_spotlight_most_used')}
             </div>
             <div className="stats-spotlight-name">
               {longevity.mostUsedComponent?.name || 'N/D'}
             </div>
-            <div className="stats-spotlight-value" style={{ color: 'var(--accent-indigo)' }}>
-              {longevity.mostUsedComponent ? `${longevity.mostUsedComponent.daysInUse} giorni` : '0 gg'}
+            <div className="stats-spotlight-value font-mono" style={{ color: 'var(--accent-indigo)' }}>
+              {longevity.mostUsedComponent
+                ? t('stats_spotlight_days', { days: longevity.mostUsedComponent.daysInUse })
+                : `0 ${t('stats_days_unit')}`}
             </div>
             <div className="stats-spotlight-meta">
               {longevity.mostUsedComponent
-                ? `Categoria: ${COMPONENT_CATEGORY_LABELS[longevity.mostUsedComponent.category] || longevity.mostUsedComponent.category}`
-                : 'Nessun componente montato'}
+                ? t('stats_spotlight_cat', {
+                    cat:
+                      COMPONENT_CATEGORY_LABELS[longevity.mostUsedComponent.category] ||
+                      longevity.mostUsedComponent.category,
+                  })
+                : t('stats_spotlight_none_mounted')}
             </div>
           </div>
 
@@ -431,20 +460,25 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           >
             <div className="stats-spotlight-badge" style={{ color: 'var(--accent-emerald)' }}>
               <Sparkles size={14} />
-              Miglior Ammortamento al Giorno
+              {t('stats_spotlight_best_amortization')}
             </div>
             <div className="stats-spotlight-name">
               {longevity.bestCostPerDayComponent?.name || 'N/D'}
             </div>
-            <div className="stats-spotlight-value" style={{ color: 'var(--accent-emerald)' }}>
+            <div className="stats-spotlight-value font-mono" style={{ color: 'var(--accent-emerald)' }}>
               {longevity.bestCostPerDayComponent
-                ? `€ ${longevity.bestCostPerDayComponent.costPerDay.toFixed(2)} / die`
+                ? t('stats_cost_per_day', {
+                    amount: formatCurrency(longevity.bestCostPerDayComponent.costPerDay),
+                  })
                 : 'N/D'}
             </div>
             <div className="stats-spotlight-meta">
               {longevity.bestCostPerDayComponent
-                ? `Usato per ${longevity.bestCostPerDayComponent.daysInUse} giorni con costo netto di € ${longevity.bestCostPerDayComponent.netCost.toFixed(2)}`
-                : 'Nessun componente ammortizzato'}
+                ? t('stats_spotlight_amortization_sub', {
+                    days: longevity.bestCostPerDayComponent.daysInUse,
+                    netCost: formatCurrency(longevity.bestCostPerDayComponent.netCost),
+                  })
+                : t('stats_spotlight_none_amortized')}
             </div>
           </div>
         </div>
@@ -454,11 +488,11 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           <table className="stats-table">
             <thead>
               <tr>
-                <th>Componente</th>
-                <th>Categoria</th>
-                <th>Stato</th>
-                <th>Giorni d'Uso</th>
-                <th style={{ textAlign: 'right' }}>Costo / Giorno</th>
+                <th>{t('stats_th_component')}</th>
+                <th>{t('stats_th_category')}</th>
+                <th>{t('stats_th_status')}</th>
+                <th>{t('stats_th_days_in_use')}</th>
+                <th style={{ textAlign: 'right' }}>{t('stats_th_cost_per_day')}</th>
               </tr>
             </thead>
             <tbody>
@@ -497,21 +531,21 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                       }}
                     >
                       {item.status === 'IN_USE'
-                        ? 'In Uso'
+                        ? t('stats_status_in_use')
                         : item.status === 'SOLD'
-                        ? 'Venduto'
-                        : 'Magazzino'}
+                        ? t('stats_status_sold')
+                        : t('stats_status_storage')}
                     </span>
                   </td>
                   <td style={{ fontFamily: 'var(--font-mono)' }}>
-                    {item.daysInUse > 0 ? `${item.daysInUse} gg` : '0 gg'}
+                    {item.daysInUse > 0 ? `${item.daysInUse} ${t('stats_days_unit')}` : `0 ${t('stats_days_unit')}`}
                   </td>
                   <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                     {item.daysInUse > 0 && item.costPerDay !== null ? (
-                      `€ ${item.costPerDay.toFixed(2)} / die`
+                      t('stats_cost_per_day', { amount: formatCurrency(item.costPerDay) })
                     ) : (
                       <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                        — Mai montato
+                        {t('stats_never_mounted')}
                       </span>
                     )}
                   </td>
@@ -520,7 +554,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               {longevity.componentDurations.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Nessun componente montato finora.
+                    {t('stats_longevity_empty')}
                   </td>
                 </tr>
               )}
@@ -535,10 +569,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           <div className="stats-section-title-group">
             <h3 className="stats-section-title">
               <Award size={18} style={{ color: 'var(--accent-ruby)' }} />
-              Top 5 Componenti Più Costosi (Investimento Storico)
+              {t('stats_section_top_title')}
             </h3>
             <span className="stats-section-subtitle">
-              Classifica dei pezzi per spesa storica complessiva (acquisto + extra spese).
+              {t('stats_section_top_sub')}
             </span>
           </div>
         </div>
@@ -560,7 +594,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                   style={{
                     backgroundColor: item.isSold ? 'var(--accent-emerald)' : 'var(--accent-primary)',
                   }}
-                  title={item.isSold ? 'Venduto' : 'In Uso / Attivo'}
+                  title={item.isSold ? t('stats_top_status_sold_title') : t('stats_top_status_active_title')}
                 />
                 <div className="stats-ranking-info">
                   <span className="stats-ranking-name">{item.name}</span>
@@ -571,18 +605,18 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                 <div className="stats-ranking-leader" />
               </div>
               <div className="stats-ranking-right">
-                <span className="stats-ranking-net">
-                  Netto: € {item.netCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                <span className="stats-ranking-net font-mono">
+                  {t('stats_top_net', { amount: formatCurrency(item.netCost) })}
                 </span>
-                <span className="stats-ranking-price">
-                  € {item.totalHistoricalCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                <span className="stats-ranking-price font-mono">
+                  {formatCurrency(item.totalHistoricalCost)}
                 </span>
               </div>
             </div>
           ))}
           {topExpensive.length === 0 && (
             <div style={{ textAlign: 'center', padding: 'var(--space-md)', color: 'var(--text-muted)' }}>
-              Nessun componente da mostrare.
+              {t('stats_top_empty')}
             </div>
           )}
         </div>
@@ -594,10 +628,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           <div className="stats-section-title-group">
             <h3 className="stats-section-title">
               <ArrowUpRight size={18} style={{ color: 'var(--accent-emerald)' }} />
-              Analisi Recupero Vendite
+              {t('stats_section_sales_title')}
             </h3>
             <span className="stats-section-subtitle">
-              Bilancio economico per ciascun componente ceduto con relativo tasso di recupero.
+              {t('stats_section_sales_sub')}
             </span>
           </div>
           {soldComponents.length > 0 && (
@@ -609,7 +643,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                 fontWeight: 600,
               }}
             >
-              Totale Incassato: € {financial.totalRecovered.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              {t('stats_sales_total_recovered', { amount: formatCurrency(financial.totalRecovered) })}
             </span>
           )}
         </div>
@@ -619,12 +653,12 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
             <table className="stats-table">
               <thead>
                 <tr>
-                  <th>Componente</th>
-                  <th>Categoria</th>
-                  <th style={{ textAlign: 'right' }}>Spesa Storica</th>
-                  <th style={{ textAlign: 'right' }}>Ricavo Netto Incassato</th>
-                  <th style={{ textAlign: 'right' }}>Saldo Netto</th>
-                  <th style={{ textAlign: 'right' }}>% Recuperata</th>
+                  <th>{t('stats_th_sales_component')}</th>
+                  <th>{t('stats_th_sales_category')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('stats_th_sales_spent')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('stats_th_sales_revenue')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('stats_th_sales_balance')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('stats_th_sales_recovered_pct')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -639,10 +673,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                       {COMPONENT_CATEGORY_LABELS[item.category] || item.category}
                     </td>
                     <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                      € {item.totalCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      {formatCurrency(item.totalCost)}
                     </td>
                     <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-emerald)' }}>
-                      € {item.netRevenue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      {formatCurrency(item.netRevenue)}
                     </td>
                     <td
                       style={{
@@ -653,7 +687,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                       }}
                     >
                       {item.deltaBalance >= 0 ? '+' : ''}
-                      € {item.deltaBalance.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      {formatCurrency(item.deltaBalance)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <span
@@ -688,7 +722,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               color: 'var(--text-secondary)',
             }}
           >
-            Nessun componente venduto finora. Le cessioni registrate compariranno qui con il relativo tasso di recupero.
+            {t('stats_sales_empty')}
           </div>
         )}
       </section>
@@ -699,10 +733,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
           <div className="stats-section-title-group">
             <h3 className="stats-section-title">
               <ShieldCheck size={18} style={{ color: 'var(--accent-primary)' }} />
-              Sintesi Storico Upgrade
+              {t('stats_section_upgrades_title')}
             </h3>
             <span className="stats-section-subtitle">
-              Riepilogo economico dei passaggi generazionali calcolato direttamente da upgradeEngine.
+              {t('stats_section_upgrades_sub')}
             </span>
           </div>
           {upgrades.mostUpgradedCategory && (
@@ -719,11 +753,10 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
                 color: 'var(--text-primary)',
               }}
             >
-              Categoria più aggiornata:{' '}
-              <strong style={{ color: 'var(--accent-primary)' }}>
-                {COMPONENT_CATEGORY_LABELS[upgrades.mostUpgradedCategory] || upgrades.mostUpgradedCategory}
-              </strong>{' '}
-              ({upgrades.categoryCount[upgrades.mostUpgradedCategory]} upgrade)
+              {t('stats_upgrades_most_updated_category', {
+                cat: COMPONENT_CATEGORY_LABELS[upgrades.mostUpgradedCategory] || upgrades.mostUpgradedCategory,
+                count: upgrades.categoryCount[upgrades.mostUpgradedCategory] || 0,
+              })}
             </span>
           )}
         </div>
@@ -749,13 +782,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               }}
             >
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Upgrade Registrati
+                {t('stats_upgrades_card_count')}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {upgrades.totalUpgrades}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Cambi generazionali tracciati
+                {t('stats_upgrades_card_count_sub')}
               </span>
             </div>
 
@@ -772,13 +805,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               }}
             >
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Investimento Nuovi Pezzi
+                {t('stats_upgrades_card_invested')}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                € {upgrades.totalInvested.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                {formatCurrency(upgrades.totalInvested)}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Spesa sostenuta per i ricambi subentrati
+                {t('stats_upgrades_card_invested_sub')}
               </span>
             </div>
 
@@ -795,13 +828,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               }}
             >
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Recupero da Cessioni
+                {t('stats_upgrades_card_recovered')}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 700, color: 'var(--accent-emerald)' }}>
-                € {upgrades.totalRecovered.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                {formatCurrency(upgrades.totalRecovered)}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Ricavi netti dalla vendita dei pezzi sostituiti
+                {t('stats_upgrades_card_recovered_sub')}
               </span>
             </div>
 
@@ -818,13 +851,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               }}
             >
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Costo Netto Upgrade
+                {t('stats_upgrades_card_net')}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 700, color: 'var(--accent-primary)' }}>
-                € {upgrades.totalNetCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                {formatCurrency(upgrades.totalNetCost)}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Effettiva spesa incrementale degli upgrade
+                {t('stats_upgrades_card_net_sub')}
               </span>
             </div>
           </div>
@@ -839,7 +872,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onSelectComponent, onOpenW
               color: 'var(--text-secondary)',
             }}
           >
-            Nessun upgrade registrato finora. I passaggi generazionali tracciati compariranno qui.
+            {t('stats_upgrades_empty')}
           </div>
         )}
       </section>

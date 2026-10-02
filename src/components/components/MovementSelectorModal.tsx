@@ -18,6 +18,7 @@ import { SaleForm } from './SaleModal';
 import { ExtraExpenseForm } from './ExtraExpenseModal';
 import { GiftForm } from './GiftModal';
 import { DisposalForm } from './DisposalModal';
+import { useTranslation } from '../../locales';
 
 export type MovementType = 'purchase' | 'sale' | 'expense' | 'gift' | 'disposal' | 'upgrade';
 
@@ -49,6 +50,7 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
   onOpenWikiGuide,
   onNavigateToCare,
 }) => {
+  const { t } = useTranslation();
   const [activeType, setActiveType] = useState<MovementType | null>(null);
 
   // Reset dello stato interno alla chiusura o riapertura del modale
@@ -61,16 +63,16 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
   const acquisitionOptions: MovementOption[] = [
     {
       id: 'purchase',
-      title: 'Nuovo Acquisto / Componente',
-      description: 'Aggiungi un nuovo pezzo all’inventario con acquisto e montaggio opzionale',
+      title: t('movement_opt_purchase_title'),
+      description: t('movement_opt_purchase_desc'),
       icon: <ShoppingBag size={20} />,
       iconBg: 'var(--accent-primary-subtle)',
       iconColor: 'var(--accent-primary)',
     },
     {
       id: 'upgrade',
-      title: 'Cambio Generazionale / Upgrade',
-      description: 'Sostituzione guidata di un pezzo con nuovo modello ed eventuale permuta',
+      title: t('movement_opt_upgrade_title'),
+      description: t('movement_opt_upgrade_desc'),
       icon: <ArrowUpRight size={20} />,
       iconBg: 'var(--accent-primary-subtle)',
       iconColor: 'var(--accent-primary)',
@@ -80,32 +82,32 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
   const managementOptions: MovementOption[] = [
     {
       id: 'sale',
-      title: 'Registra Vendita',
-      description: 'Registra la vendita di un pezzo, commissioni, spedizione e incasso netto',
+      title: t('movement_opt_sale_title'),
+      description: t('movement_opt_sale_desc'),
       icon: <DollarSign size={20} />,
       iconBg: 'rgba(16, 185, 129, 0.12)',
       iconColor: 'var(--accent-emerald)',
     },
     {
       id: 'expense',
-      title: 'Spesa Extra / Modding',
-      description: 'Accessori, cavi sleevati, pasta termica o modding associati a un pezzo',
+      title: t('movement_opt_expense_title'),
+      description: t('movement_opt_expense_desc'),
       icon: <Receipt size={20} />,
       iconBg: 'rgba(244, 63, 94, 0.12)',
       iconColor: 'var(--accent-ruby)',
     },
     {
       id: 'gift',
-      title: 'Regala Componente',
-      description: 'Cedi a titolo gratuito un componente a terzi aggiornando il suo ciclo di vita',
+      title: t('movement_opt_gift_title'),
+      description: t('movement_opt_gift_desc'),
       icon: <Gift size={20} />,
       iconBg: 'rgba(129, 140, 248, 0.12)',
       iconColor: 'var(--accent-indigo)',
     },
     {
       id: 'disposal',
-      title: 'Smaltisci Hardware',
-      description: 'Dismetti un pezzo guasto o conferiscilo all’isola ecologica o centro RAEE',
+      title: t('movement_opt_disposal_title'),
+      description: t('movement_opt_disposal_desc'),
       icon: <Recycle size={20} />,
       iconBg: 'rgba(100, 116, 139, 0.14)',
       iconColor: 'var(--text-muted)',
@@ -133,38 +135,38 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
     switch (activeType) {
       case 'purchase':
         return {
-          title: 'Nuovo Acquisto / Componente',
-          subtitle: 'Aggiungi un nuovo pezzo all’inventario del tuo hardware',
+          title: t('movement_meta_purchase_title'),
+          subtitle: t('movement_meta_purchase_sub'),
           maxWidth: '620px',
         };
       case 'sale':
         return {
-          title: 'Registra Vendita Hardware',
-          subtitle: 'Registra la vendita di un pezzo e calcola l’incasso netto reale',
+          title: t('movement_meta_sale_title'),
+          subtitle: t('movement_meta_sale_sub'),
           maxWidth: '600px',
         };
       case 'expense':
         return {
-          title: 'Registra Spesa Extra / Modding',
-          subtitle: 'Associa una spesa accessoria a un componente esistente',
+          title: t('movement_meta_expense_title'),
+          subtitle: t('movement_meta_expense_sub'),
           maxWidth: '560px',
         };
       case 'gift':
         return {
-          title: 'Regala Componente',
-          subtitle: 'Cessione a titolo gratuito e aggiornamento del ciclo di vita',
+          title: t('movement_meta_gift_title'),
+          subtitle: t('movement_meta_gift_sub'),
           maxWidth: '540px',
         };
       case 'disposal':
         return {
-          title: 'Registra Smaltimento Hardware',
-          subtitle: 'Conferimento centro RAEE o dismissione definitiva di un pezzo guasto',
+          title: t('movement_meta_disposal_title'),
+          subtitle: t('movement_meta_disposal_sub'),
           maxWidth: '540px',
         };
       default:
         return {
-          title: 'Nuovo Movimento Hardware',
-          subtitle: 'Seleziona l’operazione economica o di inventario che desideri registrare',
+          title: t('movement_selector_title'),
+          subtitle: t('movement_selector_subtitle'),
           maxWidth: '620px',
         };
     }
@@ -177,14 +179,14 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       onBack={activeType ? handleBackToSelector : undefined}
-      backTitle="Torna al selettore movimenti"
+      backTitle={t('action_back')}
       title={meta.title}
       subtitle={meta.subtitle}
       maxWidth={meta.maxWidth}
     >
       {activeType === null && (
         <div className="movement-flow-content" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div className="movement-group-label">Acquisto & Upgrade</div>
+          <div className="movement-group-label">{t('movement_group_acquisition')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {acquisitionOptions.map((opt) => (
               <button
@@ -223,7 +225,7 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
             ))}
           </div>
 
-          <div className="movement-group-label" style={{ marginTop: '10px' }}>Gestione & Dismissione</div>
+          <div className="movement-group-label" style={{ marginTop: '10px' }}>{t('movement_group_management')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {managementOptions.map((opt) => (
               <button
@@ -319,7 +321,7 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Wrench size={14} color="var(--accent-cyan)" />
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Vuoi registrare una pulizia, cambio pasta o profilo di tuning?
+                  {t('movement_footer_care_prompt')}
                 </span>
               </div>
               <button
@@ -343,7 +345,7 @@ export const MovementSelectorModal: React.FC<MovementSelectorModalProps> = ({
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span>Cura del PC</span>
+                <span>{t('movement_footer_care_btn')}</span>
                 <ArrowRight size={12} />
               </button>
             </div>
