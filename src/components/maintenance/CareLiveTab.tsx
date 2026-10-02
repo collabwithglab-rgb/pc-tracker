@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Cpu,
   Zap,
@@ -10,16 +10,141 @@ import {
   Clock,
   ShieldAlert,
   Info,
+  Sparkles,
 } from 'lucide-react';
 import {
   useLiveMonitoring,
   isMetricAvailable,
   formatMetricValue,
 } from '../../services/monitoringService';
+import { MonitoringSnapshot } from '../../types/monitoring';
+
+const DEMO_MONITORING_SNAPSHOT: MonitoringSnapshot = {
+  timestamp: new Date().toISOString(),
+  status: 'success',
+  cpu: {
+    utilizationPercent: {
+      value: 18.4,
+      availability: 'available',
+      unit: '%',
+      source: 'GetSystemTimes',
+    },
+    logicalProcessorCount: 16,
+    baseFrequencyMhz: {
+      value: 4850,
+      availability: 'available',
+      unit: 'MHz',
+      source: 'CallNtPowerInformation',
+    },
+    packageTemperatureCelsius: {
+      value: 52,
+      availability: 'available',
+      unit: '°C',
+      source: 'Win32_ThermalZone',
+    },
+    packagePowerWatts: {
+      value: 45.2,
+      availability: 'available',
+      unit: 'W',
+      source: 'RAPL_Energy',
+    },
+  },
+  memory: {
+    totalBytes: 34_359_738_368,
+    usedBytes: 14_200_000_000,
+    availableBytes: 20_159_738_368,
+    utilizationPercent: 41,
+  },
+  gpus: [
+    {
+      id: 'gpu-0',
+      name: 'NVIDIA GeForce RTX 4080 16GB',
+      vendor: 'NVIDIA',
+      isDiscrete: true,
+      utilizationPercent: {
+        value: 26,
+        availability: 'available',
+        unit: '%',
+        source: 'NVML',
+      },
+      vramTotalBytes: {
+        value: 17_179_869_184,
+        availability: 'available',
+        unit: 'B',
+        source: 'NVML',
+      },
+      vramUsedBytes: {
+        value: 4_294_967_296,
+        availability: 'available',
+        unit: 'B',
+        source: 'NVML',
+      },
+      vramUtilizationPercent: {
+        value: 25,
+        availability: 'available',
+        unit: '%',
+        source: 'NVML',
+      },
+      coreTemperatureCelsius: {
+        value: 46,
+        availability: 'available',
+        unit: '°C',
+        source: 'NVML',
+      },
+      hotspotTemperatureCelsius: {
+        value: 55,
+        availability: 'available',
+        unit: '°C',
+        source: 'NVML',
+      },
+      coreClockMhz: {
+        value: 2505,
+        availability: 'available',
+        unit: 'MHz',
+        source: 'NVML',
+      },
+      memoryClockMhz: {
+        value: 11200,
+        availability: 'available',
+        unit: 'MHz',
+        source: 'NVML',
+      },
+      powerWatts: {
+        value: 82.5,
+        availability: 'available',
+        unit: 'W',
+        source: 'NVML',
+      },
+      fanSpeedPercent: {
+        value: 32,
+        availability: 'available',
+        unit: '%',
+        source: 'NVML',
+      },
+    },
+  ],
+  storage: [
+    {
+      driveLetter: 'C:',
+      label: 'Windows NVMe',
+      fileSystem: 'NTFS',
+      totalBytes: 2_000_000_000_000,
+      usedBytes: 850_000_000_000,
+      freeBytes: 1_150_000_000_000,
+      utilizationPercent: 42,
+    },
+  ],
+  system: {
+    osVersion: 'Windows 11 Pro 64-bit',
+    osBuild: '26100.1742',
+    uptimeSeconds: 15420,
+  },
+};
 
 export const CareLiveTab: React.FC = () => {
+  const [showDemoLive, setShowDemoLive] = useState(false);
   const {
-    currentSnapshot,
+    currentSnapshot: liveSnapshot,
     isSmartPaused,
     isSupported,
     isPolling,
@@ -27,6 +152,8 @@ export const CareLiveTab: React.FC = () => {
     resume,
     refreshNow,
   } = useLiveMonitoring({ enabled: true, intervalMs: 2000 });
+
+  const currentSnapshot = showDemoLive ? DEMO_MONITORING_SNAPSHOT : liveSnapshot;
 
   const formatUptime = (seconds: number): string => {
     if (seconds <= 0) return '0m';
@@ -48,16 +175,25 @@ export const CareLiveTab: React.FC = () => {
     return 'temp-good';
   };
 
-  if (!isSupported && currentSnapshot?.status === 'unsupported') {
+  if (!isSupported && !showDemoLive && liveSnapshot?.status === 'unsupported') {
     return (
       <div className="card" style={{ padding: 'var(--space-xl)', textAlign: 'center' }}>
         <ShieldAlert size={36} color="var(--accent-amber)" style={{ margin: '0 auto var(--space-sm)' }} />
         <h3 style={{ margin: '0 0 var(--space-xs)', fontSize: '1.2rem', fontWeight: 600 }}>
           Monitoraggio Live Disponibile in Ambiente Desktop Windows
         </h3>
-        <p style={{ margin: '0 auto', maxWidth: '580px', color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+        <p style={{ margin: '0 auto var(--space-md)', maxWidth: '580px', color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
           La telemetria hardware in tempo reale (Win32 API, contatori di performance del kernel ed NVML GPU) opera nativamente nell'eseguibile desktop Windows di PC Tracker con zero overhead e zero daemon esterni.
         </p>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={() => setShowDemoLive(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)' }}
+        >
+          <Sparkles size={14} />
+          <span>Attiva Anteprima Live (Dati Dimostrativi)</span>
+        </button>
       </div>
     );
   }
@@ -94,6 +230,22 @@ export const CareLiveTab: React.FC = () => {
             <span className="badge badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               <Info size={11} /> Polling sospeso: finestra inattiva
             </span>
+          )}
+
+          {showDemoLive && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="badge badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={11} /> Anteprima Browser
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={() => setShowDemoLive(false)}
+                style={{ fontSize: '0.72rem', padding: '2px 8px' }}
+              >
+                Ripristina
+              </button>
+            </div>
           )}
         </div>
 
