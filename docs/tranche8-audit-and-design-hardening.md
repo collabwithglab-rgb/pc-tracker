@@ -233,7 +233,7 @@ export interface DiagnosticCorrelation {
   - `8D-1`: Event Log → Health Findings deterministici (WHEA, KP41, Disk, NTFS, Display TDR) [COMPLETATO].
   - `8D-2`: Windows Services → Health Findings deterministici e Coverage a 15 canali [COMPLETATO].
   - `8D-2.1`: Semantica Hardware Gap (5 canali fisici) vs Coverage/Telemetry Gap [COMPLETATO].
-  - `8D-3`: Correlation → Health Integration (Enrichment, Assorbimento e Anti-Double-Penalty) [DESIGN CONSOLIDATO].
+  - `8D-3`: Correlation → Health Integration (Enrichment, Assorbimento e Anti-Double-Penalty) [COMPLETATO - Commit a64925a].
   - `8D-4`: Optimization & Recommendation Integration [DA AVVIARE].
 - **Criterio di Completamento:** 15 canali coperti; score health isolato e non penalizzato se non supportato; commit locale Tranche 8D (senza push).
 
