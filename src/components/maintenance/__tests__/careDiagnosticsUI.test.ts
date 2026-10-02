@@ -128,6 +128,10 @@ describe('Tranche 8E — Care Diagnostics UI Presentation & Verification', () =>
   describe('2. Presentazione Modello Servizi SCM a 3 Classi (Sezione 2.7)', () => {
     // Helper di valutazione dello stato del servizio basato sul modello a 3 classi
     const evaluateService = (fact: WindowsServiceNativeFact) => {
+      if (fact.currentState === 'unknown') {
+        return { isProblematic: false, status: 'Non Rilevato', badgeClass: 'badge-subtle' };
+      }
+
       if (fact.operationalModel === 'always_running') {
         if (fact.currentState !== 'running') {
           return { isProblematic: true, status: 'Arrestato (Anomalia)', badgeClass: 'badge-ruby' };
@@ -228,6 +232,22 @@ describe('Tranche 8E — Care Diagnostics UI Presentation & Verification', () =>
       expect(problemCount).toBe(0);
       expect(snapshot.catalogCount).toBe(6);
       expect(snapshot.services).toHaveLength(6);
+    });
+
+    it('non segnala falsi allarmi critici quando lo stato del servizio è unknown', () => {
+      const unknownService: WindowsServiceNativeFact = {
+        serviceName: 'EventLog',
+        displayName: 'Windows Event Log',
+        operationalModel: 'always_running',
+        currentState: 'unknown',
+        startType: 'unknown',
+        win32ExitCode: 0,
+      };
+
+      const result = evaluateService(unknownService);
+      expect(result.isProblematic).toBe(false);
+      expect(result.status).toBe('Non Rilevato');
+      expect(result.badgeClass).toBe('badge-subtle');
     });
   });
 

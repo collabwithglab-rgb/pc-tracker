@@ -27,6 +27,16 @@ function evaluateServiceHealth(fact: WindowsServiceNativeFact): {
   statusLabel: string;
   explanation: string;
 } {
+  // 0. Stato sconosciuto o non campionato
+  if (fact.currentState === 'unknown') {
+    return {
+      isProblematic: false,
+      statusBadgeClass: 'badge-subtle',
+      statusLabel: 'Non Rilevato',
+      explanation: 'Stato del servizio non ancora campionato o non disponibile nella sessione corrente.',
+    };
+  }
+
   // 1. Servizi Always Running (EventLog, Winmgmt)
   if (fact.operationalModel === 'always_running') {
     if (fact.currentState !== 'running') {

@@ -157,7 +157,7 @@ export const EventLogInspectionModal: React.FC<EventLogInspectionModalProps> = (
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  const refDate = referenceDate || eventLogSnapshot?.source ? new Date().toISOString() : new Date().toISOString();
+  const refDate = referenceDate || new Date().toISOString();
 
   // Deduplicazione pura e raggruppamento per chiave deterministica (provider + eventId + target)
   const groupedEvents: DiagnosticEventGroup[] = useMemo(() => {
@@ -267,6 +267,26 @@ export const EventLogInspectionModal: React.FC<EventLogInspectionModalProps> = (
                 {eventLogSnapshot.returnedEventCount} eventi analizzati (query esaustiva)
               </strong>{' '}
               nella finestra temporale degli ultimi 7 giorni (168 ore).
+            </div>
+          </div>
+        ) : !eventLogSnapshot || eventLogSnapshot.availability !== 'available' ? (
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <Info size={18} color="var(--accent-cyan)" style={{ flexShrink: 0 }} />
+            <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Nessun dato di log campionato nella sessione:</strong>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                L'interrogazione del canale System (wevtapi.dll) viene eseguita automaticamente all'apertura del modulo Care Center nell'applicazione Desktop nativa.
+              </div>
             </div>
           </div>
         ) : null}
