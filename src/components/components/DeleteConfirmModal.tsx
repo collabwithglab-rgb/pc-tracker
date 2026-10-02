@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { Component } from '../../types';
 import { usePCStore } from '../../store';
+import { useI18n } from '../../locales';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 
 interface DeleteConfirmModalProps {
@@ -18,6 +19,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onDeleted,
 }) => {
   const { deleteComponent, getComponentEvents } = usePCStore();
+  const { t } = useI18n();
   const [isDeleting, setIsDeleting] = useState(false);
 
   if (!component) return null;
@@ -31,7 +33,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
       onClose();
       onDeleted?.();
     } catch (err) {
-      alert(`Errore durante l'eliminazione: ${(err as Error).message}`);
+      alert(`Errore: ${(err as Error).message}`);
     } finally {
       setIsDeleting(false);
     }
@@ -41,7 +43,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Elimina Componente"
+      title={t('modal_delete_comp_title')}
       maxWidth="460px"
     >
       <div style={styles.container}>
@@ -50,19 +52,23 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         </div>
 
         <p style={styles.warningText}>
-          Sei sicuro di voler eliminare <strong>{component.name}</strong> ({component.brand} {component.model})?
+          {t('modal_delete_comp_prompt', {
+            name: component.name,
+            brand: component.brand,
+            model: component.model,
+          })}
         </p>
 
         {eventsCount > 0 && (
           <div className="form-error-banner" style={{ textAlign: 'left' }}>
             <span style={{ fontSize: '13px' }}>
-              <strong>Cancellazione a cascata:</strong> Verranno eliminati anche tutti i <strong>{eventsCount} eventi</strong> collegati a questo pezzo (acquisti, montaggi, vendite).
+              <strong>{t('modal_delete_comp_cascade')}</strong> {t('modal_delete_comp_cascade_desc', { count: eventsCount })}
             </span>
           </div>
         )}
 
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
-          Questa azione è permanente e rimuoverà il componente da IndexedDB.
+          {t('modal_delete_comp_warning')}
         </p>
 
         <div className="form-actions" style={{ justifyContent: 'center', marginTop: '8px' }}>
@@ -72,7 +78,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             className="btn btn-secondary"
             disabled={isDeleting}
           >
-            Annulla
+            {t('modal_delete_comp_btn_cancel')}
           </button>
           <button
             type="button"
@@ -81,7 +87,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             disabled={isDeleting}
           >
             <Trash2 size={15} />
-            <span>{isDeleting ? 'Eliminazione...' : 'Elimina Definitivamente'}</span>
+            <span>{isDeleting ? t('modal_delete_comp_btn_deleting') : t('modal_delete_comp_btn_confirm')}</span>
           </button>
         </div>
       </div>

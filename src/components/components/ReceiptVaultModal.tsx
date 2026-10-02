@@ -3,6 +3,7 @@ import { Modal } from '../common/Modal';
 import { ComponentReceipt } from '../../types';
 import { formatDate } from '../../utils';
 import { usePCStore } from '../../store';
+import { useI18n } from '../../locales';
 import { Download, Trash2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 interface ReceiptVaultModalProps {
@@ -21,6 +22,7 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
   onDelete,
 }) => {
   const { settings } = usePCStore();
+  const { t } = useI18n();
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -46,13 +48,13 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
 
   const handleDelete = async () => {
     if (!onDelete) return;
-    if (window.confirm(`Sei sicuro di voler eliminare definitivamente il documento "${receipt.fileName}"?`)) {
+    if (window.confirm(t('modal_vault_delete_confirm', { fileName: receipt.fileName }))) {
       try {
         setIsDeleting(true);
         await onDelete(receipt.id);
         onClose();
       } catch (err) {
-        alert((err as Error).message || 'Errore durante l\'eliminazione del documento.');
+        alert((err as Error).message || t('modal_vault_delete_error'));
       } finally {
         setIsDeleting(false);
       }
@@ -68,7 +70,7 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={receipt.fileName}
-      subtitle={`${sizeMb} MB • Caricato il ${formattedDate} • ${componentName}`}
+      subtitle={t('modal_vault_subtitle', { size: sizeMb, date: formattedDate, component: componentName })}
       maxWidth="880px"
     >
       <div className="receipt-viewer-body">
@@ -91,10 +93,10 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
               onClick={handleDownload}
               className="btn btn-secondary micro-press"
               style={{ fontSize: '13px', padding: '6px 12px' }}
-              title="Scarica il file originale sul tuo computer"
+              title={t('modal_vault_download_title')}
             >
               <Download size={14} />
-              <span>Scarica File</span>
+              <span>{t('modal_vault_download')}</span>
             </button>
 
             {!isPdf && (
@@ -105,8 +107,8 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
                   disabled={zoomLevel <= 0.5}
                   className="btn btn-ghost micro-press"
                   style={{ padding: '6px 8px' }}
-                  title="Riduci zoom"
-                  aria-label="Riduci zoom"
+                  title={t('modal_vault_zoom_out')}
+                  aria-label={t('modal_vault_zoom_out')}
                 >
                   <ZoomOut size={14} />
                 </button>
@@ -119,8 +121,8 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
                   disabled={zoomLevel >= 3}
                   className="btn btn-ghost micro-press"
                   style={{ padding: '6px 8px' }}
-                  title="Aumenta zoom"
-                  aria-label="Aumenta zoom"
+                  title={t('modal_vault_zoom_in')}
+                  aria-label={t('modal_vault_zoom_in')}
                 >
                   <ZoomIn size={14} />
                 </button>
@@ -130,7 +132,7 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
                     onClick={handleResetZoom}
                     className="btn btn-ghost micro-press"
                     style={{ padding: '6px 8px', fontSize: '11px' }}
-                    title="Reimposta zoom a 100%"
+                    title={t('modal_vault_zoom_reset')}
                   >
                     <RotateCcw size={12} />
                   </button>
@@ -146,10 +148,10 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
               disabled={isDeleting}
               className="btn btn-ghost micro-press"
               style={{ color: 'var(--accent-ruby)', fontSize: '13px', padding: '6px 10px' }}
-              title="Elimina questo documento dalla cassaforte"
+              title={t('modal_vault_delete_title')}
             >
               <Trash2 size={14} />
-              <span>{isDeleting ? 'Eliminazione...' : 'Elimina Ricevuta'}</span>
+              <span>{isDeleting ? t('modal_delete_comp_btn_deleting') : t('modal_vault_delete')}</span>
             </button>
           )}
         </div>
@@ -164,7 +166,7 @@ export const ReceiptVaultModal: React.FC<ReceiptVaultModalProps> = ({
               sandbox="allow-scripts allow-same-origin allow-downloads"
             />
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', textAlign: 'center' }}>
-              Se il visualizzatore PDF del browser è disattivato, puoi scaricare il file tramite il pulsante "Scarica File".
+              {t('modal_vault_pdf_browser_unsupported')}
             </p>
           </div>
         ) : (

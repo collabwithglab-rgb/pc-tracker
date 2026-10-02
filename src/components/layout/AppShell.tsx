@@ -332,53 +332,53 @@ export const AppShell: React.FC = () => {
     switch (section) {
       case 'dashboard':
         return {
-          title: settings.rigName ? `${t('nav_dashboard')} • ${settings.rigName}` : `${t('nav_dashboard')} Generale`,
-          subtitle: settings.rigDescription || 'Metriche finanziarie, stato dell’hardware e ultimi movimenti',
+          title: settings.rigName ? `${t('nav_dashboard')} • ${settings.rigName}` : `${t('nav_dashboard')}`,
+          subtitle: settings.rigDescription || t('nav_sub_dashboard'),
         };
       case 'current-rig':
         return {
           title: settings.rigName || t('nav_current_rig'),
-          subtitle: settings.rigDescription || 'Configurazione hardware attualmente assemblata e in uso',
+          subtitle: settings.rigDescription || t('nav_sub_current_rig'),
         };
       case 'time-travel':
         return {
           title: t('nav_time_travel'),
-          subtitle: 'Navigazione temporale, configurazioni storiche e checkpoint',
+          subtitle: t('nav_sub_time_travel'),
         };
       case 'archive':
         return {
           title: t('nav_archive'),
-          subtitle: 'Tutti i pezzi mai posseduti, suddivisi per stato e categoria',
+          subtitle: t('nav_sub_archive'),
         };
       case 'upgrades':
         return {
           title: t('nav_upgrades'),
-          subtitle: 'Cronologia dei cambi generazionali e bilanci di sostituzione',
+          subtitle: t('nav_sub_upgrades'),
         };
       case 'marketplace':
         return {
           title: t('nav_marketplace'),
-          subtitle: 'Gestione hardware a magazzino, annunci di vendita e recupero capitale',
+          subtitle: t('nav_sub_marketplace'),
         };
       case 'stats':
         return {
           title: t('nav_stats'),
-          subtitle: 'Andamento della spesa nel tempo e grafici di ripartizione',
+          subtitle: t('nav_sub_stats'),
         };
       case 'maintenance':
         return {
           title: t('nav_maintenance'),
-          subtitle: 'Registro interventi fisici, diagnostica e strumenti Windows, tuning journal',
+          subtitle: t('nav_sub_maintenance'),
         };
       case 'wiki':
         return {
           title: t('nav_wiki'),
-          subtitle: 'Manuale d\'uso interattivo, tutorial passo-passo, spiegazione formule e trucchi pro',
+          subtitle: t('nav_sub_wiki'),
         };
       case 'settings':
         return {
           title: t('nav_settings'),
-          subtitle: 'Personalizzazione del setup, preferenze interfaccia e gestione dati',
+          subtitle: t('nav_sub_settings'),
         };
     }
   };

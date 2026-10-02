@@ -401,7 +401,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     });
 
     setIsIdentitySaved(true);
-    showNotification('success', 'Identità del PC aggiornata con successo!');
+    showNotification('success', t('settings_notify_identity_saved'));
     setTimeout(() => setIsIdentitySaved(false), 2500);
   };
 
@@ -415,9 +415,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (saveRes.canceled) return;
       const updatedLastExport = await getLastExportedAt();
       setLastExportedAtState(updatedLastExport);
-      setStatusMessage({ type: 'success', text: 'Backup JSON esportato con successo!' });
+      setStatusMessage({ type: 'success', text: t('settings_notify_backup_exported') });
     } catch (err) {
-      setStatusMessage({ type: 'error', text: `Errore durante l'esportazione: ${(err as Error).message}` });
+      setStatusMessage({ type: 'error', text: t('settings_notify_backup_export_error', { error: (err as Error).message }) });
     }
   };
 
@@ -429,7 +429,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (!result.isValid) {
         setStatusMessage({
           type: 'error',
-          text: `File di backup non valido (${fileName}): ${result.error}`,
+          text: t('settings_notify_backup_invalid', { fileName, error: result.error || '' }),
         });
         return;
       }
@@ -440,7 +440,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     } catch (err) {
       setStatusMessage({
         type: 'error',
-        text: `Errore durante la lettura del file: ${(err as Error).message}`,
+        text: t('settings_notify_backup_read_error', { error: (err as Error).message }),
       });
     }
   };
@@ -494,13 +494,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       setLastExportedAtState(updatedLastExport);
       setStatusMessage({
         type: 'success',
-        text: `Backup ripristinato con successo: ${countC} componenti, ${countE} eventi, ${countU} upgrade.`,
+        text: t('settings_notify_backup_restored', {
+          components: countC,
+          events: countE,
+          upgrades: countU,
+        }),
       });
     } catch (err) {
       setIsImportPreviewOpen(false);
       setStatusMessage({
         type: 'error',
-        text: `Errore durante l'importazione: ${(err as Error).message}. Il database locale non è stato alterato.`,
+        text: t('settings_notify_backup_restore_error', { error: (err as Error).message }),
       });
     }
   };
@@ -514,12 +518,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       await saveBackupFileWithDialog(filename, csv);
       setStatusMessage({
         type: 'success',
-        text: `CSV Componenti esportato (${components.length} componenti)!`,
+        text: t('settings_notify_csv_components_exported', { count: components.length }),
       });
     } catch (err) {
       setStatusMessage({
         type: 'error',
-        text: `Errore durante l'esportazione CSV componenti: ${(err as Error).message}`,
+        text: t('settings_notify_csv_components_error', { error: (err as Error).message }),
       });
     }
   };
@@ -533,12 +537,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       await saveBackupFileWithDialog(filename, csv);
       setStatusMessage({
         type: 'success',
-        text: `CSV Eventi Storici esportato (${events.length} eventi)!`,
+        text: t('settings_notify_csv_events_exported', { count: events.length }),
       });
     } catch (err) {
       setStatusMessage({
         type: 'error',
-        text: `Errore durante l'esportazione CSV eventi: ${(err as Error).message}`,
+        text: t('settings_notify_csv_events_error', { error: (err as Error).message }),
       });
     }
   };
@@ -614,7 +618,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       )}
 
       {/* Navigazione Tab Bar Orizzontale */}
-      <nav className="settings-tablist" role="tablist" aria-label="Sezioni Impostazioni">
+      <nav className="settings-tablist" role="tablist" aria-label={t('settings_tab_preferences')}>
         <button
           type="button"
           role="tab"
@@ -625,7 +629,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           className={`settings-tab-btn ${activeTab === 'preferences' ? 'is-active' : ''}`}
         >
           <Sliders size={15} />
-          <span>Preferenze</span>
+          <span>{t('settings_tab_preferences')}</span>
         </button>
 
         <button
@@ -638,7 +642,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           className={`settings-tab-btn ${activeTab === 'appearance' ? 'is-active' : ''}`}
         >
           <Palette size={15} />
-          <span>Aspetto</span>
+          <span>{t('settings_tab_appearance')}</span>
         </button>
 
         <button
@@ -651,7 +655,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           className={`settings-tab-btn ${activeTab === 'backup' ? 'is-active' : ''}`}
         >
           <Download size={15} />
-          <span>Backup & Export</span>
+          <span>{t('settings_tab_backup')}</span>
         </button>
 
         <button
@@ -664,7 +668,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           className={`settings-tab-btn ${activeTab === 'data' ? 'is-active' : ''}`}
         >
           <Database size={15} />
-          <span>Dati & Database</span>
+          <span>{t('settings_tab_data')}</span>
         </button>
       </nav>
 
@@ -678,10 +682,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Cpu size={18} color="var(--accent-primary)" />
-                <span>Identità del PC</span>
+                <span>{t('settings_identity_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Definisce il nome e l'utilizzo del tuo setup, visibili nell'header, nella sidebar e nei riepiloghi.
+                {t('settings_identity_desc')}
               </p>
             </div>
 
@@ -705,17 +709,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', display: 'block' }}>
-                    {formRigName.trim() || 'Il Mio PC'}
+                    {formRigName.trim() || t('settings_identity_default_name')}
                   </span>
                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {formRigDescription.trim() || 'Nessuna descrizione impostata'}
+                    {formRigDescription.trim() || t('settings_identity_no_desc')}
                   </span>
                 </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 <span className="badge badge-in-use" style={{ fontSize: '11px' }}>
-                  {installed.length} componenti in uso
+                  {t('settings_identity_in_use_count', { count: installed.length })}
                 </span>
                 {validYear && (
                   <span
@@ -729,7 +733,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       fontFamily: 'var(--font-mono)',
                     }}
                   >
-                    Build {parsedYear} {rigAgeYears !== null && `(${rigAgeYears === 0 ? '<1 anno' : `${rigAgeYears}a`})`}
+                    {t('settings_identity_build_year_badge', {
+                      year: parsedYear,
+                      age: rigAgeYears !== null ? (rigAgeYears === 0 ? t('settings_identity_age_under_year') : t('settings_identity_age_years', { years: rigAgeYears })) : ''
+                    })}
                   </span>
                 )}
               </div>
@@ -740,25 +747,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
                 <div>
                   <label className="form-label" htmlFor="rigName">
-                    Nome del PC o Setup
+                    {t('settings_identity_name_label')}
                   </label>
                   <input
                     id="rigName"
                     type="text"
                     maxLength={60}
                     className="form-input"
-                    placeholder="es. Monolith Rig, Workstation Ryzen 9..."
+                    placeholder={t('settings_identity_name_placeholder')}
                     value={formRigName}
                     onChange={(e) => setFormRigName(e.target.value)}
                   />
                   <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                    Lascia vuoto per il predefinito "Il Mio PC".
+                    {t('settings_identity_name_hint')}
                   </span>
                 </div>
 
                 <div>
                   <label className="form-label" htmlFor="buildYear">
-                    Anno di Inizio Build
+                    {t('settings_identity_year_label')}
                   </label>
                   <input
                     id="buildYear"
@@ -766,26 +773,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     min={1990}
                     max={currentYear + 1}
                     className="form-input"
-                    placeholder={`es. ${currentYear - 1}`}
+                    placeholder={currentLocale === 'en' ? `e.g. ${currentYear - 1}` : `es. ${currentYear - 1}`}
                     value={formBuildYear}
                     onChange={(e) => setFormBuildYear(e.target.value)}
                   />
                   <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                    Anno di assemblaggio della configurazione iniziale.
+                    {t('settings_identity_year_hint')}
                   </span>
                 </div>
               </div>
 
               <div>
                 <label className="form-label" htmlFor="rigDescription">
-                  Descrizione o Utilizzo Principale
+                  {t('settings_identity_desc_label')}
                 </label>
                 <input
                   id="rigDescription"
                   type="text"
                   maxLength={100}
                   className="form-input"
-                  placeholder="es. Postazione Gaming 4K & Produzione..."
+                  placeholder={t('settings_identity_desc_placeholder')}
                   value={formRigDescription}
                   onChange={(e) => setFormRigDescription(e.target.value)}
                 />
@@ -794,7 +801,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
                 <button type="submit" className="btn btn-primary" style={{ padding: '8px 18px' }}>
                   <CheckCircle2 size={15} />
-                  <span>Salva Identità PC</span>
+                  <span>{t('settings_identity_save_btn')}</span>
                 </button>
 
                 {onOpenQuickSetup && (
@@ -803,10 +810,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     onClick={onOpenQuickSetup}
                     className="btn btn-secondary"
                     style={{ padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    title="Avvia o riesegui il Quick Setup per rilevare l'hardware Windows"
+                    title={t('settings_identity_detect_tooltip')}
                   >
                     <Sparkles size={14} color="var(--accent-primary)" />
-                    <span>Rileva Hardware (Quick Setup)</span>
+                    <span>{t('settings_identity_detect_btn')}</span>
                   </button>
                 )}
 
@@ -822,7 +829,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     }}
                   >
                     <CheckCircle2 size={13} />
-                    <span>Modifiche salvate in IndexedDB!</span>
+                    <span>{t('settings_identity_saved_msg')}</span>
                   </span>
                 )}
               </div>
@@ -926,23 +933,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Sliders size={18} color="var(--accent-primary)" />
-                <span>Comportamento Interfaccia</span>
+                <span>{t('settings_ui_behavior_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Regola la schermata di apertura, gli standard temporali, la densità grafica e la riduzione del movimento.
+                {t('settings_ui_behavior_desc')}
               </p>
             </div>
 
             {/* Schermata iniziale */}
             <div>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Schermata Iniziale Predefinita
+                {t('settings_default_screen_label')}
               </label>
-              <div className="settings-option-grid" role="radiogroup" aria-label="Schermata Iniziale Predefinita">
+              <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_default_screen_label')}>
                 {[
-                  { id: 'dashboard' as const, title: 'Dashboard', desc: 'Panoramica finanziaria con 4 KPI e ultimi movimenti' },
-                  { id: 'current-rig' as const, title: 'Il Mio PC Attuale', desc: 'Configurazione hardware assemblata per categorie' },
-                  { id: 'archive' as const, title: 'Archivio Pezzi', desc: 'Libreria completa di tutti i componenti posseduti' },
+                  { id: 'dashboard' as const, title: t('settings_screen_dashboard_title'), desc: t('settings_screen_dashboard_desc') },
+                  { id: 'current-rig' as const, title: t('settings_screen_rig_title'), desc: t('settings_screen_rig_desc') },
+                  { id: 'archive' as const, title: t('settings_screen_archive_title'), desc: t('settings_screen_archive_desc') },
                 ].map((opt) => {
                   const isActive = (settings.defaultStartSection || 'dashboard') === opt.id;
                   return (
@@ -956,7 +963,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     >
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
-                        {isActive && <span className="settings-option-badge">Attiva</span>}
+                        {isActive && <span className="settings-option-badge">{t('settings_badge_active')}</span>}
                       </div>
                       <p className="settings-option-desc">{opt.desc}</p>
                     </button>
@@ -968,12 +975,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Formato data */}
             <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Formato Date di Calendario
+                {t('settings_date_format_label')}
               </label>
-              <div className="settings-option-grid" role="radiogroup" aria-label="Formato Date di Calendario">
+              <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_date_format_label')}>
                 {[
-                  { id: 'DD/MM/YYYY' as const, title: 'Italiano Standard (DD/MM/YYYY)', desc: `Esempio: ${formatDate(new Date().toISOString(), 'DD/MM/YYYY')}` },
-                  { id: 'YYYY-MM-DD' as const, title: 'ISO Internazionale (YYYY-MM-DD)', desc: `Esempio: ${formatDate(new Date().toISOString(), 'YYYY-MM-DD')}` },
+                  { id: 'DD/MM/YYYY' as const, title: t('settings_date_format_it_title'), desc: t('settings_date_format_example', { example: formatDate(new Date().toISOString(), 'DD/MM/YYYY') }) },
+                  { id: 'YYYY-MM-DD' as const, title: t('settings_date_format_iso_title'), desc: t('settings_date_format_example', { example: formatDate(new Date().toISOString(), 'YYYY-MM-DD') }) },
                 ].map((opt) => {
                   const isActive = (settings.dateFormat || 'DD/MM/YYYY') === opt.id;
                   return (
@@ -987,7 +994,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     >
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
-                        {isActive && <span className="settings-option-badge">Attivo</span>}
+                        {isActive && <span className="settings-option-badge">{t('settings_badge_active_m')}</span>}
                       </div>
                       <p className="settings-option-desc" style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)' }}>
                         {opt.desc}
@@ -1001,12 +1008,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Densità grafica */}
             <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Densità Grafica
+                {t('settings_density_label')}
               </label>
-              <div className="settings-option-grid" role="radiogroup" aria-label="Densità Grafica">
+              <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_density_label')}>
                 {[
-                  { id: 'comfortable' as const, title: 'Confortevole (Default)', desc: 'Spaziature ariose e margini ottimali per monitor desktop standard' },
-                  { id: 'compact' as const, title: 'Compatta', desc: 'Padding e altezze ridotti per visualizzare più righe contemporaneamente' },
+                  { id: 'comfortable' as const, title: t('settings_density_comfortable_title'), desc: t('settings_density_comfortable_desc') },
+                  { id: 'compact' as const, title: t('settings_density_compact_title'), desc: t('settings_density_compact_desc') },
                 ].map((opt) => {
                   const isActive = (settings.uiDensity || 'comfortable') === opt.id;
                   return (
@@ -1020,7 +1027,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     >
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
-                        {isActive && <span className="settings-option-badge">Attiva</span>}
+                        {isActive && <span className="settings-option-badge">{t('settings_badge_active')}</span>}
                       </div>
                       <p className="settings-option-desc">{opt.desc}</p>
                     </button>
@@ -1032,13 +1039,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Animazioni & Movimento */}
             <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Animazioni & Riduzione Movimento
+                {t('settings_motion_label')}
               </label>
-              <div className="settings-option-grid" role="radiogroup" aria-label="Animazioni e Movimento">
+              <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_motion_label')}>
                 {[
-                  { id: 'system' as const, title: 'Segui Sistema (Default)', desc: 'Rispetta le preferenze di accessibilità del sistema operativo' },
-                  { id: 'always' as const, title: 'Riduci Sempre', desc: 'Disattiva le transizioni per una risposta immediata e senza animazioni' },
-                  { id: 'never' as const, title: 'Sempre Attive', desc: 'Abilita sempre le animazioni fluide della Motion Constitution' },
+                  { id: 'system' as const, title: t('settings_motion_system_title'), desc: t('settings_motion_system_desc') },
+                  { id: 'always' as const, title: t('settings_motion_always_title'), desc: t('settings_motion_always_desc') },
+                  { id: 'never' as const, title: t('settings_motion_never_title'), desc: t('settings_motion_never_desc') },
                 ].map((opt) => {
                   const isActive = (settings.reducedMotion || 'system') === opt.id;
                   return (
@@ -1052,7 +1059,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     >
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
-                        {isActive && <span className="settings-option-badge">Attiva</span>}
+                        {isActive && <span className="settings-option-badge">{t('settings_badge_active')}</span>}
                       </div>
                       <p className="settings-option-desc">{opt.desc}</p>
                     </button>
@@ -1067,22 +1074,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Layers size={18} color="var(--accent-primary)" />
-                <span>Preferenze Viste (Dashboard & Archivio)</span>
+                <span>{t('settings_views_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Configura i widget e le modalità di ordinamento e visualizzazione delle viste principali.
+                {t('settings_views_desc')}
               </p>
             </div>
 
             {/* Widget Sintesi Rig */}
             <div>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Widget "Rig Attuale in Sintesi" (Dashboard)
+                {t('settings_widget_rig_label')}
               </label>
-              <div className="settings-option-grid" role="radiogroup" aria-label="Widget Rig Attuale in Sintesi">
+              <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_widget_rig_label')}>
                 {[
-                  { val: true, title: 'Mostra Widget', desc: 'Visualizza la sintesi dei componenti montati nel case con giorni d\'uso e spesa' },
-                  { val: false, title: 'Nascondi Widget', desc: 'Rimuove il widget per una Dashboard più compatta e focalizzata sui movimenti' },
+                  { val: true, title: t('settings_widget_rig_show_title'), desc: t('settings_widget_rig_show_desc') },
+                  { val: false, title: t('settings_widget_rig_hide_title'), desc: t('settings_widget_rig_hide_desc') },
                 ].map((opt) => {
                   const isActive = (settings.showRigSynthesis !== false) === opt.val;
                   return (
@@ -1096,7 +1103,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     >
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
-                        {isActive && <span className="settings-option-badge">Attivo</span>}
+                        {isActive && <span className="settings-option-badge">{t('settings_badge_active_m')}</span>}
                       </div>
                       <p className="settings-option-desc">{opt.desc}</p>
                     </button>
@@ -1108,9 +1115,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Movimenti Recenti Dashboard */}
             <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Numero Movimenti Recenti nel Feed (Dashboard)
+                {t('settings_recent_count_label')}
               </label>
-              <div className="settings-option-grid-compact" role="radiogroup" aria-label="Numero Movimenti Recenti">
+              <div className="settings-option-grid-compact" role="radiogroup" aria-label={t('settings_recent_count_label')}>
                 {[5, 7, 10, 15].map((count) => {
                   const isActive = (settings.dashboardRecentCount || 7) === count;
                   return (
@@ -1127,9 +1134,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         {count}
                       </span>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                        {count === 7 ? 'Default' : `${count} eventi`}
+                        {count === 7 ? t('settings_badge_default') : t('settings_recent_count_events', { count })}
                       </span>
-                      {isActive && <span className="settings-option-badge" style={{ marginTop: '2px' }}>Attivo</span>}
+                      {isActive && <span className="settings-option-badge" style={{ marginTop: '2px' }}>{t('settings_badge_active_m')}</span>}
                     </button>
                   );
                 })}
@@ -1139,12 +1146,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Vista Predefinita Archivio */}
             <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Vista Predefinita Archivio Hardware
+                {t('settings_archive_view_label')}
               </label>
-              <div className="settings-option-grid" role="radiogroup" aria-label="Vista Predefinita Archivio">
+              <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_archive_view_label')}>
                 {[
-                  { id: 'cards' as const, title: 'Griglia Schede (Cards)', desc: 'Visualizzazione spaziosa con badge di stato e azioni rapide' },
-                  { id: 'table' as const, title: 'Tabella Compatta (Table)', desc: 'Scansione tabellare ad alta densità per confrontare molti componenti' },
+                  { id: 'cards' as const, title: t('settings_archive_view_cards_title'), desc: t('settings_archive_view_cards_desc') },
+                  { id: 'table' as const, title: t('settings_archive_view_table_title'), desc: t('settings_archive_view_table_desc') },
                 ].map((opt) => {
                   const isActive = (settings.archiveDefaultView || 'cards') === opt.id;
                   return (
@@ -1158,7 +1165,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     >
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
-                        {isActive && <span className="settings-option-badge">Attiva</span>}
+                        {isActive && <span className="settings-option-badge">{t('settings_badge_active')}</span>}
                       </div>
                       <p className="settings-option-desc">{opt.desc}</p>
                     </button>
@@ -1170,13 +1177,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Ordinamento Predefinito Archivio */}
             <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
               <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Ordinamento Predefinito Archivio
+                {t('settings_archive_sort_label')}
               </label>
-              <div className="settings-option-grid" role="radiogroup" aria-label="Ordinamento Predefinito Archivio">
+              <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_archive_sort_label')}>
                 {[
-                  { id: 'purchase_date_desc' as const, title: 'Acquisto più Recente', desc: 'I pezzi acquistati più recentemente compaiono per primi' },
-                  { id: 'name_asc' as const, title: 'Nome Alfabetico (A-Z)', desc: 'Ordinamento per nome del pezzo con tie-breaker deterministico' },
-                  { id: 'cost_desc' as const, title: 'Costo Storico Decrescente', desc: 'I pezzi con la spesa totale d\'acquisto più alta in cima' },
+                  { id: 'purchase_date_desc' as const, title: t('settings_archive_sort_recent_title'), desc: t('settings_archive_sort_recent_desc') },
+                  { id: 'name_asc' as const, title: t('settings_archive_sort_name_title'), desc: t('settings_archive_sort_name_desc') },
+                  { id: 'cost_desc' as const, title: t('settings_archive_sort_cost_title'), desc: t('settings_archive_sort_cost_desc') },
                 ].map((opt) => {
                   const isActive = (settings.archiveDefaultSort || 'purchase_date_desc') === opt.id;
                   return (
@@ -1190,7 +1197,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     >
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
-                        {isActive && <span className="settings-option-badge">Attivo</span>}
+                        {isActive && <span className="settings-option-badge">{t('settings_badge_active_m')}</span>}
                       </div>
                       <p className="settings-option-desc">{opt.desc}</p>
                     </button>
@@ -1205,10 +1212,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Wrench size={18} color="var(--accent-primary)" />
-                <span>Cura del PC</span>
+                <span>{t('settings_care_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Controlla la generazione automatica dei promemoria locali e le notifiche per la manutenzione hardware e di sistema.
+                {t('settings_care_desc')}
               </p>
             </div>
 
@@ -1224,7 +1231,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     display: 'block',
                   }}
                 >
-                  Promemoria manutenzione
+                  {t('settings_care_reminders_label')}
                 </span>
                 <span
                   id="scheduler-toggle-desc"
@@ -1235,7 +1242,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     marginTop: '2px',
                   }}
                 >
-                  Controlla i promemoria generati dal PC Care Center.
+                  {t('settings_care_reminders_desc')}
                 </span>
               </div>
               <button
@@ -1271,7 +1278,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               >
                 <Info size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                 <span>
-                  Promemoria disattivati. Il motore non genererà promemoria fino alla riattivazione.
+                  {t('settings_care_reminders_off_notice')}
                 </span>
               </div>
             )}
@@ -1288,10 +1295,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   className="form-label"
                   style={{ marginBottom: '2px', display: 'block' }}
                 >
-                  Notifiche
+                  {t('settings_care_notif_mode_label')}
                 </label>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'block' }}>
-                  Seleziona quali categorie di promemoria generano avvisi e notifiche attive.
+                  {t('settings_care_notif_mode_sub')}
                 </span>
               </div>
 
@@ -1303,24 +1310,24 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 {[
                   {
                     id: 'important_only' as const,
-                    title: 'Solo importanti',
-                    badge: 'Consigliato',
-                    desc: 'Verifiche post-azione in sospeso, anomalie persistenti e manutenzioni prioritarie (TRIM, filtri)',
+                    title: t('settings_care_notif_important_title'),
+                    badge: t('settings_recommended_badge'),
+                    desc: t('settings_care_notif_important_desc'),
                   },
                   {
                     id: 'all' as const,
-                    title: 'Tutti',
-                    desc: 'Tutti i promemoria di manutenzione e cura pianificati dal sistema',
+                    title: t('settings_care_notif_all_title'),
+                    desc: t('settings_care_notif_all_desc'),
                   },
                   {
                     id: 'verification_only' as const,
-                    title: 'Solo verifiche',
-                    desc: 'Mostra esclusivamente le verifiche di efficacia post-azione in sospeso (> 48h)',
+                    title: t('settings_care_notif_verification_title'),
+                    desc: t('settings_care_notif_verification_desc'),
                   },
                   {
                     id: 'none' as const,
-                    title: 'Silenzioso',
-                    desc: 'Nessun avviso proattivo (i promemoria restano comunque visibili nella panoramica)',
+                    title: t('settings_care_notif_silent_title'),
+                    desc: t('settings_care_notif_silent_desc'),
                   },
                 ].map((opt) => {
                   const isActive = schedulerSettings.notificationMode === opt.id;
@@ -1337,7 +1344,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       <div className="settings-option-top">
                         <span className="settings-option-title">{opt.title}</span>
                         {isActive ? (
-                          <span className="settings-option-badge">Attiva</span>
+                          <span className="settings-option-badge">{t('settings_badge_active')}</span>
                         ) : opt.badge ? (
                           <span
                             style={{
@@ -1373,13 +1380,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   className="form-label"
                   style={{ marginBottom: '2px', display: 'block' }}
                 >
-                  Anticipo
+                  {t('settings_care_lead_time_label')}
                 </label>
                 <span
                   id="scheduler-lead-time-desc"
                   style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'block' }}
                 >
-                  Con quanto anticipo vuoi vedere un promemoria prima della scadenza.
+                  {t('settings_care_lead_time_sub')}
                 </span>
               </div>
 
@@ -1392,10 +1399,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   value={schedulerSettings.leadTimeDays}
                   onChange={(e) => handleUpdateLeadTime(Number(e.target.value) as SchedulerLeadTimeDays)}
                 >
-                  <option value={0}>0 giorni (Al giorno di scadenza)</option>
-                  <option value={1}>1 giorno prima</option>
-                  <option value={3}>3 giorni prima (Default)</option>
-                  <option value={7}>7 giorni prima</option>
+                  <option value={0}>{t('settings_care_lead_time_0')}</option>
+                  <option value={1}>{t('settings_care_lead_time_1')}</option>
+                  <option value={3}>{t('settings_care_lead_time_3')}</option>
+                  <option value={7}>{t('settings_care_lead_time_7')}</option>
                 </select>
               </div>
             </div>
@@ -1417,10 +1424,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 onClick={handleResetSchedulerDefaults}
                 className="btn btn-secondary"
                 style={{ fontSize: '12.5px', padding: '6px 14px', gap: '6px' }}
-                title="Ripristina valori predefiniti per promemoria manutenzione"
+                title={t('settings_care_reset_defaults_title')}
               >
                 <RotateCcw size={13} />
-                <span>Ripristina impostazioni predefinite</span>
+                <span>{t('settings_care_reset_defaults')}</span>
               </button>
 
               {schedulerFeedback && (
@@ -1444,14 +1451,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Palette size={18} color="var(--accent-primary)" />
-                <span>Palette Accent</span>
+                <span>{t('settings_appearance_accent_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Determina il colore degli elementi interattivi, degli indicatori di stato primari e dei bordi di selezione. Risponde istantaneamente.
+                {t('settings_appearance_accent_desc')}
               </p>
             </div>
 
-            <div className="settings-option-grid" role="radiogroup" aria-label="Palette Accent">
+            <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_appearance_accent_title')}>
               {ACCENT_PALETTES.map((preset) => {
                 const isActive = (settings.accentColor || 'cyan') === preset.id;
                 return (
@@ -1471,12 +1478,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         />
                         <span className="settings-option-title">{preset.name}</span>
                       </div>
-                      {isActive && <span className="settings-option-badge">Attiva</span>}
+                      {isActive && <span className="settings-option-badge">{t('settings_badge_active')}</span>}
                       {!isActive && preset.isDefault && (
-                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Default</span>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{t('settings_badge_default')}</span>
                       )}
                     </div>
-                    <p className="settings-option-desc">{preset.tagline}</p>
+                    <p className="settings-option-desc">{t(`settings_accent_${preset.id}_tagline` as any) || preset.tagline}</p>
                   </button>
                 );
               })}
@@ -1488,14 +1495,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Moon size={18} color="var(--accent-primary)" />
-                <span>Ambiente Cromatico (Sfondo & Superfici)</span>
+                <span>{t('settings_appearance_theme_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Regola la tonalità scura dello sfondo principale e delle superfici delle card. Rimane sempre fedele al design Dark Hardware.
+                {t('settings_appearance_theme_desc')}
               </p>
             </div>
 
-            <div className="settings-option-grid" role="radiogroup" aria-label="Ambiente Cromatico">
+            <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_appearance_theme_title')}>
               {ENVIRONMENT_PRESETS.map((preset) => {
                 const isActive = (settings.environmentTheme || 'obsidian') === preset.id;
                 return (
@@ -1515,12 +1522,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         </div>
                         <span className="settings-option-title">{preset.name}</span>
                       </div>
-                      {isActive && <span className="settings-option-badge">Attivo</span>}
+                      {isActive && <span className="settings-option-badge">{t('settings_badge_active_m')}</span>}
                       {!isActive && preset.isDefault && (
-                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Default</span>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{t('settings_badge_default')}</span>
                       )}
                     </div>
-                    <p className="settings-option-desc">{preset.tagline}</p>
+                    <p className="settings-option-desc">{t(`settings_env_${preset.id}_tagline` as any) || preset.tagline}</p>
                   </button>
                 );
               })}
@@ -1532,14 +1539,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Type size={18} color="var(--accent-primary)" />
-                <span>Preset Tipografico</span>
+                <span>{t('settings_appearance_typography_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Combinazione di caratteri per titoli, testo e specifiche hardware. Funziona al 100% offline senza download runtime.
+                {t('settings_appearance_typography_desc')}
               </p>
             </div>
 
-            <div className="settings-option-grid" role="radiogroup" aria-label="Preset Tipografico">
+            <div className="settings-option-grid" role="radiogroup" aria-label={t('settings_appearance_typography_title')}>
               {TYPOGRAPHY_PRESETS.map((preset) => {
                 const isActive = (settings.typographyPreset || 'default') === preset.id;
                 return (
@@ -1552,16 +1559,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     className={`settings-palette-btn ${isActive ? 'is-active' : ''}`}
                   >
                     <div className="settings-option-top">
-                      <span className="settings-option-title">{preset.title}</span>
-                      {isActive && <span className="settings-option-badge">Attivo</span>}
+                      <span className="settings-option-title">{t(`settings_typo_${preset.id}_title` as any) || preset.title}</span>
+                      {isActive && <span className="settings-option-badge">{t('settings_badge_active_m')}</span>}
                       {!isActive && preset.isDefault && (
-                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Default</span>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{t('settings_badge_default')}</span>
                       )}
                     </div>
                     <div style={{ fontSize: '11.5px', color: 'var(--accent-primary)', fontWeight: 500 }}>
-                      {preset.fontStack}
+                      {t(`settings_typo_${preset.id}_fontstack` as any) || preset.fontStack}
                     </div>
-                    <p className="settings-option-desc">{preset.description}</p>
+                    <p className="settings-option-desc">{t(`settings_typo_${preset.id}_desc` as any) || preset.description}</p>
                     <div
                       style={{
                         padding: '6px 10px',
@@ -1594,10 +1601,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 type="button"
                 className="contextual-help-pill"
                 onClick={() => onOpenWikiArticle('backup-restore-safeguards')}
-                title="Consulta la guida sulla resilienza, sicurezza e ripristino del backup"
+                title={t('settings_backup_wiki_title')}
               >
                 <BookOpen size={13} />
-                <span>Guida Backup & Resilienza Dati</span>
+                <span>{t('settings_backup_wiki_btn')}</span>
               </button>
             </div>
           )}
@@ -1608,21 +1615,21 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <div className="settings-group-header">
                   <h2 className="settings-group-title">
                     <Download size={18} color="var(--accent-primary)" />
-                    <span>Backup di Sistema Completo (JSON)</span>
+                    <span>{t('settings_backup_group_title')}</span>
                   </h2>
                   <p className="settings-group-desc">
-                    Crea o ripristina uno snapshot completo e deterministico del database IndexedDB (componenti, cronologia eventi, upgrade generazionali e impostazioni). È l'unico formato valido per il ripristino dell'app.
+                    {t('settings_backup_group_desc')}
                   </p>
                 </div>
 
                 <div style={{ marginTop: '16px', padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Ultimo Export Locale
+                    {t('settings_backup_last_export_label')}
                   </span>
                   <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                     {lastExportedAtState
-                      ? new Date(lastExportedAtState).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
-                      : 'Nessuna esportazione registrata finora'}
+                      ? new Date(lastExportedAtState).toLocaleString(currentLocale === 'en' ? 'en-US' : 'it-IT', { dateStyle: 'short', timeStyle: 'short' })
+                      : t('settings_backup_last_export_none')}
                   </strong>
                 </div>
               </div>
@@ -1630,7 +1637,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '16px' }}>
                 <button type="button" onClick={handleExport} className="btn btn-primary" id="btn-export-json">
                   <Download size={15} />
-                  <span>Esporta Backup JSON</span>
+                  <span>{t('settings_backup_export_btn')}</span>
                 </button>
 
                 <button
@@ -1640,7 +1647,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   id="btn-import-json"
                 >
                   <Upload size={15} />
-                  <span>Importa Backup JSON</span>
+                  <span>{t('settings_backup_import_btn')}</span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -1658,19 +1665,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <div className="settings-group-header">
                   <h2 className="settings-group-title">
                     <FileSpreadsheet size={18} color="var(--accent-primary)" />
-                    <span>Esportazione Analitica (CSV)</span>
+                    <span>{t('settings_backup_csv_title')}</span>
                   </h2>
                   <p className="settings-group-desc">
-                    Esporta i record hardware in formato tabellare conforme allo standard RFC 4180 con codifica UTF-8 BOM, ottimizzato per Microsoft Excel, Google Sheets e LibreOffice Calc.
+                    {t('settings_backup_csv_desc')}
                   </p>
                 </div>
 
                 <div style={{ marginTop: '16px', padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Finalità Analitica
+                    {t('settings_backup_csv_purpose_label')}
                   </span>
                   <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                    Destinato esclusivamente alla consultazione esterna • Non idoneo al ripristino dati
+                    {t('settings_backup_csv_purpose_desc')}
                   </span>
                 </div>
               </div>
@@ -1683,7 +1690,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   id="btn-export-components-csv"
                 >
                   <Download size={15} />
-                  <span>Esporta Componenti CSV</span>
+                  <span>{t('settings_backup_csv_comps_btn')}</span>
                 </button>
 
                 <button
@@ -1693,7 +1700,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   id="btn-export-events-csv"
                 >
                   <Download size={15} />
-                  <span>Esporta Eventi CSV</span>
+                  <span>{t('settings_backup_csv_events_btn')}</span>
                 </button>
               </div>
             </div>
@@ -1708,17 +1715,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                     <h2 className="settings-group-title">
                       <RefreshCw size={18} color="var(--accent-primary)" className={updateState.checking ? 'spin' : ''} />
-                      <span>Aggiornamenti Software & Canale di Rilascio</span>
+                      <span>{t('settings_updater_title')}</span>
                     </h2>
                     {(hasUpdateAvailable || updateState.info?.available) && (
-                      <span className="settings-update-badge" title="Nuova versione pronta per il download">
+                      <span className="settings-update-badge" title={t('settings_updater_ready_tooltip')}>
                         <span className="sidebar-update-dot" style={{ width: '6px', height: '6px', margin: 0 }} />
-                        <span>Aggiornamento Pronto</span>
+                        <span>{t('settings_updater_ready_badge')}</span>
                       </span>
                     )}
                   </div>
                   <p className="settings-group-desc">
-                    Verifica e installa le nuove versioni ufficiali di PC Tracker distribuite tramite GitHub Releases. Gli aggiornamenti sono firmati digitalmente per garantire sicurezza e integrità del codice.
+                    {t('settings_updater_desc')}
                   </p>
                 </div>
 
@@ -1726,7 +1733,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px' }}>
                     <div>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Versione Corrente
+                        {t('settings_updater_current_ver')}
                       </span>
                       <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                         v{APP_VERSION}
@@ -1739,26 +1746,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         className="btn btn-secondary micro-press"
                         style={{ fontSize: '11.5px', padding: '3px 8px', gap: '5px', alignSelf: 'flex-start' }}
                         id="btn-settings-whatsnew"
-                        title="Visualizza note di rilascio & novità della versione corrente"
+                        title={t('settings_updater_changelog_tooltip')}
                       >
                         <Sparkles size={12} color="var(--accent-primary)" />
-                        <span>Novità & Changelog</span>
+                        <span>{t('settings_updater_changelog_btn')}</span>
                       </button>
                     )}
                   </div>
 
                   <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Ambiente Attivo
+                      {t('settings_updater_env_label')}
                     </span>
                     <strong style={{ fontSize: '13px', color: isDesktopApp() ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>
-                      {isDesktopApp() ? 'Windows Desktop (Tauri Nativo)' : 'Browser Web Locale'}
+                      {isDesktopApp() ? t('settings_updater_env_desktop') : t('settings_updater_env_web')}
                     </strong>
                   </div>
 
                   <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Canale Ufficiale GitHub
+                      {t('settings_updater_channel_label')}
                     </span>
                     <a
                       href="https://github.com/collabwithglab-rgb/pc-tracker/releases"
@@ -1777,7 +1784,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <div style={{ marginTop: '16px', padding: '14px 16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-status-success)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-status-success)', fontWeight: 600, fontSize: '14px' }}>
                       <Sparkles size={16} />
-                      <span>Nuova versione disponibile: v{updateState.info.newVersion}!</span>
+                      <span>{t('settings_updater_new_version_available', { version: updateState.info.newVersion || '' })}</span>
                     </div>
                     {updateState.info.releaseNotes && (
                       <p style={{ marginTop: '6px', fontSize: '12.5px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
@@ -1791,7 +1798,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 {updateState.info && !updateState.info.available && !updateState.error && (
                   <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <CheckCircle2 size={16} color="var(--color-status-success)" />
-                    <span>Sei all'ultima versione disponibile. Nessun aggiornamento in sospeso.</span>
+                    <span>{t('settings_updater_up_to_date')}</span>
                   </div>
                 )}
 
@@ -1807,7 +1814,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 {updateState.downloading && (
                   <div style={{ marginTop: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                      <span>Download e installazione in corso...</span>
+                      <span>{t('settings_updater_downloading')}</span>
                       <span>{updateState.percent}%</span>
                     </div>
                     <div style={{ height: '6px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -1826,7 +1833,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   id="btn-check-updates"
                 >
                   <RefreshCw size={15} className={updateState.checking ? 'spin' : ''} />
-                  <span>{updateState.checking ? 'Controllo in corso...' : 'Verifica Aggiornamenti'}</span>
+                  <span>{updateState.checking ? t('settings_updater_checking_btn') : t('settings_updater_check_btn')}</span>
                 </button>
 
                 {updateState.info?.available && !updateState.downloading && (
@@ -1837,7 +1844,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     id="btn-install-update"
                   >
                     <Download size={15} />
-                    <span>Scarica e Riavvia (v{updateState.info.newVersion})</span>
+                    <span>{t('settings_updater_install_btn', { version: updateState.info.newVersion || '' })}</span>
                   </button>
                 )}
               </div>
@@ -1856,32 +1863,32 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Database size={18} color="var(--accent-primary)" />
-                <span>Stato Database Locale</span>
+                <span>{t('settings_data_group_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Metriche del database IndexedDB locale (<code style={{ color: 'var(--accent-primary)' }}>pc_tracker_db</code>). Nessun dato lascia il tuo computer.
+                {t('settings_data_group_desc')}
               </p>
             </div>
 
             <div className="settings-stat-grid">
               <div className="settings-stat-box">
-                <span className="settings-stat-label">Componenti</span>
+                <span className="settings-stat-label">{t('settings_data_stat_components')}</span>
                 <span className="settings-stat-val">{components.length}</span>
               </div>
               <div className="settings-stat-box">
-                <span className="settings-stat-label">Eventi Storici</span>
+                <span className="settings-stat-label">{t('settings_data_stat_events')}</span>
                 <span className="settings-stat-val">{events.length}</span>
               </div>
               <div className="settings-stat-box">
-                <span className="settings-stat-label">Upgrade</span>
+                <span className="settings-stat-label">{t('settings_data_stat_upgrades')}</span>
                 <span className="settings-stat-val">{upgrades.length}</span>
               </div>
               <div className="settings-stat-box">
-                <span className="settings-stat-label">Checkpoint</span>
+                <span className="settings-stat-label">{t('settings_data_stat_checkpoints')}</span>
                 <span className="settings-stat-val">{checkpoints.length}</span>
               </div>
               <div className="settings-stat-box">
-                <span className="settings-stat-label">Schema Dati</span>
+                <span className="settings-stat-label">{t('settings_data_stat_schema')}</span>
                 <span className="settings-stat-val" style={{ fontSize: '13px', color: 'var(--accent-primary)' }}>
                   JSON Schema v1
                 </span>
@@ -1894,10 +1901,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="settings-group-header">
               <h2 className="settings-group-title">
                 <Sparkles size={18} color="var(--accent-primary)" />
-                <span>Manutenzione & Dataset</span>
+                <span>{t('settings_data_maintenance_title')}</span>
               </h2>
               <p className="settings-group-desc">
-                Opzioni di manutenzione e ripristino delle impostazioni dell'applicazione.
+                {t('settings_data_maintenance_desc')}
               </p>
             </div>
 
@@ -1920,12 +1927,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <div>
                   <h3 style={{ fontSize: '14.5px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <RotateCcw size={16} color="var(--accent-amber)" />
-                    <span>Ripristina Impostazioni Predefinite</span>
+                    <span>{t('settings_data_reset_settings_title')}</span>
                   </h3>
                   <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-                    Reimposta solo nome PC, descrizione, anno e preferenze grafiche ai valori iniziali.
+                    {t('settings_data_reset_settings_desc')}
                     <br />
-                    <strong style={{ color: 'var(--accent-emerald)' }}>I tuoi componenti, eventi e upgrade rimarranno intatti.</strong>
+                    <strong style={{ color: 'var(--accent-emerald)' }}>{t('settings_data_reset_settings_safe_notice')}</strong>
                   </p>
                 </div>
 
@@ -1937,7 +1944,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   id="btn-reset-settings"
                 >
                   <RotateCcw size={15} />
-                  <span>Ripristina Default</span>
+                  <span>{t('settings_data_reset_settings_btn')}</span>
                 </button>
               </div>
             </div>
@@ -1949,10 +1956,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div>
                 <h2 className="settings-group-title" style={{ color: 'var(--accent-ruby)', marginBottom: '4px' }}>
                   <AlertTriangle size={18} color="var(--accent-ruby)" />
-                  <span>Zona di Pericolo: Svuotamento Database</span>
+                  <span>{t('settings_data_danger_title')}</span>
                 </h2>
                 <p className="settings-group-desc" style={{ color: 'var(--text-muted)' }}>
-                  Elimina irreversibilmente tutti i componenti, gli eventi e gli upgrade memorizzati su IndexedDB locale.
+                  {t('settings_data_danger_desc')}
                 </p>
               </div>
 
@@ -1964,7 +1971,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 id="btn-reset-db"
               >
                 <Trash2 size={15} />
-                <span>Azzera Database Locale</span>
+                <span>{t('settings_data_danger_btn')}</span>
               </button>
             </div>
           </div>
@@ -2024,8 +2031,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           setIsImportPreviewOpen(false);
           setImportPreviewData(null);
         }}
-        title="Anteprima Ripristino Backup JSON"
-        subtitle={importFileName ? `File selezionato: ${importFileName}` : 'Verifica i contenuti prima di confermare la sostituzione'}
+        title={t('settings_modal_preview_title')}
+        subtitle={importFileName ? t('settings_modal_preview_file', { fileName: importFileName }) : t('settings_modal_preview_sub')}
       >
         {importPreviewData && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -2042,23 +2049,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               }}
             >
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>Versione Schema</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>{t('settings_modal_preview_schema')}</span>
                 <strong style={{ fontSize: '14px', color: 'var(--accent-primary)', fontFamily: 'var(--font-mono)' }}>
                   v{importPreviewData.schemaVersion}
                 </strong>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>Data Esportazione</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>{t('settings_modal_preview_export_date')}</span>
                 <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                   {importPreviewData.exportedAt
-                    ? new Date(importPreviewData.exportedAt).toLocaleDateString('it-IT')
-                    : 'Non specificata'}
+                    ? new Date(importPreviewData.exportedAt).toLocaleDateString(currentLocale === 'en' ? 'en-US' : 'it-IT')
+                    : t('settings_modal_preview_unspecified')}
                 </span>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>Setup Rig</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>{t('settings_modal_preview_rig_setup')}</span>
                 <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>
-                  {importPreviewData.settingsSummary?.rigName || '(Nessun nome)'}
+                  {importPreviewData.settingsSummary?.rigName || t('settings_modal_preview_no_name')}
                 </span>
               </div>
             </div>
@@ -2075,12 +2082,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               >
                 <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                   <Package size={14} />
-                  <span>Dati nel Backup (in arrivo)</span>
+                  <span>{t('settings_modal_preview_incoming')}</span>
                 </span>
                 <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <li><strong>{importPreviewData.counts.components}</strong> Componenti</li>
-                  <li><strong>{importPreviewData.counts.events}</strong> Eventi Storici</li>
-                  <li><strong>{importPreviewData.counts.upgrades}</strong> Upgrade</li>
+                  <li><strong>{importPreviewData.counts.components}</strong> {t('settings_data_stat_components')}</li>
+                  <li><strong>{importPreviewData.counts.events}</strong> {t('settings_data_stat_events')}</li>
+                  <li><strong>{importPreviewData.counts.upgrades}</strong> {t('settings_data_stat_upgrades')}</li>
                 </ul>
               </div>
 
@@ -2094,12 +2101,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               >
                 <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-ruby)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                   <AlertTriangle size={14} />
-                  <span>Dati Attuali (da sostituire)</span>
+                  <span>{t('settings_modal_preview_current')}</span>
                 </span>
                 <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <li><strong>{components.length}</strong> Componenti</li>
-                  <li><strong>{events.length}</strong> Eventi Storici</li>
-                  <li><strong>{upgrades.length}</strong> Upgrade</li>
+                  <li><strong>{components.length}</strong> {t('settings_data_stat_components')}</li>
+                  <li><strong>{events.length}</strong> {t('settings_data_stat_events')}</li>
+                  <li><strong>{upgrades.length}</strong> {t('settings_data_stat_upgrades')}</li>
                 </ul>
               </div>
             </div>
@@ -2121,7 +2128,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             >
               <AlertTriangle size={18} color="var(--accent-amber)" style={{ flexShrink: 0, marginTop: '2px' }} />
               <span>
-                L'operazione è <strong>atomica</strong>: sostituirà integralmente il database locale IndexedDB con i dati del file selezionato. Se non hai effettuato un export recente dei dati correnti, le modifiche locali andranno perse.
+                {t('settings_modal_preview_atomic_warning')}
               </span>
             </div>
 
@@ -2134,7 +2141,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 }}
                 className="btn btn-secondary"
               >
-                Annulla
+                {t('settings_modal_preview_cancel_btn')}
               </button>
               <button
                 type="button"
@@ -2143,7 +2150,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 id="btn-confirm-import"
               >
                 <Upload size={15} />
-                <span>Conferma e Sostituisci Dati</span>
+                <span>{t('settings_modal_preview_confirm_btn')}</span>
               </button>
             </div>
           </div>
@@ -2154,17 +2161,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       <Modal
         isOpen={isResetSettingsConfirmOpen}
         onClose={() => setIsResetSettingsConfirmOpen(false)}
-        title="Ripristina Impostazioni Predefinite"
-        subtitle="Ripristino esclusivo delle preferenze grafiche e dell'identità del setup"
+        title={t('settings_modal_reset_settings_title')}
+        subtitle={t('settings_modal_reset_settings_sub')}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Vuoi ripristinare le impostazioni dell'applicazione ai valori di default?
+            {t('settings_modal_reset_settings_p1')}
             <br />
-            Il nome del PC, la descrizione e le preferenze grafiche verranno azzerati.
+            {t('settings_modal_reset_settings_p2')}
             <br />
             <strong style={{ color: 'var(--accent-emerald)' }}>
-              Nessun componente, evento o upgrade hardware verrà modificato o cancellato.
+              {t('settings_modal_reset_settings_p3')}
             </strong>
           </p>
 
@@ -2174,7 +2181,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               onClick={() => setIsResetSettingsConfirmOpen(false)}
               className="btn btn-secondary"
             >
-              Annulla
+              {t('settings_modal_reset_settings_cancel_btn')}
             </button>
             <button
               type="button"
@@ -2182,7 +2189,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               className="btn btn-primary"
             >
               <RotateCcw size={15} />
-              <span>Conferma Ripristino Impostazioni</span>
+              <span>{t('settings_modal_reset_settings_confirm_btn')}</span>
             </button>
           </div>
         </div>
@@ -2192,15 +2199,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       <Modal
         isOpen={isResetConfirmOpen}
         onClose={() => setIsResetConfirmOpen(false)}
-        title="Conferma Svuotamento Database"
-        subtitle="Questa azione è irreversibile e cancellerà tutti i dati locali"
+        title={t('settings_modal_reset_db_title')}
+        subtitle={t('settings_modal_reset_db_sub')}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent-ruby)' }}>
             <AlertCircle size={24} style={{ flexShrink: 0 }} />
             <span style={{ fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-              Sei sicuro di voler svuotare completamente il database locale IndexedDB?
-              Tutti i componenti, gli eventi e gli upgrade verranno eliminati e il database rimarrà vuoto.
+              {t('settings_modal_reset_db_warning')}
             </span>
           </div>
 
@@ -2210,7 +2216,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               onClick={() => setIsResetConfirmOpen(false)}
               className="btn btn-secondary"
             >
-              Annulla
+              {t('settings_modal_reset_db_cancel_btn')}
             </button>
             <button
               type="button"
@@ -2219,7 +2225,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               style={{ backgroundColor: 'var(--accent-ruby)', borderColor: 'var(--accent-ruby)' }}
             >
               <Trash2 size={15} />
-              <span>Svuota Completamente Database</span>
+              <span>{t('settings_modal_reset_db_confirm_btn')}</span>
             </button>
           </div>
         </div>

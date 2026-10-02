@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Component, COMPONENT_STATUS_LABELS, COMPONENT_CATEGORY_LABELS } from '../../types';
 import { usePCStore } from '../../store';
+import { useI18n } from '../../locales';
 import { Gift, AlertCircle, Info } from 'lucide-react';
 
 export interface GiftFormProps {
@@ -18,6 +19,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
   onBack,
 }) => {
   const { getNonTerminalComponents, getComponentComputed, recordGift } = usePCStore();
+  const { t } = useI18n();
 
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -51,12 +53,12 @@ export const GiftForm: React.FC<GiftFormProps> = ({
     setError('');
 
     if (!selectedComponentId) {
-      setError('Seleziona il componente da donare o regalare.');
+      setError(t('modal_gift_err_no_comp'));
       return;
     }
 
     if (!date) {
-      setError('La data del regalo è obbligatoria.');
+      setError(t('modal_gift_err_no_date'));
       return;
     }
 
@@ -89,7 +91,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
       {/* Selezione Componente */}
       <div className="form-group">
         <label className="form-label">
-          Componente da Regalare <span className="form-required">*</span>
+          {t('modal_gift_comp_label')} <span className="form-required">*</span>
         </label>
         {preSelectedComponent ? (
           <div
@@ -135,7 +137,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
               border: '1px solid var(--accent-amber-border)',
             }}
           >
-            Nessun componente attivo o a magazzino disponibile da cedere a titolo gratuito.
+            {t('modal_gift_empty_warning')}
           </div>
         ) : (
           <select
@@ -174,7 +176,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
         >
           <Info size={16} style={{ flexShrink: 0 }} />
           <span>
-            Questo pezzo è montato nel PC. Confermando la cessione verrà automaticamente registrato lo smontaggio dal rig.
+            {t('modal_gift_in_use_warning')}
           </span>
         </div>
       )}
@@ -183,7 +185,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div className="form-group">
           <label className="form-label">
-            Data Cessione <span className="form-required">*</span>
+            {t('modal_gift_date_label')} <span className="form-required">*</span>
           </label>
           <input
             type="date"
@@ -196,10 +198,10 @@ export const GiftForm: React.FC<GiftFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label className="form-label">Destinatario (opzionale)</label>
+          <label className="form-label">{t('modal_gift_recipient_label')}</label>
           <input
             type="text"
-            placeholder="es. Amico, Fratello, Donazione PC Scuola"
+            placeholder={t('modal_gift_recipient_placeholder')}
             className="form-input"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
@@ -210,10 +212,10 @@ export const GiftForm: React.FC<GiftFormProps> = ({
 
       {/* Note */}
       <div className="form-group">
-        <label className="form-label">Note aggiuntive (opzionale)</label>
+        <label className="form-label">{t('modal_gift_notes_label')}</label>
         <textarea
           rows={2}
-          placeholder="es. Ceduto per aiutarlo a montare la prima build..."
+          placeholder={t('modal_gift_notes_placeholder')}
           className="form-textarea"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -231,7 +233,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
             disabled={isSubmitting}
             style={{ marginRight: 'auto' }}
           >
-            Indietro
+            {t('action_back')}
           </button>
         )}
         <button
@@ -240,7 +242,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
           onClick={onCancel}
           disabled={isSubmitting}
         >
-          Annulla
+          {t('modal_gift_btn_cancel')}
         </button>
         <button
           type="submit"
@@ -253,7 +255,7 @@ export const GiftForm: React.FC<GiftFormProps> = ({
           disabled={isSubmitting || !selectedComponentId}
         >
           <Gift size={15} />
-          <span>{isSubmitting ? 'Salvataggio...' : 'Conferma Regalo'}</span>
+          <span>{isSubmitting ? t('modal_gift_btn_submitting') : t('modal_gift_btn_submit')}</span>
         </button>
       </div>
     </form>
@@ -275,12 +277,14 @@ export const GiftModal: React.FC<GiftModalProps> = ({
   onSuccess,
   onBack,
 }) => {
+  const { t } = useI18n();
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       onBack={onBack}
-      title="Regala Componente"
+      title={t('modal_gift_title')}
       maxWidth="540px"
     >
       <GiftForm

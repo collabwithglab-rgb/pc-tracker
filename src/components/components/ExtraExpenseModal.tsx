@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Component, COMPONENT_STATUS_LABELS, COMPONENT_CATEGORY_LABELS } from '../../types';
 import { usePCStore } from '../../store';
-import { AlertCircle, Info, Receipt } from 'lucide-react';
+import { useI18n } from '../../locales';
+import { AlertCircle, Receipt } from 'lucide-react';
 
 export interface ExtraExpenseFormProps {
   preSelectedComponent?: Component | null;
@@ -18,6 +19,7 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
   onBack,
 }) => {
   const { getNonTerminalComponents, getComponentComputed, recordExtraExpense } = usePCStore();
+  const { t } = useI18n();
 
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -51,22 +53,22 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
     setError('');
 
     if (!selectedComponentId) {
-      setError('Seleziona il componente a cui associare la spesa.');
+      setError(t('modal_expense_err_no_comp'));
       return;
     }
 
     if (!date) {
-      setError('La data della spesa è obbligatoria.');
+      setError(t('modal_expense_err_no_date'));
       return;
     }
 
     if (amount.trim() === '' || isNaN(numAmount) || numAmount <= 0) {
-      setError('L’importo della spesa deve essere un valore numerico maggiore di zero.');
+      setError(t('modal_expense_err_invalid_amount'));
       return;
     }
 
     if (!description.trim()) {
-      setError('La descrizione della spesa è obbligatoria (es. Cavi custom, waterblock, pad termici).');
+      setError(t('modal_expense_err_no_desc'));
       return;
     }
 
@@ -100,7 +102,7 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
       {/* Selezione Componente */}
       <div className="form-group">
         <label className="form-label">
-          Componente Target <span className="form-required">*</span>
+          {t('modal_expense_comp_label')} <span className="form-required">*</span>
         </label>
         {preSelectedComponent ? (
           <div
@@ -146,7 +148,7 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
               border: '1px solid var(--accent-amber-border)',
             }}
           >
-            Nessun componente attivo o a magazzino disponibile a cui associare una spesa.
+            {t('modal_expense_err_no_comp')}
           </div>
         ) : (
           <select
@@ -168,30 +170,11 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
         )}
       </div>
 
-      <div
-        style={{
-          padding: '10px 12px',
-          backgroundColor: 'rgba(244, 63, 94, 0.08)',
-          border: '1px solid var(--accent-ruby-border)',
-          borderRadius: 'var(--radius-md)',
-          color: 'var(--accent-ruby)',
-          fontSize: '12.5px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}
-      >
-        <Info size={16} style={{ flexShrink: 0 }} />
-        <span>
-          Le spese extra incrementano il costo storico del componente e il totale acquistato, riflettendosi sul bilancio netto.
-        </span>
-      </div>
-
       {/* Rigo Data e Importo */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div className="form-group">
           <label className="form-label">
-            Data Spesa <span className="form-required">*</span>
+            {t('modal_expense_date_label')} <span className="form-required">*</span>
           </label>
           <input
             type="date"
@@ -205,7 +188,7 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
 
         <div className="form-group">
           <label className="form-label">
-            Importo (€) <span className="form-required">*</span>
+            {t('modal_expense_amount_label')} <span className="form-required">*</span>
           </label>
           <input
             type="number"
@@ -224,11 +207,11 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
       {/* Descrizione Spesa */}
       <div className="form-group">
         <label className="form-label">
-          Descrizione / Oggetto <span className="form-required">*</span>
+          {t('modal_expense_desc_label')} <span className="form-required">*</span>
         </label>
         <input
           type="text"
-          placeholder="es. Cavi custom sleeved neri, pasta termica Thermal Grizzly, staffa anti-sag"
+          placeholder={t('modal_expense_desc_placeholder')}
           className="form-input"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -239,10 +222,10 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
 
       {/* Note opzionali */}
       <div className="form-group">
-        <label className="form-label">Note o negozio (opzionale)</label>
+        <label className="form-label">{t('modal_expense_notes_label')}</label>
         <textarea
           rows={2}
-          placeholder="es. Acquistato su Amazon Prime, comprende sdoppiatore RGB..."
+          placeholder={t('modal_expense_notes_placeholder')}
           className="form-textarea"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -260,7 +243,7 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
             disabled={isSubmitting}
             style={{ marginRight: 'auto' }}
           >
-            Indietro
+            {t('upgrade_step_btn_back')}
           </button>
         )}
         <button
@@ -269,7 +252,7 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
           onClick={onCancel}
           disabled={isSubmitting}
         >
-          Annulla
+          {t('modal_expense_btn_cancel')}
         </button>
         <button
           type="submit"
@@ -282,7 +265,7 @@ export const ExtraExpenseForm: React.FC<ExtraExpenseFormProps> = ({
           disabled={isSubmitting || !selectedComponentId}
         >
           <Receipt size={15} />
-          <span>{isSubmitting ? 'Salvataggio...' : 'Registra Spesa'}</span>
+          <span>{isSubmitting ? t('modal_expense_btn_submitting') : t('modal_expense_btn_submit')}</span>
         </button>
       </div>
     </form>
@@ -304,12 +287,13 @@ export const ExtraExpenseModal: React.FC<ExtraExpenseModalProps> = ({
   onSuccess,
   onBack,
 }) => {
+  const { t } = useI18n();
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       onBack={onBack}
-      title="Registra Spesa Extra / Modding"
+      title={t('modal_expense_title')}
       maxWidth="560px"
     >
       <ExtraExpenseForm

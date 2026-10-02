@@ -10,6 +10,7 @@ import {
 import { VALID_CATEGORIES } from '../../domain/validators';
 import { WARRANTY_PRESETS, calculateExpiryDateFromPreset } from '../../domain/warrantyEngine';
 import { usePCStore, InitialPurchaseInput } from '../../store';
+import { useI18n } from '../../locales';
 import { AlertCircle, Plus, Check, ShieldCheck, Upload, FileText, X } from 'lucide-react';
 
 export interface ComponentFormProps {
@@ -26,6 +27,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
   onBack,
 }) => {
   const { createComponentWithOptionalPurchase, updateComponent } = usePCStore();
+  const { t } = useI18n();
   const isEditing = Boolean(componentToEdit);
 
   // Campi Anagrafici
@@ -90,17 +92,17 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
     setErrors({});
 
     const newErrors: Record<string, string> = {};
-    if (!name.trim()) newErrors.name = 'Il nome del componente è obbligatorio.';
-    if (!category) newErrors.category = 'Seleziona una categoria valida.';
+    if (!name.trim()) newErrors.name = t('modal_comp_err_name_req');
+    if (!category) newErrors.category = t('modal_comp_err_cat_req');
 
     if (!isEditing && recordPurchase) {
       if (price === '' || isNaN(Number(price))) {
-        newErrors.price = 'Inserisci un prezzo valido (o 0 se regalo).';
+        newErrors.price = t('modal_comp_err_price_invalid');
       } else if (Number(price) < 0) {
-        newErrors.price = 'Il prezzo non può essere negativo.';
+        newErrors.price = t('modal_comp_err_price_neg');
       }
       if (!purchaseDate) {
-        newErrors.purchaseDate = 'La data di acquisto è obbligatoria.';
+        newErrors.purchaseDate = t('modal_comp_err_date_req');
       }
     }
 
@@ -168,11 +170,11 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
       {/* Rigo 1: Nome Componente */}
       <div className="form-group">
         <label className="form-label">
-          Nome Componente <span className="form-required">*</span>
+          {t('modal_comp_name_label')} <span className="form-required">*</span>
         </label>
         <input
           type="text"
-          placeholder="es. GeForce RTX 4080 Super Gaming OC"
+          placeholder={t('modal_comp_name_placeholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className={`form-input ${errors.name ? 'form-input-error' : ''}`}
@@ -185,7 +187,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <div className="form-group">
           <label className="form-label">
-            Categoria <span className="form-required">*</span>
+            {t('modal_comp_category_label')} <span className="form-required">*</span>
           </label>
           <select
             value={category}
@@ -202,10 +204,10 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label className="form-label">Brand / Produttore</label>
+          <label className="form-label">{t('modal_comp_brand_label')}</label>
           <input
             type="text"
-            placeholder="es. ASUS, Corsair, AMD"
+            placeholder={t('modal_comp_brand_placeholder')}
             value={brand}
             onChange={(e) => setBrand(e.target.value)}
             className="form-input"
@@ -216,10 +218,10 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
       {/* Rigo 3: Modello e Seriale */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <div className="form-group">
-          <label className="form-label">Modello Specifico</label>
+          <label className="form-label">{t('modal_comp_model_label')}</label>
           <input
             type="text"
-            placeholder="es. TUF-RTX4080S-O16G"
+            placeholder={t('modal_comp_model_placeholder')}
             value={model}
             onChange={(e) => setModel(e.target.value)}
             className="form-input"
@@ -227,10 +229,10 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label className="form-label">Numero Seriale (S/N)</label>
+          <label className="form-label">{t('modal_comp_serial_label')}</label>
           <input
             type="text"
-            placeholder="es. SN1234567890"
+            placeholder={t('modal_comp_serial_placeholder')}
             value={serialNumber}
             onChange={(e) => setSerialNumber(e.target.value)}
             className="form-input"
@@ -240,10 +242,10 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
 
       {/* Rigo 4: Note */}
       <div className="form-group">
-        <label className="form-label">Note</label>
+        <label className="form-label">{t('modal_comp_notes_label')}</label>
         <textarea
           rows={2}
-          placeholder="es. Acquistato bundle con scheda madre, versione con pasta pre-applicata..."
+          placeholder={t('modal_comp_notes_placeholder')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           className="form-textarea"
@@ -264,10 +266,10 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: recordPurchase ? '12px' : '0' }}>
             <div>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Registra Evento di Acquisto Iniziale
+                {t('modal_comp_purchase_section_title')}
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                Inserisci subito data e prezzo per alimentare i calcoli storici
+                {t('modal_comp_purchase_section_desc')}
               </div>
             </div>
             <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
@@ -277,7 +279,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                 onChange={(e) => setRecordPurchase(e.target.checked)}
                 style={{ width: '16px', height: '16px', accentColor: 'var(--accent-primary)' }}
               />
-              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Abilita</span>
+              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{t('modal_comp_purchase_enable')}</span>
             </label>
           </div>
 
@@ -286,13 +288,13 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group">
                   <label className="form-label">
-                    Prezzo (€) <span className="form-required">*</span>
+                    {t('modal_comp_price_label')} <span className="form-required">*</span>
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="es. 499.99"
+                    placeholder={t('modal_comp_price_placeholder')}
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className={`form-input font-mono ${errors.price ? 'form-input-error' : ''}`}
@@ -302,7 +304,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
 
                 <div className="form-group">
                   <label className="form-label">
-                    Data Acquisto <span className="form-required">*</span>
+                    {t('modal_comp_date_label')} <span className="form-required">*</span>
                   </label>
                   <input
                     type="date"
@@ -316,10 +318,10 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group">
-                  <label className="form-label">Negozio</label>
+                  <label className="form-label">{t('modal_comp_store_label')}</label>
                   <input
                     type="text"
-                    placeholder="es. Amazon, Caseking, Privato"
+                    placeholder={t('modal_comp_store_placeholder')}
                     value={store}
                     onChange={(e) => setStore(e.target.value)}
                     className="form-input"
@@ -327,14 +329,14 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Condizione</label>
+                  <label className="form-label">{t('modal_comp_condition_label')}</label>
                   <select
                     value={condition}
                     onChange={(e) => setCondition(e.target.value as 'new' | 'used')}
                     className="form-select"
                   >
-                    <option value="new">Nuovo</option>
-                    <option value="used">Usato</option>
+                    <option value="new">{t('modal_comp_condition_new')}</option>
+                    <option value="used">{t('modal_comp_condition_used')}</option>
                   </select>
                 </div>
               </div>
@@ -344,7 +346,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: 0 }}>
                     <ShieldCheck size={14} color="var(--accent-primary)" />
-                    <span>Scadenza Garanzia (RMA)</span>
+                    <span>{t('modal_comp_warranty_label')}</span>
                   </label>
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {WARRANTY_PRESETS.slice(0, 3).map((p) => (
@@ -357,9 +359,9 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                           const exp = calculateExpiryDateFromPreset(purchaseDate, p.months);
                           setWarrantyExpiryDate(exp);
                         }}
-                        title={`Calcola scadenza a +${p.months / 12} anni da data acquisto`}
+                        title={t('modal_comp_warranty_preset_title', { years: p.months / 12 })}
                       >
-                        +{p.months / 12} anni
+                        {t('modal_comp_warranty_preset_years', { years: p.months / 12 })}
                       </button>
                     ))}
                     {warrantyExpiryDate && (
@@ -368,9 +370,9 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                         className="btn btn-ghost"
                         style={{ padding: '1px 6px', fontSize: '11px', height: '22px', color: 'var(--text-muted)' }}
                         onClick={() => setWarrantyExpiryDate('')}
-                        title="Rimuovi data scadenza"
+                        title={t('modal_comp_warranty_clear_title')}
                       >
-                        Azzera
+                        {t('modal_comp_warranty_clear')}
                       </button>
                     )}
                   </div>
@@ -387,7 +389,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
               <div className="form-group">
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <FileText size={14} color="var(--accent-primary)" />
-                  <span>Ricevuta / Fattura d'Acquisto (Opzionale)</span>
+                  <span>{t('modal_comp_receipt_label')}</span>
                 </label>
                 {!receiptFile ? (
                   <div
@@ -410,11 +412,11 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                         const file = e.target.files?.[0];
                         if (!file) return;
                         if (file.size > MAX_RECEIPT_FILE_SIZE_BYTES) {
-                          alert('Il file selezionato supera il limite di 10MB.');
+                          alert(t('modal_comp_receipt_err_size'));
                           return;
                         }
                         if (!ALLOWED_RECEIPT_MIME_TYPES.includes(file.type as any)) {
-                          alert('Formato non supportato. Usa PDF, PNG, JPG o WebP.');
+                          alert(t('modal_comp_receipt_err_format'));
                           return;
                         }
                         const reader = new FileReader();
@@ -433,7 +435,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                     />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                       <Upload size={13} color="var(--accent-primary)" />
-                      <span>Allega PDF o immagine (max 10MB)</span>
+                      <span>{t('modal_comp_receipt_upload_prompt')}</span>
                     </div>
                   </div>
                 ) : (
@@ -463,7 +465,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
                       className="btn btn-ghost"
                       style={{ padding: '2px 6px', height: '22px', color: 'var(--accent-ruby)' }}
                       onClick={() => setReceiptFile(null)}
-                      title="Rimuovi allegato"
+                      title={t('modal_comp_receipt_remove_title')}
                     >
                       <X size={13} />
                     </button>
@@ -485,7 +487,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
             disabled={isSubmitting}
             style={{ marginRight: 'auto' }}
           >
-            Indietro
+            {t('action_back')}
           </button>
         )}
         <button
@@ -494,7 +496,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
           className="btn btn-secondary"
           disabled={isSubmitting}
         >
-          Annulla
+          {t('action_cancel')}
         </button>
         <button
           type="submit"
@@ -502,7 +504,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
           disabled={isSubmitting}
         >
           {isEditing ? <Check size={16} /> : <Plus size={16} />}
-          <span>{isSubmitting ? 'Salvataggio...' : isEditing ? 'Aggiorna Anagrafica' : 'Salva Componente'}</span>
+          <span>{isSubmitting ? t('modal_comp_btn_submitting') : isEditing ? t('modal_comp_btn_submit_edit') : t('modal_comp_btn_submit_create')}</span>
         </button>
       </div>
     </form>
@@ -524,6 +526,7 @@ export const ComponentFormModal: React.FC<ComponentFormModalProps> = ({
   onSuccess,
   onBack,
 }) => {
+  const { t } = useI18n();
   const isEditing = Boolean(componentToEdit);
 
   return (
@@ -531,8 +534,8 @@ export const ComponentFormModal: React.FC<ComponentFormModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       onBack={onBack}
-      title={isEditing ? 'Modifica Componente' : 'Nuovo Componente'}
-      subtitle={isEditing ? 'Aggiorna i dettagli anagrafici del pezzo' : 'Aggiungi un nuovo pezzo all\'inventario'}
+      title={isEditing ? t('modal_comp_title_edit') : t('modal_comp_title_new')}
+      subtitle={isEditing ? t('modal_comp_subtitle_edit') : t('modal_comp_subtitle_new')}
       maxWidth="600px"
     >
       <ComponentForm

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Component, COMPONENT_STATUS_LABELS, COMPONENT_CATEGORY_LABELS, DisposalEvent } from '../../types';
 import { usePCStore } from '../../store';
+import { useI18n } from '../../locales';
 import { Recycle, AlertCircle, Info } from 'lucide-react';
 
 export interface DisposalFormProps {
@@ -18,6 +19,7 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
   onBack,
 }) => {
   const { getNonTerminalComponents, getComponentComputed, recordDisposal } = usePCStore();
+  const { t } = useI18n();
 
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -51,12 +53,12 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
     setError('');
 
     if (!selectedComponentId) {
-      setError('Seleziona il componente da smaltire.');
+      setError(t('modal_disposal_err_no_comp'));
       return;
     }
 
     if (!date) {
-      setError('La data di smaltimento è obbligatoria.');
+      setError(t('modal_disposal_err_no_date'));
       return;
     }
 
@@ -89,7 +91,7 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
       {/* Selezione Componente */}
       <div className="form-group">
         <label className="form-label">
-          Componente da Smaltire <span className="form-required">*</span>
+          {t('modal_disposal_comp_label')} <span className="form-required">*</span>
         </label>
         {preSelectedComponent ? (
           <div
@@ -135,7 +137,7 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
               border: '1px solid var(--accent-amber-border)',
             }}
           >
-            Nessun componente attivo o a magazzino disponibile da smaltire.
+            {t('modal_disposal_empty_warning')}
           </div>
         ) : (
           <select
@@ -174,7 +176,7 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
         >
           <Info size={16} style={{ flexShrink: 0 }} />
           <span>
-            Questo pezzo è montato nel PC. Confermando lo smaltimento verrà automaticamente rimosso dal rig.
+            {t('modal_disposal_in_use_warning')}
           </span>
         </div>
       )}
@@ -183,7 +185,7 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div className="form-group">
           <label className="form-label">
-            Data Smaltimento <span className="form-required">*</span>
+            {t('modal_disposal_date_label')} <span className="form-required">*</span>
           </label>
           <input
             type="date"
@@ -197,7 +199,7 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
 
         <div className="form-group">
           <label className="form-label">
-            Metodo Smaltimento <span className="form-required">*</span>
+            {t('modal_disposal_method_label')} <span className="form-required">*</span>
           </label>
           <select
             className="form-select"
@@ -205,19 +207,19 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
             onChange={(e) => setDisposalMethod(e.target.value as DisposalEvent['disposalMethod'])}
             disabled={isSubmitting}
           >
-            <option value="eco_center">Isola Ecologica Comunale</option>
-            <option value="recycled">Riciclato RAEE</option>
-            <option value="broken_discarded">Guasto / Gettato</option>
+            <option value="eco_center">{t('modal_disposal_method_eco_center')}</option>
+            <option value="recycled">{t('modal_disposal_method_recycled')}</option>
+            <option value="broken_discarded">{t('modal_disposal_method_broken_discarded')}</option>
           </select>
         </div>
       </div>
 
       {/* Note */}
       <div className="form-group">
-        <label className="form-label">Motivo o note (opzionale)</label>
+        <label className="form-label">{t('modal_disposal_notes_label')}</label>
         <textarea
           rows={2}
-          placeholder="es. Difetto circuito di alimentazione non riparabile, portato al centro RAEE..."
+          placeholder={t('modal_disposal_notes_placeholder')}
           className="form-textarea"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -235,16 +237,16 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
             disabled={isSubmitting}
             style={{ marginRight: 'auto' }}
           >
-            Indietro
+            {t('action_back')}
           </button>
         )}
         <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onCancel}
-            disabled={isSubmitting}
+          type="button"
+          className="btn btn-secondary"
+          onClick={onCancel}
+          disabled={isSubmitting}
         >
-          Annulla
+          {t('modal_disposal_btn_cancel')}
         </button>
         <button
           type="submit"
@@ -257,7 +259,7 @@ export const DisposalForm: React.FC<DisposalFormProps> = ({
           disabled={isSubmitting || !selectedComponentId}
         >
           <Recycle size={15} />
-          <span>{isSubmitting ? 'Salvataggio...' : 'Conferma Smaltimento'}</span>
+          <span>{isSubmitting ? t('modal_disposal_btn_submitting') : t('modal_disposal_btn_submit')}</span>
         </button>
       </div>
     </form>
@@ -279,12 +281,14 @@ export const DisposalModal: React.FC<DisposalModalProps> = ({
   onSuccess,
   onBack,
 }) => {
+  const { t } = useI18n();
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       onBack={onBack}
-      title="Registra Smaltimento Hardware"
+      title={t('modal_disposal_title')}
       maxWidth="540px"
     >
       <DisposalForm

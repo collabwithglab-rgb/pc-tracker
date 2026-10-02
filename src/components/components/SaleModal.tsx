@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Component, COMPONENT_STATUS_LABELS, COMPONENT_CATEGORY_LABELS } from '../../types';
 import { usePCStore } from '../../store';
+import { useI18n } from '../../locales';
 import { DollarSign, AlertCircle, Info, TrendingUp } from 'lucide-react';
 
 export interface SaleFormProps {
@@ -18,6 +19,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
   onBack,
 }) => {
   const { getSellableComponents, getComponentComputed, recordSale } = usePCStore();
+  const { t, formatCurrency } = useI18n();
 
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -64,27 +66,27 @@ export const SaleForm: React.FC<SaleFormProps> = ({
     setError('');
 
     if (!selectedComponentId) {
-      setError('Seleziona un componente da vendere.');
+      setError(t('modal_sale_err_no_comp'));
       return;
     }
 
     if (!date) {
-      setError('La data di vendita è obbligatoria.');
+      setError(t('modal_sale_err_no_date'));
       return;
     }
 
     if (price.trim() === '' || isNaN(numPrice) || numPrice < 0) {
-      setError('Inserisci un prezzo di vendita valido (non negativo).');
+      setError(t('modal_sale_err_invalid_price'));
       return;
     }
 
     if (shippingCost.trim() !== '' && (isNaN(numShipping) || numShipping < 0)) {
-      setError('Le spese di spedizione non possono essere negative.');
+      setError(t('modal_sale_err_invalid_shipping'));
       return;
     }
 
     if (fees.trim() !== '' && (isNaN(numFees) || numFees < 0)) {
-      setError('Le commissioni non possono essere negative.');
+      setError(t('modal_sale_err_invalid_fees'));
       return;
     }
 
@@ -121,7 +123,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
       {/* Selezione Componente */}
       <div className="form-group">
         <label className="form-label">
-          Componente Venduto <span className="form-required">*</span>
+          {t('modal_sale_component_label')} <span className="form-required">*</span>
         </label>
         {preSelectedComponent ? (
           <div
@@ -167,7 +169,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
               border: '1px solid var(--accent-amber-border)',
             }}
           >
-            Nessun componente vendibile disponibile nell'archivio (tutti risultano già dismessi o venduti).
+            {t('modal_sale_empty')}
           </div>
         ) : (
           <select
@@ -206,7 +208,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
         >
           <Info size={16} style={{ flexShrink: 0 }} />
           <span>
-            Questo pezzo è montato nel PC. Confermando la vendita verrà automaticamente registrato lo smontaggio dal rig.
+            {t('modal_sale_auto_uninstall_desc')}
           </span>
         </div>
       )}
@@ -215,7 +217,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div className="form-group">
           <label className="form-label">
-            Data Vendita <span className="form-required">*</span>
+            {t('modal_sale_date_label')} <span className="form-required">*</span>
           </label>
           <input
             type="date"
@@ -229,7 +231,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
 
         <div className="form-group">
           <label className="form-label">
-            Prezzo Venduto (€) <span className="form-required">*</span>
+            {t('modal_sale_price_label')} <span className="form-required">*</span>
           </label>
           <input
             type="number"
@@ -249,13 +251,13 @@ export const SaleForm: React.FC<SaleFormProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div className="form-group">
           <label className="form-label">
-            Spedizione a tuo carico (€)
+            {t('modal_sale_shipping_label')}
           </label>
           <input
             type="number"
             step="0.01"
             min="0"
-            placeholder="es. 10.00 (opzionale)"
+            placeholder="es. 10.00"
             className="form-input font-mono"
             value={shippingCost}
             onChange={(e) => setShippingCost(e.target.value)}
@@ -265,13 +267,13 @@ export const SaleForm: React.FC<SaleFormProps> = ({
 
         <div className="form-group">
           <label className="form-label">
-            Commissioni trattenute (€)
+            {t('modal_sale_fees_label')}
           </label>
           <input
             type="number"
             step="0.01"
             min="0"
-            placeholder="es. 15.50 (PayPal / eBay)"
+            placeholder="es. 15.50"
             className="form-input font-mono"
             value={fees}
             onChange={(e) => setFees(e.target.value)}
@@ -309,10 +311,10 @@ export const SaleForm: React.FC<SaleFormProps> = ({
           </div>
           <div>
             <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
-              Incasso Netto Effettivo
+              {t('modal_sale_net_label')}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Prezzo lordo − spese − commissioni
+              {t('modal_sale_price_label')} − {t('modal_sale_shipping_label')} − {t('modal_sale_fees_label')}
             </div>
           </div>
         </div>
@@ -324,14 +326,14 @@ export const SaleForm: React.FC<SaleFormProps> = ({
             color: 'var(--accent-emerald)',
           }}
         >
-          € {netRecovered.toFixed(2)}
+          {formatCurrency(netRecovered)}
         </div>
       </div>
 
       {/* Rigo 3: Piattaforma e Acquirente */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div className="form-group">
-          <label className="form-label">Piattaforma / Canale</label>
+          <label className="form-label">{t('modal_sale_platform_label')}</label>
           <input
             type="text"
             placeholder="es. Subito.it, eBay, Forum, A mano"
@@ -343,7 +345,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label className="form-label">Acquirente</label>
+          <label className="form-label">{t('modal_sale_buyer_label')}</label>
           <input
             type="text"
             placeholder="es. Marco R., Nickname"
@@ -357,7 +359,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
 
       {/* Note opzionali */}
       <div className="form-group">
-        <label className="form-label">Note sulla vendita</label>
+        <label className="form-label">{t('modal_sale_notes_label')}</label>
         <textarea
           rows={2}
           placeholder="Dettagli aggiuntivi, tracking spedizione, condizioni al momento della vendita..."
@@ -378,7 +380,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
             disabled={isSubmitting}
             style={{ marginRight: 'auto' }}
           >
-            Indietro
+            {t('upgrade_step_btn_back')}
           </button>
         )}
         <button
@@ -387,7 +389,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
           onClick={onCancel}
           disabled={isSubmitting}
         >
-          Annulla
+          {t('modal_sale_btn_cancel')}
         </button>
         <button
           type="submit"
@@ -400,7 +402,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
           disabled={isSubmitting || !selectedComponentId}
         >
           <DollarSign size={15} />
-          <span>{isSubmitting ? 'Registrazione...' : 'Conferma Vendita'}</span>
+          <span>{isSubmitting ? t('modal_sale_btn_submitting') : t('modal_sale_btn_submit')}</span>
         </button>
       </div>
     </form>
@@ -422,12 +424,13 @@ export const SaleModal: React.FC<SaleModalProps> = ({
   onSuccess,
   onBack,
 }) => {
+  const { t } = useI18n();
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       onBack={onBack}
-      title="Registra Vendita Hardware"
+      title={t('modal_sale_title')}
       maxWidth="600px"
     >
       <SaleForm
