@@ -13,6 +13,7 @@ import { TimeTravelPage } from '../../pages/TimeTravelPage';
 import { MarketplacePage } from '../../pages/MarketplacePage';
 import { WikiPage } from '../../pages/WikiPage';
 import { usePCStore } from '../../store';
+import { useTranslation } from '../../locales';
 import {
   ComponentFormModal,
   DeleteConfirmModal,
@@ -72,6 +73,7 @@ export const AppShell: React.FC = () => {
     getComponentWarranty,
     getComponentReceipts,
   } = usePCStore();
+  const { t } = useTranslation();
   const [currentSection, setCurrentSection] = useState<NavSection>('dashboard');
   const [hasInitializedStartSection, setHasInitializedStartSection] = useState(false);
 
@@ -330,52 +332,52 @@ export const AppShell: React.FC = () => {
     switch (section) {
       case 'dashboard':
         return {
-          title: settings.rigName ? `Panoramica • ${settings.rigName}` : 'Panoramica Generale',
+          title: settings.rigName ? `${t('nav_dashboard')} • ${settings.rigName}` : `${t('nav_dashboard')} Generale`,
           subtitle: settings.rigDescription || 'Metriche finanziarie, stato dell’hardware e ultimi movimenti',
         };
       case 'current-rig':
         return {
-          title: settings.rigName || 'Il Mio PC Attuale',
+          title: settings.rigName || t('nav_current_rig'),
           subtitle: settings.rigDescription || 'Configurazione hardware attualmente assemblata e in uso',
         };
       case 'time-travel':
         return {
-          title: 'Time Travel',
+          title: t('nav_time_travel'),
           subtitle: 'Navigazione temporale, configurazioni storiche e checkpoint',
         };
       case 'archive':
         return {
-          title: 'Archivio Componenti',
+          title: t('nav_archive'),
           subtitle: 'Tutti i pezzi mai posseduti, suddivisi per stato e categoria',
         };
       case 'upgrades':
         return {
-          title: 'Storico Upgrade',
+          title: t('nav_upgrades'),
           subtitle: 'Cronologia dei cambi generazionali e bilanci di sostituzione',
         };
       case 'marketplace':
         return {
-          title: 'Vendite & Annunci',
+          title: t('nav_marketplace'),
           subtitle: 'Gestione hardware a magazzino, annunci di vendita e recupero capitale',
         };
       case 'stats':
         return {
-          title: 'Statistiche & Finanze',
+          title: t('nav_stats'),
           subtitle: 'Andamento della spesa nel tempo e grafici di ripartizione',
         };
       case 'maintenance':
         return {
-          title: 'Cura del PC',
+          title: t('nav_maintenance'),
           subtitle: 'Registro interventi fisici, diagnostica e strumenti Windows, tuning journal',
         };
       case 'wiki':
         return {
-          title: 'Wiki & Guida Ufficiale',
+          title: t('nav_wiki'),
           subtitle: 'Manuale d\'uso interattivo, tutorial passo-passo, spiegazione formule e trucchi pro',
         };
       case 'settings':
         return {
-          title: 'Impostazioni',
+          title: t('nav_settings'),
           subtitle: 'Personalizzazione del setup, preferenze interfaccia e gestione dati',
         };
     }
@@ -789,6 +791,10 @@ export const AppShell: React.FC = () => {
           onNewMovement={handleOpenMovementSelector}
           onImportBackup={triggerImportFlow}
           onOpenWiki={currentSection !== 'wiki' ? () => handleOpenWikiArticle() : undefined}
+          onOpenSearch={() => setIsCommandPaletteOpen(true)}
+          onQuickSetup={() => setIsQuickSetupOpen(true)}
+          onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
+          hasUpdateAvailable={updateInfo.available}
         />
         <main style={styles.content}>{renderContent()}</main>
       </div>

@@ -23,7 +23,9 @@ import {
   RefreshCw,
   BookOpen,
   Wrench,
+  Globe,
 } from 'lucide-react';
+import { useTranslation, detectSystemLocale, SupportedLocale } from '../locales';
 import { Modal } from '../components/common/Modal';
 import {
   exportDatabaseToJSON,
@@ -225,6 +227,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     schedulerSettings,
     updateSchedulerSettings,
   } = usePCStore();
+  const { currentLocale, setLocale, t } = useTranslation();
+
+  const handleSelectLanguage = async (code: SupportedLocale) => {
+    try {
+      await setLocale(code);
+      showNotification(
+        'success',
+        t('settings_language_switch_confirm', { lang: code === 'it' ? 'Italiano 🇮🇹' : 'English 🇬🇧' })
+      );
+    } catch (err) {
+      showNotification('error', `Errore cambio lingua: ${(err as Error).message}`);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(
     requestedTab && VALID_SETTINGS_TABS.includes(requestedTab) ? requestedTab : 'preferences'
@@ -811,6 +826,98 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 )}
               </div>
             </form>
+          </div>
+
+          {/* Gruppo: Lingua dell'Interfaccia (Interface Language) */}
+          <div className="settings-group" id="settings-group-language">
+            <div className="settings-group-header">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <h2 className="settings-group-title">
+                  <Globe size={18} color="var(--accent-primary)" />
+                  <span>{t('settings_language_title')}</span>
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      fontSize: '11.5px',
+                      color: 'var(--text-muted)',
+                      backgroundColor: 'var(--bg-surface-elevated)',
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--border-subtle)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {t('settings_language_detected', { lang: detectSystemLocale().toUpperCase() })}
+                  </span>
+                </div>
+              </div>
+              <p className="settings-group-desc">
+                {t('settings_language_desc')}
+              </p>
+            </div>
+
+            <div
+              className="settings-option-grid"
+              role="radiogroup"
+              aria-label={t('settings_language_title')}
+            >
+              {[
+                {
+                  code: 'it' as const,
+                  name: 'Italiano',
+                  flag: '🇮🇹',
+                  desc: t('settings_language_it_desc'),
+                  bcp47: 'it-IT',
+                },
+                {
+                  code: 'en' as const,
+                  name: 'English',
+                  flag: '🇬🇧',
+                  desc: t('settings_language_en_desc'),
+                  bcp47: 'en-US',
+                },
+              ].map((lang) => {
+                const isActive = (settings.language || currentLocale) === lang.code;
+                return (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => handleSelectLanguage(lang.code)}
+                    className={`settings-option-btn ${isActive ? 'is-active' : ''}`}
+                    id={`btn-lang-${lang.code}`}
+                  >
+                    <div className="settings-option-top">
+                      <span
+                        className="settings-option-title"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <span style={{ fontSize: '18px', lineHeight: 1 }}>{lang.flag}</span>
+                        <span>{lang.name}</span>
+                      </span>
+                      {isActive && (
+                        <span className="settings-option-badge">
+                          {t('settings_language_active')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="settings-option-desc">{lang.desc}</p>
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        fontSize: '11px',
+                        fontFamily: 'var(--font-mono)',
+                        color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {lang.bcp47}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Gruppo 2: Comportamento Interfaccia */}

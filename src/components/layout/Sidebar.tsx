@@ -15,6 +15,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { usePCStore } from '../../store';
+import { useTranslation } from '../../locales';
 import { APP_VERSION } from '../../constants/version';
 
 export type NavSection =
@@ -55,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenWhatsNew,
 }) => {
   const { settings, components, getComponentComputed } = usePCStore();
+  const { t } = useTranslation();
 
   const inStorageCount = components.filter(
     (c) => getComponentComputed(c.id)?.status === 'IN_STORAGE'
@@ -62,38 +64,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const NAV_GROUPS: NavGroupDef[] = [
     {
-      label: 'Panoramica',
+      label: t('nav_group_overview'),
       items: [
-        { id: 'dashboard', label: 'Panoramica', icon: LayoutDashboard },
+        { id: 'dashboard', label: t('nav_dashboard'), icon: LayoutDashboard },
       ],
     },
     {
-      label: 'Il Computer',
+      label: t('nav_group_computer'),
       items: [
-        { id: 'current-rig', label: 'Il Mio PC', icon: Cpu },
-        { id: 'time-travel', label: 'Time Travel', icon: History },
-        { id: 'upgrades', label: 'Storico Upgrade', icon: ArrowUpRight },
+        { id: 'current-rig', label: t('nav_current_rig'), icon: Cpu },
+        { id: 'time-travel', label: t('nav_time_travel'), icon: History },
+        { id: 'upgrades', label: t('nav_upgrades'), icon: ArrowUpRight },
       ],
     },
     {
-      label: 'Hardware & Mercato',
+      label: t('nav_group_market'),
       items: [
-        { id: 'archive', label: 'Archivio Pezzi', icon: Archive },
+        { id: 'archive', label: t('nav_archive'), icon: Archive },
         {
           id: 'marketplace',
-          label: 'Vendite & Annunci',
+          label: t('nav_marketplace'),
           icon: Tag,
           badge: inStorageCount > 0 ? inStorageCount : undefined,
         },
       ],
     },
     {
-      label: 'Analisi & Sistema',
+      label: t('nav_group_system'),
       items: [
-        { id: 'stats', label: 'Statistiche & Finanze', icon: BarChart3 },
-        { id: 'maintenance', label: 'Cura del PC', icon: Wrench },
-        { id: 'wiki', label: 'Wiki & Guida', icon: BookOpen },
-        { id: 'settings', label: 'Impostazioni', icon: Settings },
+        { id: 'stats', label: t('nav_stats'), icon: BarChart3 },
+        { id: 'maintenance', label: t('nav_maintenance'), icon: Wrench },
+        { id: 'wiki', label: t('nav_wiki'), icon: BookOpen },
+        { id: 'settings', label: t('nav_settings'), icon: Settings },
       ],
     },
   ];
@@ -139,13 +141,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       ...styles.navItem,
                       ...(isActive ? styles.navItemActive : {}),
                     }}
+                    id={`sidebar-nav-${item.id}`}
                   >
                     <Icon size={17} style={isActive ? styles.iconActive : styles.iconInactive} />
                     <span>{item.label}</span>
                     {item.badge !== undefined && item.badge > 0 && (
                       <span
                         className="sidebar-nav-badge"
-                        title={`${item.badge} pezzi a magazzino pronti per la vendita`}
+                        title={t('sidebar_in_storage_badge_tooltip', { count: item.badge })}
                       >
                         {item.badge}
                       </span>
@@ -153,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {item.id === 'settings' && hasUpdateAvailable && (
                       <span
                         className="sidebar-update-dot"
-                        title="Nuovo aggiornamento software disponibile!"
+                        title={t('sidebar_update_available')}
                       />
                     )}
                   </button>
@@ -169,7 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
           <div style={styles.dbStatus}>
             <span style={styles.statusDot} />
-            <span>IndexedDB Locale</span>
+            <span>{t('sidebar_local_db')}</span>
           </div>
 
           {onOpenWhatsNew ? (
@@ -178,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={onOpenWhatsNew}
               className="micro-press"
               style={styles.versionBtn}
-              title="Note di rilascio & novità di questa versione"
+              title={t('sidebar_whats_new_tooltip')}
               id="btn-sidebar-whatsnew"
             >
               <span>v{APP_VERSION} (Beta)</span>
@@ -192,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div style={styles.signature}>
-          <span style={styles.signatureLabel}>Made by Peppe</span>
+          <span style={styles.signatureLabel}>{t('sidebar_made_by')}</span>
           <a
             href="https://www.instagram.com/peppesthoughtss/"
             target="_blank"
