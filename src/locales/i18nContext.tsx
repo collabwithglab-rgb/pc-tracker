@@ -61,27 +61,29 @@ export function interpolate(template: string, params?: Record<string, string | n
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (match, key) => {
     if (Object.prototype.hasOwnProperty.call(params, key)) {
-      return String(params[key]);
+      const val = params[key];
+      return val !== undefined && val !== null ? String(val) : '';
     }
     return match;
   });
 }
 
 /**
- * Formatta valute secondo lo standard BCP-47 locale
+ * Formatta valute secondo lo standard BCP-47 locale (con fallback sicuro su 0 per NaN/undefined)
  */
 export function formatCurrency(
   amount: number,
   localeCode: SupportedLocale = 'it',
   currency: string = 'EUR'
 ): string {
+  const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
   const bcp = BCP47_MAP[localeCode] || 'it-IT';
   return new Intl.NumberFormat(bcp, {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(safeAmount);
 }
 
 /**

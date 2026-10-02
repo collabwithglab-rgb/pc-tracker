@@ -124,6 +124,13 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
     return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>{t('current_rig_loading')}</div>;
   }
 
+  const diffYears = settings.buildYear ? Math.max(0, new Date().getFullYear() - settings.buildYear) : 0;
+  const buildAgeText = diffYears <= 0
+    ? t('current_rig_build_age_fresh')
+    : diffYears === 1
+    ? t('current_rig_build_age_one_year')
+    : t('current_rig_build_age_years', { years: diffYears });
+
   return (
     <div style={styles.container}>
       {/* Barra di Riepilogo Sintetica e Discreta (Apple-Style Slide-Up) */}
@@ -142,15 +149,11 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                   ? t('current_rig_build_info_named', {
                       name: settings.rigName,
                       year: settings.buildYear,
-                      age: new Date().getFullYear() - settings.buildYear === 0
-                        ? t('current_rig_build_age_fresh')
-                        : t('current_rig_build_age_years', { years: new Date().getFullYear() - settings.buildYear })
+                      age: buildAgeText,
                     })
                   : t('current_rig_build_info_unnamed', {
                       year: settings.buildYear,
-                      age: new Date().getFullYear() - settings.buildYear === 0
-                        ? t('current_rig_build_age_fresh')
-                        : t('current_rig_build_age_years', { years: new Date().getFullYear() - settings.buildYear })
+                      age: buildAgeText,
                     })
                 )
               : settings.rigName

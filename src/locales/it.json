@@ -201,6 +201,7 @@
   "current_rig_count_label": "componenti montati",
   "current_rig_no_components": "Nessun componente è attualmente installato nella macchina.",
   "current_rig_build_age_fresh": "<1 anno",
+  "current_rig_build_age_one_year": "1 anno",
   "current_rig_build_age_years": "{years} anni",
   "current_rig_build_info_named": "{name} — Build originaria del {year} ({age} di vita)",
   "current_rig_build_info_unnamed": "Build originaria del {year} ({age} di vita)",

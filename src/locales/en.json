@@ -201,6 +201,7 @@
   "current_rig_count_label": "installed components",
   "current_rig_no_components": "No components are currently installed in the machine.",
   "current_rig_build_age_fresh": "<1 year",
+  "current_rig_build_age_one_year": "1 year",
   "current_rig_build_age_years": "{years} years",
   "current_rig_build_info_named": "{name} — Original build from {year} ({age} of life)",
   "current_rig_build_info_unnamed": "Original build from {year} ({age} of life)",

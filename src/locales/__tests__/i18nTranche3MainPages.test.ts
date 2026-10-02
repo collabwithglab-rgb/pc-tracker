@@ -73,6 +73,7 @@ describe('i18n Tranche 3 — Schermate Principali (Dashboard & Current Rig) e Gl
       'current_rig_count_label',
       'current_rig_no_components',
       'current_rig_build_age_fresh',
+      'current_rig_build_age_one_year',
       'current_rig_build_age_years',
       'current_rig_build_info_named',
       'current_rig_build_info_unnamed',
@@ -216,6 +217,17 @@ describe('i18n Tranche 3 — Schermate Principali (Dashboard & Current Rig) e Gl
 
     expect(itFormatted).toContain('12.899,99');
     expect(enFormatted).toContain('12,899.99');
+  });
+
+  it('7. garantisce resilienza difensiva contro valori non numerici o parametri undefined', () => {
+    // formatCurrency con NaN o undefined restituisce formattazione di zero euro senza eccezioni
+    expect(formatCurrency(NaN, 'it')).toContain('0,00');
+    expect(formatCurrency(undefined as unknown as number, 'en')).toContain('0.00');
+
+    // interpolate con parametri undefined/null non stampa la stringa letterale "undefined"
+    const template = 'Slot: {slot}, Stato: {status}';
+    const result = interpolate(template, { slot: 'M.2', status: undefined as unknown as string });
+    expect(result).toBe('Slot: M.2, Stato: ');
   });
 
 });
