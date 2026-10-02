@@ -24,6 +24,7 @@ import { CheckpointModal } from '../components/checkpoint';
 import { PowerBudgetCard } from '../components/power';
 import { ComponentIcon } from '../components/common/ComponentIcon';
 import { computeRigPowerBudgetFromInstalled } from '../domain';
+import { useTranslation, TranslationKey } from '../locales';
 
 interface CurrentRigPageProps {
   onSelectComponent: (componentId: string) => void;
@@ -92,6 +93,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
   onOpenComparison,
 }) => {
   const { getInstalledComponents, isLoading, settings } = usePCStore();
+  const { t, formatCurrency } = useTranslation();
   const [isSaveCheckpointOpen, setIsSaveCheckpointOpen] = React.useState<boolean>(false);
 
   const installedItems = getInstalledComponents();
@@ -119,7 +121,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
   };
 
   if (isLoading) {
-    return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>Caricamento configurazione...</div>;
+    return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>{t('current_rig_loading')}</div>;
   }
 
   return (
@@ -129,17 +131,31 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
         <div style={styles.summaryLeft}>
           <div style={styles.summaryCount}>
             <span className="font-mono" style={styles.countNum}>{installedItems.length}</span>
-            <span style={styles.countLabel}>componenti montati</span>
+            <span style={styles.countLabel}>{t('current_rig_count_label')}</span>
           </div>
           <div style={styles.summaryDivider} />
           <p style={styles.summaryText}>
             {installedItems.length === 0
-              ? 'Nessun componente è attualmente installato nella macchina.'
+              ? t('current_rig_no_components')
               : settings.buildYear
-              ? `${settings.rigName ? `${settings.rigName} — ` : ''}Build originaria del ${settings.buildYear} (${new Date().getFullYear() - settings.buildYear === 0 ? '<1 anno' : `${new Date().getFullYear() - settings.buildYear} anni`} di vita)`
+              ? (settings.rigName
+                  ? t('current_rig_build_info_named', {
+                      name: settings.rigName,
+                      year: settings.buildYear,
+                      age: new Date().getFullYear() - settings.buildYear === 0
+                        ? t('current_rig_build_age_fresh')
+                        : t('current_rig_build_age_years', { years: new Date().getFullYear() - settings.buildYear })
+                    })
+                  : t('current_rig_build_info_unnamed', {
+                      year: settings.buildYear,
+                      age: new Date().getFullYear() - settings.buildYear === 0
+                        ? t('current_rig_build_age_fresh')
+                        : t('current_rig_build_age_years', { years: new Date().getFullYear() - settings.buildYear })
+                    })
+                )
               : settings.rigName
-              ? `${settings.rigName} — Configurazione hardware assemblata e operativa.`
-              : 'Configurazione hardware assemblata e operativa.'}
+              ? t('current_rig_assembled_named', { name: settings.rigName })
+              : t('current_rig_assembled_unnamed')}
           </p>
         </div>
 
@@ -149,10 +165,10 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
               type="button"
               className="contextual-help-pill"
               onClick={() => onOpenWikiArticle('first-rig-setup')}
-              title="Guida su come configurare e gestire i componenti montati nel PC"
+              title={t('current_rig_guide_tooltip')}
             >
               <BookOpen size={13} />
-              <span>Guida Rig</span>
+              <span>{t('current_rig_guide_btn')}</span>
             </button>
           )}
 
@@ -161,7 +177,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
               onClick={onOpenQuickSetup}
               className="btn btn-secondary micro-press"
               style={{ fontSize: '13px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              title="Avvia il Quick Setup con rilevamento automatico hardware"
+              title={t('current_rig_quick_setup_tooltip')}
             >
               <Sparkles size={14} color="var(--accent-primary)" />
               <span>Quick Setup</span>
@@ -172,10 +188,10 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
             onClick={() => setIsSaveCheckpointOpen(true)}
             className="btn btn-secondary micro-press"
             style={{ fontSize: '13px', padding: '7px 14px' }}
-            title="Salva la configurazione hardware montata come checkpoint"
+            title={t('current_rig_save_checkpoint_tooltip')}
           >
             <Bookmark size={15} color="var(--accent-amber)" />
-            <span>Salva Checkpoint</span>
+            <span>{t('current_rig_save_checkpoint_btn')}</span>
           </button>
 
           {onOpenComparison && (
@@ -183,11 +199,11 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
               onClick={() => onOpenComparison('current')}
               className="btn btn-secondary micro-press"
               style={{ fontSize: '13px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              title="Confronta il PC attuale con un checkpoint salvato"
+              title={t('current_rig_compare_tooltip')}
               id="btn-current-rig-compare"
             >
               <GitCompare size={15} color="var(--accent-primary)" />
-              <span>Confronta Rig</span>
+              <span>{t('current_rig_compare_btn')}</span>
             </button>
           )}
 
@@ -196,11 +212,11 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
               onClick={onOpenExportModal}
               className="btn btn-secondary micro-press"
               style={{ fontSize: '13px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              title="Esporta o condividi la scheda tecnica per Gemini, Discord, WhatsApp o PDF"
+              title={t('current_rig_export_tooltip')}
               id="btn-current-rig-export"
             >
               <Share2 size={15} color="var(--accent-primary)" />
-              <span>Esporta Scheda</span>
+              <span>{t('current_rig_export_btn')}</span>
             </button>
           )}
 
@@ -210,7 +226,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
             style={{ fontSize: '13px', padding: '7px 14px' }}
           >
             <Wrench size={15} />
-            <span>Monta nel PC</span>
+            <span>{t('current_rig_install_btn')}</span>
           </button>
         </div>
       </div>
@@ -234,51 +250,57 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
             (!installedByCategory.get(category) || installedByCategory.get(category)!.length === 0)
         );
 
+        const groupTitle = t(`current_rig_group_${group.id}_title` as TranslationKey) || group.title;
+        const groupDesc = t(`current_rig_group_${group.id}_desc` as TranslationKey) || group.description;
+
         return (
           <section
             key={group.id}
             className={`animate-slide-up stagger-${Math.min(groupIdx + 1, 5)}`}
             style={styles.groupContainer}
-            aria-label={group.title}
+            aria-label={groupTitle}
           >
             <div style={styles.groupHeader}>
               <div style={styles.groupHeaderLeft}>
-                <h3 style={styles.groupTitle}>{group.title}</h3>
+                <h3 style={styles.groupTitle}>{groupTitle}</h3>
                 <span style={styles.groupCountBadge}>
-                  {groupInstalled.length} {groupInstalled.length === 1 ? 'pezzo' : 'pezzi'}
+                  {groupInstalled.length === 1
+                    ? t('current_rig_parts_count_singular', { count: 1 })
+                    : t('current_rig_parts_count_plural', { count: groupInstalled.length })}
                 </span>
-                <span style={styles.groupDescription}>• {group.description}</span>
+                <span style={styles.groupDescription}>• {groupDesc}</span>
               </div>
 
               <button
                 onClick={() => onOpenInstallModal(group.categories[0])}
                 className="btn btn-ghost micro-press"
                 style={{ fontSize: '12px', padding: '4px 10px', color: 'var(--text-secondary)' }}
-                title={`Aggiungi un componente in ${group.title}`}
+                title={t('current_rig_add_part_tooltip', { group: groupTitle })}
               >
                 <Plus size={13} />
-                <span>Aggiungi pezzo</span>
+                <span>{t('current_rig_add_part_btn')}</span>
               </button>
             </div>
 
             {groupInstalled.length === 0 && missingCoreCategories.length === 0 ? (
               <div style={styles.groupEmptyNotice}>
-                <span>Nessun componente montato in questa sezione.</span>
+                <span>{t('current_rig_empty_group_notice')}</span>
                 <button
                   onClick={() => onOpenInstallModal(group.categories[0])}
                   className="btn btn-ghost micro-press"
                   style={{ fontSize: '12px', color: 'var(--accent-primary)', padding: '2px 8px' }}
                 >
                   <Plus size={12} />
-                  <span>Monta ora</span>
+                  <span>{t('current_rig_install_now_btn')}</span>
                 </button>
               </div>
             ) : (
               <div style={styles.categoriesGrid}>
                 {/* 1. Componenti Montati */}
                 {groupInstalled.map((item) => {
+                  const catKey = `category_${item.component.category}` as TranslationKey;
                   const categoryLabel =
-                    COMPONENT_CATEGORY_LABELS[item.component.category] || item.component.category;
+                    t(catKey) || COMPONENT_CATEGORY_LABELS[item.component.category] || item.component.category;
 
                   return (
                     <div
@@ -292,7 +314,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                         if (e.key === 'Enter') onSelectComponent(item.component.id);
                       }}
                       title={`Visualizza dettaglio di ${item.component.name}`}
-                      aria-label={`Componente ${item.component.name}, categoria ${categoryLabel}, montato`}
+                      aria-label={`${item.component.name}, ${categoryLabel}, ${t('status_in_use')}`}
                     >
                       <div style={styles.cardTop}>
                         <div style={styles.categoryBadge}>
@@ -306,10 +328,10 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                               className="font-mono"
                               style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px' }}
                             >
-                              €{item.computed.totalPurchaseCost.toFixed(0)}
+                              {formatCurrency(item.computed.totalPurchaseCost)}
                             </span>
                           )}
-                          <span className="badge badge-in-use">In Uso</span>
+                          <span className="badge badge-in-use">{t('status_in_use')}</span>
                         </div>
                       </div>
 
@@ -326,10 +348,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                           <div style={styles.metaRow}>
                             <MapPin size={12} color="var(--accent-primary)" />
                             <span>
-                              Alloggiamento:{' '}
-                              <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>
-                                {item.lastInstallEvent.slotOrLocation}
-                              </strong>
+                              {t('current_rig_slot_location', { slot: item.lastInstallEvent.slotOrLocation })}
                             </span>
                           </div>
                         )}
@@ -337,15 +356,13 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                         <div style={styles.metaRow}>
                           <Clock size={12} color="var(--text-muted)" />
                           <span>
-                            Montato il{' '}
-                            {formatDate(
-                              item.computed.lastInstallDate || item.lastInstallEvent?.date,
-                              settings.dateFormat
-                            )}{' '}
-                            •{' '}
-                            <strong className="font-mono" style={{ color: 'var(--accent-primary)' }}>
-                              {item.computed.daysInUse} gg
-                            </strong>
+                            {t('current_rig_installed_date_days', {
+                              date: formatDate(
+                                item.computed.lastInstallDate || item.lastInstallEvent?.date,
+                                settings.dateFormat
+                              ),
+                              days: item.computed.daysInUse,
+                            })}
                           </span>
                         </div>
                       </div>
@@ -356,20 +373,20 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                           onClick={() => onOpenReplaceModal(item.component, item.lastInstallEvent)}
                           className="btn btn-secondary micro-press"
                           style={{ flex: 1, padding: '6px 12px', fontSize: '12px' }}
-                          title="Sostituisci questo componente con un upgrade"
+                          title={t('current_rig_action_replace_tooltip')}
                         >
                           <ArrowRightLeft size={13} />
-                          <span>Sostituisci</span>
+                          <span>{t('current_rig_action_replace')}</span>
                         </button>
 
                         <button
                           onClick={() => onOpenUninstallModal(item.component)}
                           className="btn btn-ghost micro-press"
                           style={{ padding: '6px 10px', fontSize: '12px', color: 'var(--accent-amber)' }}
-                          title="Smonta dal PC e sposta in magazzino"
+                          title={t('current_rig_action_uninstall_tooltip')}
                         >
                           <Package size={13} />
-                          <span>Smonta</span>
+                          <span>{t('current_rig_action_uninstall')}</span>
                         </button>
                       </div>
                     </div>
@@ -377,36 +394,41 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
                 })}
 
                 {/* 2. Slot Essenziali Non Occupati (Strip compatto e ordinato, zero card giganti) */}
-                {missingCoreCategories.map((category) => (
-                  <div key={`empty-${category}`} className="compact-empty-slot" style={styles.compactEmptySlot}>
-                    <div style={styles.compactEmptyLeft}>
-                      <div style={styles.compactEmptyIcon}>
-                        {getCategoryIcon(category, 14)}
+                {missingCoreCategories.map((category) => {
+                  const catKey = `category_${category}` as TranslationKey;
+                  const categoryLabel = t(catKey) || COMPONENT_CATEGORY_LABELS[category];
+                  return (
+                    <div key={`empty-${category}`} className="compact-empty-slot" style={styles.compactEmptySlot}>
+                      <div style={styles.compactEmptyLeft}>
+                        <div style={styles.compactEmptyIcon}>
+                          {getCategoryIcon(category, 14)}
+                        </div>
+                        <div style={styles.compactEmptyTextGroup}>
+                          <span style={styles.compactEmptyTitle}>
+                            {categoryLabel}
+                          </span>
+                          <span style={styles.compactEmptySubtitle}>{t('current_rig_slot_empty')}</span>
+                        </div>
                       </div>
-                      <div style={styles.compactEmptyTextGroup}>
-                        <span style={styles.compactEmptyTitle}>
-                          {COMPONENT_CATEGORY_LABELS[category]}
-                        </span>
-                        <span style={styles.compactEmptySubtitle}>Slot libero</span>
-                      </div>
-                    </div>
 
-                    <button
-                      onClick={() => onOpenInstallModal(category)}
-                      className="btn btn-ghost micro-press"
-                      style={{ fontSize: '11.5px', padding: '4px 10px', color: 'var(--accent-primary)' }}
-                      title={`Monta ${COMPONENT_CATEGORY_LABELS[category]}`}
-                    >
-                      <Plus size={12} />
-                      <span>Monta</span>
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        onClick={() => onOpenInstallModal(category)}
+                        className="btn btn-ghost micro-press"
+                        style={{ fontSize: '11.5px', padding: '4px 10px', color: 'var(--accent-primary)' }}
+                        title={t('current_rig_slot_install_tooltip', { category: categoryLabel })}
+                      >
+                        <Plus size={12} />
+                        <span>{t('current_rig_slot_install')}</span>
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
         );
       })}
+
 
       {/* Modale Salva come Checkpoint */}
       <CheckpointModal

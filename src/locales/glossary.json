@@ -1,0 +1,314 @@
+{
+  "version": "1.0.0",
+  "description": "Glossario hardware e termini tecnici di sistema blindati (termini non traducibili o con mapping tecnico canonico obbligatorio)",
+  "hardware_acronyms": {
+    "CPU": {
+      "term": "CPU",
+      "fullName": "Central Processing Unit",
+      "translatable": false,
+      "notes": "Sigla standard universale per processore principale"
+    },
+    "GPU": {
+      "term": "GPU",
+      "fullName": "Graphics Processing Unit",
+      "translatable": false,
+      "notes": "Sigla standard universale per scheda grafica / processore video"
+    },
+    "RAM": {
+      "term": "RAM",
+      "fullName": "Random Access Memory",
+      "translatable": false,
+      "notes": "Memoria di lavoro volatile del computer"
+    },
+    "VRAM": {
+      "term": "VRAM",
+      "fullName": "Video Random Access Memory",
+      "translatable": false,
+      "notes": "Memoria video ad alta larghezza di banda integrata sulla GPU"
+    },
+    "SSD": {
+      "term": "SSD",
+      "fullName": "Solid State Drive",
+      "translatable": false,
+      "notes": "Unità di memoria a stato solido basata su memorie flash NAND"
+    },
+    "HDD": {
+      "term": "HDD",
+      "fullName": "Hard Disk Drive",
+      "translatable": false,
+      "notes": "Unità di memoria magnetica meccanica tradizionale con piatti rotanti"
+    },
+    "NVMe": {
+      "term": "NVMe",
+      "fullName": "Non-Volatile Memory Express",
+      "translatable": false,
+      "notes": "Protocollo di comunicazione ad alte prestazioni per storage PCIe"
+    },
+    "PCIe": {
+      "term": "PCIe",
+      "fullName": "Peripheral Component Interconnect Express",
+      "translatable": false,
+      "notes": "Bus standard di espansione seriale ad alta velocità"
+    },
+    "S.M.A.R.T.": {
+      "term": "S.M.A.R.T.",
+      "fullName": "Self-Monitoring, Analysis and Reporting Technology",
+      "translatable": false,
+      "notes": "Sistema di monitoraggio affidabilità e telemetria predittiva per SSD e HDD"
+    },
+    "TRIM": {
+      "term": "TRIM",
+      "fullName": "ATA TRIM Command",
+      "translatable": false,
+      "notes": "Comando di ottimizzazione del sistema operativo per cancellare blocchi flash non più utilizzati"
+    },
+    "NVML": {
+      "term": "NVML",
+      "fullName": "NVIDIA Management Library",
+      "translatable": false,
+      "notes": "Libreria C/Rust di monitoraggio e controllo dello stato delle GPU NVIDIA"
+    },
+    "BIOS": {
+      "term": "BIOS",
+      "fullName": "Basic Input/Output System",
+      "translatable": false,
+      "notes": "Firmware a basso livello della scheda madre per l'inizializzazione dell'hardware"
+    },
+    "UEFI": {
+      "term": "UEFI",
+      "fullName": "Unified Extensible Firmware Interface",
+      "translatable": false,
+      "notes": "Specifiche moderne di firmware che sostituiscono il BIOS legacy"
+    },
+    "XMP": {
+      "term": "XMP",
+      "fullName": "Extreme Memory Profile",
+      "translatable": false,
+      "notes": "Profili preimpostati di fabbrica per overclock automatico delle memorie RAM (Intel)"
+    },
+    "EXPO": {
+      "term": "EXPO",
+      "fullName": "Extended Profiles for Overclocking",
+      "translatable": false,
+      "notes": "Profili aperti di overclock automatico per memorie RAM DDR5 su piattaforma AMD AM5"
+    },
+    "TDP": {
+      "term": "TDP",
+      "fullName": "Thermal Design Power",
+      "translatable": false,
+      "notes": "Potenza termica nominale massima dissipabile dal dissipatore espressa in Watt"
+    },
+    "TGP": {
+      "term": "TGP",
+      "fullName": "Total Graphics Power",
+      "translatable": false,
+      "notes": "Consumo energetico complessivo dell'intera scheda video (GPU + VRAM + VRM)"
+    },
+    "VRM": {
+      "term": "VRM",
+      "fullName": "Voltage Regulator Module",
+      "translatable": false,
+      "notes": "Modulo di regolazione della tensione su scheda madre e scheda grafica"
+    },
+    "ATX": {
+      "term": "ATX",
+      "fullName": "Advanced Technology Extended",
+      "translatable": false,
+      "notes": "Fattore di forma standard per case, schede madri e alimentatori desktop"
+    },
+    "SFX": {
+      "term": "SFX",
+      "fullName": "Small Form Factor (SFX)",
+      "translatable": false,
+      "notes": "Fattore di forma compatto per alimentatori destinati a configurazioni Mini-ITX e SFF"
+    },
+    "DDR4": {
+      "term": "DDR4",
+      "fullName": "Double Data Rate 4 Synchronous Dynamic RAM",
+      "translatable": false,
+      "notes": "Quarta generazione di memorie SDRAM ad alta velocità"
+    },
+    "DDR5": {
+      "term": "DDR5",
+      "fullName": "Double Data Rate 5 Synchronous Dynamic RAM",
+      "translatable": false,
+      "notes": "Quinta generazione di memorie SDRAM ad alta velocità e canali sub-32bit"
+    },
+    "M.2": {
+      "term": "M.2",
+      "fullName": "Next Generation Form Factor (M.2)",
+      "translatable": false,
+      "notes": "Fattore di forma e connettore per schede di espansione e SSD interni compatti"
+    },
+    "SATA": {
+      "term": "SATA",
+      "fullName": "Serial Advanced Technology Attachment",
+      "translatable": false,
+      "notes": "Interfaccia bus di memoria di massa seriale per SSD e HDD"
+    },
+    "ROCm": {
+      "term": "ROCm",
+      "fullName": "Radeon Open Compute",
+      "translatable": false,
+      "notes": "Piattaforma di calcolo open-source e telemetria per architetture GPU AMD"
+    }
+  },
+  "technical_units": {
+    "W": {
+      "unit": "W",
+      "name": "Watt",
+      "translatable": false,
+      "notes": "Unità SI di potenza elettrica attiva"
+    },
+    "GHz": {
+      "unit": "GHz",
+      "name": "Gigahertz",
+      "translatable": false,
+      "notes": "Unità di frequenza del clock di CPU e GPU (miliardi di cicli al secondo)"
+    },
+    "MHz": {
+      "unit": "MHz",
+      "name": "Megahertz",
+      "translatable": false,
+      "notes": "Unità di frequenza bus, clock base e memorie RAM (milioni di cicli al secondo)"
+    },
+    "MT/s": {
+      "unit": "MT/s",
+      "name": "MegaTransfers per second",
+      "translatable": false,
+      "notes": "Unità di misura della velocità effettiva di trasferimento dati per memorie DDR"
+    },
+    "CL": {
+      "unit": "CL",
+      "name": "CAS Latency",
+      "translatable": false,
+      "notes": "Numero di cicli di clock tra richiesta e disponibilità del dato sulla RAM"
+    },
+    "GB": {
+      "unit": "GB",
+      "name": "Gigabyte",
+      "translatable": false,
+      "notes": "Unità decimale di informazione e capacità di memoria (10^9 byte)"
+    },
+    "TB": {
+      "unit": "TB",
+      "name": "Terabyte",
+      "translatable": false,
+      "notes": "Unità decimale di informazione e capacità di archiviazione (10^12 byte)"
+    },
+    "MB/s": {
+      "unit": "MB/s",
+      "name": "Megabytes per second",
+      "translatable": false,
+      "notes": "Velocità di throughput sequenziale in lettura/scrittura storage"
+    },
+    "RPM": {
+      "unit": "RPM",
+      "name": "Revolutions Per Minute",
+      "translatable": false,
+      "notes": "Giri al minuto di rotazione di ventole o piatti HDD"
+    },
+    "°C": {
+      "unit": "°C",
+      "name": "Gradi Celsius",
+      "translatable": false,
+      "notes": "Unità di misura della temperatura metrica standard"
+    },
+    "dB": {
+      "unit": "dB",
+      "name": "Decibel",
+      "translatable": false,
+      "notes": "Livello di pressione sonora o rumorosità acustica delle ventole"
+    }
+  },
+  "windows_system_terms": {
+    "Thermal Throttling": {
+      "term": "Thermal Throttling",
+      "en": "Thermal Throttling",
+      "it": "Thermal Throttling",
+      "canonical": "Thermal Throttling",
+      "translatable": false,
+      "definition": "Meccanismo di protezione hardware che riduce la frequenza di clock e la tensione per prevenire danni termici permanenti al silicio."
+    },
+    "Commit Charge": {
+      "term": "Commit Charge",
+      "en": "Commit Charge",
+      "it": "Commit Charge",
+      "canonical": "Commit Charge",
+      "translatable": false,
+      "definition": "Quantità totale di memoria virtuale allocata dal sistema operativo per tutti i processi attivi e per il kernel, coperta da RAM e file di paging."
+    },
+    "Pagefile": {
+      "term": "Pagefile",
+      "en": "Pagefile",
+      "it": "Pagefile (File di Paging)",
+      "canonical": "Pagefile",
+      "translatable": false,
+      "definition": "File pagefile.sys nascosto su disco utilizzato dal Memory Manager di Windows per estendere la memoria RAM fisica."
+    },
+    "Idle": {
+      "term": "Idle",
+      "en": "Idle",
+      "it": "Idle",
+      "canonical": "Idle",
+      "translatable": false,
+      "definition": "Stato di inattività operativa o carico minimo del componente hardware o del sistema."
+    },
+    "Working Set": {
+      "term": "Working Set",
+      "en": "Working Set",
+      "it": "Working Set",
+      "canonical": "Working Set",
+      "translatable": false,
+      "definition": "Insieme delle pagine di memoria fisica (RAM) attualmente visibili e allocate nel contesto del processo."
+    },
+    "Paging File": {
+      "term": "Paging File",
+      "en": "Paging File",
+      "it": "File di Paging",
+      "canonical": "Paging File",
+      "translatable": false,
+      "definition": "Area di memoria secondaria riservata dal sistema operativo per consentire il paging di pagine di memoria."
+    },
+    "DWM": {
+      "term": "DWM",
+      "en": "Desktop Window Manager (DWM)",
+      "it": "Desktop Window Manager (DWM)",
+      "canonical": "Desktop Window Manager",
+      "translatable": false,
+      "definition": "Compositore grafico di Windows responsabile del rendering visivo accelerato da GPU di finestre ed effetti."
+    }
+  },
+  "protected_terms": [
+    "CPU",
+    "GPU",
+    "RAM",
+    "VRAM",
+    "SSD",
+    "HDD",
+    "NVMe",
+    "PCIe",
+    "S.M.A.R.T.",
+    "TRIM",
+    "NVML",
+    "W",
+    "GHz",
+    "MHz",
+    "MT/s",
+    "TDP",
+    "TGP",
+    "VRM",
+    "ATX",
+    "SFX",
+    "BIOS",
+    "UEFI",
+    "XMP",
+    "EXPO",
+    "Thermal Throttling",
+    "Commit Charge",
+    "Pagefile",
+    "Idle",
+    "Working Set",
+    "Paging File"
+  ]
+}

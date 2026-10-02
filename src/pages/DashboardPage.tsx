@@ -40,6 +40,7 @@ import {
   ComponentEvent,
   PurchaseEvent,
 } from '../types';
+import { useTranslation, TranslationKey } from '../locales';
 
 interface DashboardPageProps {
   onNavigate?: (section: NavSection) => void;
@@ -115,6 +116,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     checkpoints,
   } = usePCStore();
 
+  const { t, formatCurrency } = useTranslation();
   const [selectedRigFilter, setSelectedRigFilter] = useState<RigCategoryFilter>('all');
 
   const installed = getInstalledComponents();
@@ -200,23 +202,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       if (diffDays < 0) {
         maintenancePulse = {
           status: 'ruby',
-          title: 'Manutenzione Scaduta',
-          subtitle: `${nextItem.title} (scaduta da ${Math.abs(diffDays)} gg)`,
+          title: t('pulse_maintenance_overdue_title'),
+          subtitle: t('pulse_maintenance_overdue_sub', { title: nextItem.title, days: Math.abs(diffDays) }),
           targetSection: 'maintenance',
         };
       } else if (diffDays <= 30) {
-        const daysText = diffDays === 0 ? 'Oggi' : diffDays === 1 ? 'Domani' : `tra ${diffDays} gg`;
+        const daysText = diffDays === 0 ? t('pulse_maintenance_today') : diffDays === 1 ? t('pulse_maintenance_tomorrow') : t('pulse_maintenance_in_days', { days: diffDays });
         maintenancePulse = {
           status: 'amber',
-          title: 'Manutenzione in Arrivo',
+          title: t('pulse_maintenance_upcoming_title'),
           subtitle: `${nextItem.title} (${daysText})`,
           targetSection: 'maintenance',
         };
       } else {
         maintenancePulse = {
           status: 'emerald',
-          title: 'Manutenzione Programmata',
-          subtitle: `${nextItem.title} (tra ${diffDays} gg)`,
+          title: t('pulse_maintenance_scheduled_title'),
+          subtitle: t('pulse_maintenance_scheduled_sub', { title: nextItem.title, days: diffDays }),
           targetSection: 'maintenance',
         };
       }
@@ -225,15 +227,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       const last = sorted[0];
       maintenancePulse = {
         status: 'emerald',
-        title: 'Manutenzione in Regola',
-        subtitle: `Ultima: ${last.title} (${formatDate(last.date, settings.dateFormat)})`,
+        title: t('pulse_maintenance_ok_title'),
+        subtitle: t('pulse_maintenance_ok_sub', { title: last.title, date: formatDate(last.date, settings.dateFormat) }),
         targetSection: 'maintenance',
       };
     } else {
       maintenancePulse = {
         status: 'primary',
-        title: 'Cura del PC & Salute',
-        subtitle: 'Panoramica, telemetria live e diario interventi',
+        title: t('pulse_maintenance_default_title'),
+        subtitle: t('pulse_maintenance_default_sub'),
         targetSection: 'maintenance',
       };
     }
@@ -250,14 +252,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     const storagePulse = inStorage.length > 0
       ? {
           status: 'emerald' as const,
-          title: `${inStorage.length} ${inStorage.length === 1 ? 'Pezzo a Magazzino' : 'Pezzi a Magazzino'}`,
-          subtitle: `€${inStorageTotalPurchase.toFixed(0)} capitale fermo • Vendi o riutilizza`,
+          title: inStorage.length === 1 ? t('pulse_storage_singular', { count: 1 }) : t('pulse_storage_plural', { count: inStorage.length }),
+          subtitle: t('pulse_storage_sub', { amount: inStorageTotalPurchase.toFixed(0) }),
           targetSection: 'marketplace' as NavSection,
         }
       : {
           status: 'primary' as const,
-          title: 'Magazzino Vuoto',
-          subtitle: 'Tutto l’hardware è montato o dismesso',
+          title: t('pulse_storage_empty_title'),
+          subtitle: t('pulse_storage_empty_sub'),
           targetSection: 'marketplace' as NavSection,
         };
 
@@ -281,21 +283,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     const warrantyPulse = expiringWarranties.length > 0
       ? {
           status: 'amber' as const,
-          title: `${expiringWarranties.length} ${expiringWarranties.length === 1 ? 'Garanzia in Scadenza' : 'Garanzie in Scadenza'}`,
+          title: expiringWarranties.length === 1 ? t('pulse_warranty_expiring_singular', { count: 1 }) : t('pulse_warranty_expiring_plural', { count: expiringWarranties.length }),
           subtitle: `${expiringWarranties[0].name} (${expiringWarranties[0].humanLabel})`,
           targetSection: 'archive' as NavSection,
         }
       : activeWarrantiesCount > 0
       ? {
           status: 'primary' as const,
-          title: 'Copertura Garanzie',
-          subtitle: `${activeWarrantiesCount} ${activeWarrantiesCount === 1 ? 'componente protetto' : 'componenti protetti'}`,
+          title: t('pulse_warranty_coverage_title'),
+          subtitle: activeWarrantiesCount === 1 ? t('pulse_warranty_coverage_singular', { count: 1 }) : t('pulse_warranty_coverage_plural', { count: activeWarrantiesCount }),
           targetSection: 'archive' as NavSection,
         }
       : {
           status: 'primary' as const,
-          title: 'Garanzie Hardware',
-          subtitle: 'Registra ricevute e scadenze',
+          title: t('pulse_warranty_default_title'),
+          subtitle: t('pulse_warranty_default_sub'),
           targetSection: 'archive' as NavSection,
         };
 
@@ -311,22 +313,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       const lastCp = checkpoints[checkpoints.length - 1];
       lifecyclePulse = {
         status: 'primary',
-        title: `${checkpoints.length} ${checkpoints.length === 1 ? 'Snapshot Salvato' : 'Snapshot Salvati'}`,
-        subtitle: `Ultimo: ${lastCp.name} • Time Travel`,
+        title: checkpoints.length === 1 ? t('pulse_lifecycle_snapshot_singular', { count: 1 }) : t('pulse_lifecycle_snapshot_plural', { count: checkpoints.length }),
+        subtitle: t('pulse_lifecycle_snapshot_sub', { name: lastCp.name }),
         targetSection: 'time-travel',
       };
     } else if (upgrades.length > 0) {
       lifecyclePulse = {
         status: 'emerald',
-        title: `${upgrades.length} ${upgrades.length === 1 ? 'Upgrade Storico' : 'Upgrade Storici'}`,
-        subtitle: 'Traccia la cronologia generazionale',
+        title: upgrades.length === 1 ? t('pulse_lifecycle_upgrades_singular', { count: 1 }) : t('pulse_lifecycle_upgrades_plural', { count: upgrades.length }),
+        subtitle: t('pulse_lifecycle_upgrades_sub'),
         targetSection: 'upgrades',
       };
     } else {
       lifecyclePulse = {
         status: 'primary',
-        title: 'Time Travel & Snapshot',
-        subtitle: 'Salva uno snapshot del PC attuale',
+        title: t('pulse_lifecycle_default_title'),
+        subtitle: t('pulse_lifecycle_default_sub'),
         targetSection: 'time-travel',
       };
     }
@@ -346,11 +348,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     settings.dateFormat,
     getComponentComputed,
     getComponentWarranty,
+    t,
   ]);
 
   if (isLoading) {
-    return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>Inizializzazione IndexedDB...</div>;
+    return <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>{t('dashboard_loading_db')}</div>;
   }
+
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -376,21 +380,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const formatEventDetails = (ev: ComponentEvent) => {
     switch (ev.type) {
       case 'PURCHASE':
-        return `Prezzo: €${ev.price.toFixed(2)}${ev.store ? ` • Negozio: ${ev.store}` : ''}`;
+        return `${t('dashboard_event_price', { price: formatCurrency(ev.price) })}${ev.store ? ` • ${t('dashboard_event_store', { store: ev.store })}` : ''}`;
       case 'INSTALL':
-        return ev.slotOrLocation ? `Alloggiamento: ${ev.slotOrLocation}` : 'Montato nel case';
-      case 'UNINSTALL':
-        return `Motivo: ${ev.reason ? UNINSTALL_REASON_LABELS[ev.reason] || ev.reason : 'Smontato a magazzino'}`;
+        return ev.slotOrLocation ? t('dashboard_event_slot', { slot: ev.slotOrLocation }) : t('dashboard_event_installed_case');
+      case 'UNINSTALL': {
+        const reasonKey = ev.reason ? (`uninstall_reason_${ev.reason}` as TranslationKey) : null;
+        const reasonText = (reasonKey ? (t(reasonKey) || UNINSTALL_REASON_LABELS[ev.reason!] || ev.reason) : null) || t('dashboard_event_uninstalled_storage');
+        return t('dashboard_event_reason', { reason: reasonText });
+      }
+
       case 'SALE': {
         const net = (ev.price || 0) - (ev.shippingCost || 0) - (ev.fees || 0);
-        return `Netto incassato: €${net.toFixed(2)}${ev.platform ? ` • ${ev.platform}` : ''}`;
+        return `${t('dashboard_event_net_proceeds', { net: formatCurrency(net) })}${ev.platform ? ` • ${ev.platform}` : ''}`;
       }
       case 'EXTRA_EXPENSE':
-        return `Importo: €${ev.amount.toFixed(2)} • ${ev.description}`;
+        return `${t('dashboard_event_extra_amount', { amount: formatCurrency(ev.amount) })} • ${ev.description}`;
       case 'GIFT':
-        return `Donato a: ${ev.recipient || 'Non specificato'}`;
+        return t('dashboard_event_gifted_to', { recipient: ev.recipient || t('dashboard_event_not_specified') });
       case 'DISPOSAL':
-        return `Smaltimento: ${ev.disposalMethod}`;
+        return t('dashboard_event_disposal_method', { method: ev.disposalMethod });
       default:
         return '';
     }
@@ -399,12 +407,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const getEventFinancialDelta = (ev: ComponentEvent) => {
     switch (ev.type) {
       case 'PURCHASE':
-        return ev.price > 0 ? { text: `-€${ev.price.toFixed(2)}`, color: 'var(--accent-ruby)' } : null;
+        return ev.price > 0 ? { text: `-${formatCurrency(ev.price)}`, color: 'var(--accent-ruby)' } : null;
       case 'EXTRA_EXPENSE':
-        return ev.amount > 0 ? { text: `-€${ev.amount.toFixed(2)}`, color: 'var(--accent-ruby)' } : null;
+        return ev.amount > 0 ? { text: `-${formatCurrency(ev.amount)}`, color: 'var(--accent-ruby)' } : null;
       case 'SALE': {
         const net = (ev.price || 0) - (ev.shippingCost || 0) - (ev.fees || 0);
-        return { text: `+€${net.toFixed(2)}`, color: 'var(--accent-emerald)' };
+        return { text: `+${formatCurrency(net)}`, color: 'var(--accent-emerald)' };
       }
       default:
         return null;
@@ -422,16 +430,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <Database size={26} color="var(--accent-primary)" />
           </div>
           <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>
-            Nessun Componente Registrato
+            {t('dashboard_empty_db_title')}
           </h2>
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', maxWidth: '540px', margin: '0 auto 20px', lineHeight: 1.5 }}>
-            Il tuo database locale è pronto. Inizia a configurare il tuo PC aggiungendo il primo componente hardware.
+            {t('dashboard_empty_db_desc')}
           </p>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             {onOpenCreateModal && (
               <button onClick={onOpenCreateModal} className="btn btn-primary micro-press" id="btn-add-first-component">
                 <Plus size={15} />
-                <span>Aggiungi il Primo Componente</span>
+                <span>{t('dashboard_empty_db_add_btn')}</span>
               </button>
             )}
             {onOpenWikiArticle && (
@@ -442,7 +450,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 style={{ fontSize: '13px' }}
               >
                 <BookOpen size={14} color="var(--accent-primary)" />
-                <span>Guida Primi Passi</span>
+                <span>{t('dashboard_empty_db_guide_btn')}</span>
               </button>
             )}
           </div>
@@ -452,17 +460,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       {/* Intestazione Metriche Finanziarie con Pill Contestuale */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-10px', marginTop: '-4px' }}>
         <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-          Metriche Economiche Fondamentali
+          {t('kpi_economic_metrics_heading')}
         </span>
         {onOpenWikiArticle && (
           <button
             type="button"
             className="contextual-help-pill"
             onClick={() => onOpenWikiArticle('the-four-financial-metrics')}
-            title="Spiegazione formale delle 4 metriche finanziarie di PC Tracker"
+            title={t('kpi_explain_metrics_tooltip')}
           >
             <BookOpen size={12} />
-            <span>Spiegazione 4 Metriche</span>
+            <span>{t('kpi_explain_metrics_btn')}</span>
           </button>
         )}
       </div>
@@ -471,54 +479,54 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       <div style={gridStyle}>
         <div className="stat-card stat-card-ruby animate-slide-up stagger-1">
           <div className="stat-card-header">
-            <span className="stat-label">Totale Acquistato Storico</span>
+            <span className="stat-label">{t('kpi_total_purchased')}</span>
             <div className="stat-icon-badge">
               <ShoppingBag size={18} />
             </div>
           </div>
           <div className="stat-value" style={{ color: 'var(--accent-ruby)' }}>
-            € {totalPurchased.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(totalPurchased)}
           </div>
-          <span className="stat-subtext">Ogni euro speso per hardware</span>
+          <span className="stat-subtext">{t('kpi_total_purchased_sub')}</span>
         </div>
 
         <div className="stat-card stat-card-emerald animate-slide-up stagger-2">
           <div className="stat-card-header">
-            <span className="stat-label">Totale Recuperato Vendite</span>
+            <span className="stat-label">{t('kpi_total_recovered')}</span>
             <div className="stat-icon-badge">
               <TrendingUp size={18} />
             </div>
           </div>
           <div className="stat-value" style={{ color: 'var(--accent-emerald)' }}>
-            € {totalRecovered.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(totalRecovered)}
           </div>
-          <span className="stat-subtext">Netto incassato da pezzi dismessi</span>
+          <span className="stat-subtext">{t('kpi_total_recovered_sub')}</span>
         </div>
 
         <div className="stat-card stat-card-primary animate-slide-up stagger-3">
           <div className="stat-card-header">
-            <span className="stat-label">Costo Netto Storico</span>
+            <span className="stat-label">{t('kpi_historical_net_cost')}</span>
             <div className="stat-icon-badge">
               <Activity size={18} />
             </div>
           </div>
           <div className="stat-value" style={{ color: 'var(--accent-primary)' }}>
-            € {historicalNetCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(historicalNetCost)}
           </div>
-          <span className="stat-subtext">Esborso a fondo perduto complessivo</span>
+          <span className="stat-subtext">{t('kpi_historical_net_cost_sub')}</span>
         </div>
 
         <div className="stat-card stat-card-indigo animate-slide-up stagger-4">
           <div className="stat-card-header">
-            <span className="stat-label">Costo Configurazione Attuale</span>
+            <span className="stat-label">{t('kpi_current_rig_cost')}</span>
             <div className="stat-icon-badge">
               <Cpu size={18} />
             </div>
           </div>
           <div className="stat-value" style={{ color: 'var(--accent-indigo)' }}>
-            € {currentRigCost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+            {formatCurrency(currentRigCost)}
           </div>
-          <span className="stat-subtext">Costo pezzi attualmente montati</span>
+          <span className="stat-subtext">{t('kpi_current_rig_cost_sub')}</span>
         </div>
       </div>
 
@@ -532,7 +540,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.maintenance.targetSection)}
-            title="Apri Registro Manutenzione PC"
+            title={t('pulse_maintenance_tooltip')}
           >
             <div className="system-pulse-left">
               <div className="system-pulse-icon">
@@ -559,7 +567,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.storage.targetSection)}
-            title="Apri Vendite & Annunci (Marketplace)"
+            title={t('pulse_storage_tooltip')}
           >
             <div className="system-pulse-left">
               <div className="system-pulse-icon">
@@ -582,7 +590,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.warranty.targetSection)}
-            title="Gestisci garanzie e ricevute nell'Archivio"
+            title={t('pulse_warranty_tooltip')}
           >
             <div className="system-pulse-left">
               <div className="system-pulse-icon">
@@ -609,7 +617,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && onNavigate && onNavigate(systemPulse.lifecycle.targetSection)}
-            title="Esplora la macchina nel tempo (Time Travel)"
+            title={t('pulse_lifecycle_tooltip')}
           >
             <div className="system-pulse-left">
               <div className="system-pulse-icon">
@@ -629,49 +637,49 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
       {/* LIVELLO 2: Rig Attuale in Sintesi (visibile se showRigSynthesis !== false) */}
       {settings.showRigSynthesis !== false && (
-        <section className="dashboard-widget-card animate-slide-up stagger-4" aria-label="Rig Attuale in Sintesi">
+        <section className="dashboard-widget-card animate-slide-up stagger-4" aria-label={settings.rigName ? t('dashboard_rig_title_custom', { name: settings.rigName }) : t('dashboard_rig_title')}>
           <div className="dashboard-widget-header">
             <div className="dashboard-widget-title-group">
               <h2 className="dashboard-widget-title">
                 <Cpu size={18} color="var(--accent-primary)" />
-                <span>{settings.rigName ? `${settings.rigName} in Sintesi` : 'Rig Attuale in Sintesi'}</span>
+                <span>{settings.rigName ? t('dashboard_rig_title_custom', { name: settings.rigName }) : t('dashboard_rig_title')}</span>
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span className="dashboard-widget-subtitle">
                   {installedCount > 0
-                    ? `${installedCount} componenti attualmente operativi nel PC`
-                    : 'Nessun componente attualmente montato nel PC'}
+                    ? t('dashboard_rig_installed_count', { count: installedCount })
+                    : t('dashboard_rig_installed_none')}
                 </span>
                 {installedCount > 0 && powerBudget.hasAnyPowerData && (
                   <span className="power-budget-compact-pill" title={powerBudget.completenessNotice}>
                     <Zap size={12} color="var(--accent-amber)" />
                     {powerBudget.isCompleteEstimate ? (
                       <>
-                        <span>~{powerBudget.estimatedPeakWatts} W picco</span>
+                        <span>{t('dashboard_power_peak', { watts: powerBudget.estimatedPeakWatts || 0 })}</span>
                         {powerBudget.psuCapacityWatts && (
                           <>
                             <span style={{ opacity: 0.4 }}>•</span>
-                            <span>PSU {powerBudget.psuCapacityWatts} W</span>
+                            <span>{t('dashboard_power_psu', { watts: powerBudget.psuCapacityWatts })}</span>
                           </>
                         )}
                         {powerBudget.estimatedHeadroomWatts !== null && (
                           <>
                             <span style={{ opacity: 0.4 }}>•</span>
-                            <span>Margine ~{powerBudget.estimatedHeadroomWatts} W</span>
+                            <span>{t('dashboard_power_headroom', { watts: powerBudget.estimatedHeadroomWatts })}</span>
                           </>
                         )}
                       </>
                     ) : (
                       <>
-                        <span>~{powerBudget.knownPowerWatts} W noti</span>
+                        <span>{t('dashboard_power_known', { watts: powerBudget.knownPowerWatts })}</span>
                         {powerBudget.psuCapacityWatts && (
                           <>
                             <span style={{ opacity: 0.4 }}>•</span>
-                            <span>PSU {powerBudget.psuCapacityWatts} W</span>
+                            <span>{t('dashboard_power_psu', { watts: powerBudget.psuCapacityWatts })}</span>
                           </>
                         )}
                         <span style={{ opacity: 0.4 }}>•</span>
-                        <span style={{ color: 'var(--accent-amber)' }}>Stima parziale</span>
+                        <span style={{ color: 'var(--accent-amber)' }}>{t('dashboard_power_partial')}</span>
                       </>
                     )}
                   </span>
@@ -690,7 +698,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     className={`rig-filter-btn ${selectedRigFilter === 'all' ? 'active' : ''}`}
                     onClick={() => setSelectedRigFilter('all')}
                   >
-                    <span>Tutti</span>
+                    <span>{t('dashboard_rig_filter_all')}</span>
                     <span className="rig-filter-count">{rigCounts.all}</span>
                   </button>
                   <button
@@ -699,9 +707,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     aria-selected={selectedRigFilter === 'internals'}
                     className={`rig-filter-btn ${selectedRigFilter === 'internals' ? 'active' : ''}`}
                     onClick={() => setSelectedRigFilter('internals')}
-                    title="Componenti interni: CPU, GPU, Motherboard, RAM, Storage, PSU, Cooling, Case"
+                    title={t('dashboard_rig_filter_internals_tooltip')}
                   >
-                    <span>Interni</span>
+                    <span>{t('dashboard_rig_filter_internals')}</span>
                     <span className="rig-filter-count">{rigCounts.internals}</span>
                   </button>
                   <button
@@ -710,9 +718,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     aria-selected={selectedRigFilter === 'peripherals'}
                     className={`rig-filter-btn ${selectedRigFilter === 'peripherals' ? 'active' : ''}`}
                     onClick={() => setSelectedRigFilter('peripherals')}
-                    title="Monitor, Cuffie, Mouse, Tastiera, Gamepad, Scheda Audio"
+                    title={t('dashboard_rig_filter_peripherals_tooltip')}
                   >
-                    <span>Periferiche</span>
+                    <span>{t('dashboard_rig_filter_peripherals')}</span>
                     <span className="rig-filter-count">{rigCounts.peripherals}</span>
                   </button>
                   <button
@@ -721,9 +729,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     aria-selected={selectedRigFilter === 'accessories'}
                     className={`rig-filter-btn ${selectedRigFilter === 'accessories' ? 'active' : ''}`}
                     onClick={() => setSelectedRigFilter('accessories')}
-                    title="Accessori, Cavi, Hub ventole, Controller RGB, Adattatori"
+                    title={t('dashboard_rig_filter_accessories_tooltip')}
                   >
-                    <span>Accessori</span>
+                    <span>{t('dashboard_rig_filter_accessories')}</span>
                     <span className="rig-filter-count">{rigCounts.accessories}</span>
                   </button>
                 </div>
@@ -735,20 +743,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   onClick={onOpenExportModal}
                   className="btn btn-secondary micro-press"
                   style={{ fontSize: '12px', padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                  title="Esporta o condividi la scheda tecnica per Gemini, Discord, WhatsApp o PDF"
+                  title={t('dashboard_rig_export_specs_tooltip')}
                   id="btn-dashboard-export-rig"
                 >
                   <Share2 size={13} color="var(--accent-primary)" />
-                  <span>Esporta Scheda</span>
+                  <span>{t('dashboard_rig_export_specs')}</span>
                 </button>
               )}
 
               <button
                 onClick={() => onNavigate && onNavigate('current-rig')}
                 className="dashboard-widget-link micro-press"
-                title="Apri la schermata completa Il Mio PC"
+                title={t('dashboard_rig_open_pc_tooltip')}
               >
-                <span>Apri Il Mio PC</span>
+                <span>{t('dashboard_rig_open_pc')}</span>
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -757,7 +765,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           {installedCount === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
               <p style={{ marginBottom: '12px', fontSize: '13.5px' }}>
-                Non hai ancora montato componenti nel tuo PC attuale.
+                {t('dashboard_rig_empty_prompt')}
               </p>
               <button
                 onClick={() => {
@@ -771,13 +779,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 style={{ fontSize: '13px', margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
                 <Sparkles size={14} />
-                <span>Configura il tuo PC (Quick Setup)</span>
+                <span>{t('dashboard_rig_quick_setup_btn')}</span>
               </button>
             </div>
           ) : filteredInstalled.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--text-muted)' }}>
               <p style={{ fontSize: '13px', marginBottom: '10px' }}>
-                Nessun componente montato in questa categoria.
+                {t('dashboard_rig_filter_empty')}
               </p>
               <button
                 type="button"
@@ -785,13 +793,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 style={{ fontSize: '12px', padding: '4px 12px' }}
                 onClick={() => setSelectedRigFilter('all')}
               >
-                Mostra Tutti i Componenti ({installedCount})
+                {t('dashboard_rig_show_all_btn', { count: installedCount })}
               </button>
             </div>
           ) : (
             <div className="rig-synthesis-grid">
               {filteredInstalled.map(({ component, computed }) => {
-                const categoryLabel = COMPONENT_CATEGORY_LABELS[component.category] || component.category;
+                const catKey = `category_${component.category}` as TranslationKey;
+                const categoryLabel = t(catKey) || COMPONENT_CATEGORY_LABELS[component.category] || component.category;
                 return (
                   <div
                     key={component.id}
@@ -815,14 +824,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                           className="badge badge-in-use"
                           style={{ fontSize: '11.5px', padding: '2px 7px' }}
                         >
-                          {computed.daysInUse} gg d'uso
+                          {t('dashboard_rig_days_in_use', { days: computed.daysInUse })}
                         </span>
                         {computed.totalPurchaseCost > 0 && (
                           <span
                             className="font-mono"
                             style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px' }}
                           >
-                            €{computed.totalPurchaseCost.toFixed(0)}
+                            {formatCurrency(computed.totalPurchaseCost)}
                           </span>
                         )}
                       </div>
@@ -836,15 +845,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       )}
 
       {/* LIVELLO 3 & 4: Ultimi Movimenti Hardware & Azione Contestuale Essenziale */}
-      <section className="dashboard-widget-card animate-slide-up stagger-5" aria-label="Ultimi Movimenti Hardware">
+      <section className="dashboard-widget-card animate-slide-up stagger-5" aria-label={t('dashboard_movements_title')}>
         <div className="dashboard-widget-header">
           <div className="dashboard-widget-title-group">
             <h2 className="dashboard-widget-title">
               <Activity size={18} color="var(--accent-emerald)" />
-              <span>Ultimi Movimenti Hardware</span>
+              <span>{t('dashboard_movements_title')}</span>
             </h2>
             <span className="dashboard-widget-subtitle">
-              Le variazioni, gli acquisti e le installazioni più recenti registrate su IndexedDB
+              {t('dashboard_movements_subtitle')}
             </span>
           </div>
 
@@ -855,19 +864,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 onClick={onOpenMovementSelector || onOpenCreateModal}
                 className="btn btn-secondary micro-press"
                 style={{ fontSize: '12px', padding: '5px 12px', height: '30px' }}
-                title="Registra una nuova variazione hardware"
+                title={t('dashboard_movements_new_btn_tooltip')}
               >
                 <Plus size={13} />
-                <span>Nuovo Movimento</span>
+                <span>{t('dashboard_movements_new_btn')}</span>
               </button>
             )}
 
             <button
               onClick={() => onNavigate && onNavigate('archive')}
               className="dashboard-widget-link micro-press"
-              title="Visualizza tutto lo storico nell'Archivio"
+              title={t('dashboard_movements_view_archive_tooltip')}
             >
-              <span>Vedi Archivio Completo</span>
+              <span>{t('dashboard_movements_view_archive')}</span>
               <ArrowRight size={14} />
             </button>
           </div>
@@ -876,7 +885,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         {recentEvents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--text-muted)' }}>
             <p style={{ fontSize: '13.5px', marginBottom: '10px' }}>
-              Nessun movimento o evento ancora registrato nello storico.
+              {t('dashboard_movements_empty')}
             </p>
             {(onOpenMovementSelector || onOpenCreateModal) && (
               <button
@@ -885,7 +894,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 style={{ fontSize: '12.5px', margin: '0 auto' }}
               >
                 <Plus size={13} />
-                <span>Registra il Primo Movimento</span>
+                <span>{t('dashboard_movements_add_first')}</span>
               </button>
             )}
           </div>
@@ -893,7 +902,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="movements-feed-list">
             {recentEvents.map((ev, index) => {
               const comp = components.find((c) => c.id === ev.componentId);
-              const eventTypeLabel = EVENT_TYPE_LABELS[ev.type] || ev.type;
+              const evTypeKey = `event_type_${ev.type.toLowerCase()}` as TranslationKey;
+              const eventTypeLabel = t(evTypeKey) || EVENT_TYPE_LABELS[ev.type] || ev.type;
               const details = formatEventDetails(ev);
               const delta = getEventFinancialDelta(ev);
               const isMostRecent = index === 0;
@@ -907,8 +917,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => e.key === 'Enter' && onSelectComponent && onSelectComponent(ev.componentId)}
-                  title={`Apri scheda componente: ${comp?.name || 'Componente'}`}
-                  aria-label={`${eventTypeLabel}: ${comp?.name || 'Componente'}, data ${formatDate(ev.date, settings.dateFormat)}`}
+                  title={`Apri scheda componente: ${comp?.name || t('dashboard_event_unknown_component')}`}
+                  aria-label={`${eventTypeLabel}: ${comp?.name || t('dashboard_event_unknown_component')}, data ${formatDate(ev.date, settings.dateFormat)}`}
                 >
                   <div className="movement-feed-left">
                     <div className="movement-feed-icon-wrap">
@@ -916,7 +926,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     </div>
                     <div className="movement-feed-content">
                       <div className="movement-feed-title">
-                        <span>{comp?.name || 'Componente sconosciuto'}</span>
+                        <span>{comp?.name || t('dashboard_event_unknown_component')}</span>
                         <span
                           style={{
                             fontSize: '12px',
@@ -935,7 +945,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                             className="badge badge-in-use"
                             style={{ fontSize: '11.5px', padding: '2px 7px', fontWeight: 600 }}
                           >
-                            Più recente
+                            {t('dashboard_movements_most_recent')}
                           </span>
                         )}
                       </div>
@@ -958,7 +968,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </span>
                     </div>
                     <span style={{ fontSize: '12px', color: 'var(--accent-primary)', fontWeight: 600 }}>
-                      Dettaglio
+                      {t('dashboard_movements_detail_link')}
                     </span>
                   </div>
                 </div>
@@ -976,3 +986,4 @@ const gridStyle: React.CSSProperties = {
   gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
   gap: '16px',
 };
+

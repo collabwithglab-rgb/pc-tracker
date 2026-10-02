@@ -22,3 +22,5 @@ export interface I18nContextValue {
   availableLocales: LocaleMetadata[];
   isLocaleLoaded: boolean;
 }
+
+export type HardwareGlossary = typeof import('./glossary.json');

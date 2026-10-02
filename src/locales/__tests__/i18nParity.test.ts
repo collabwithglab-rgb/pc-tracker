@@ -122,4 +122,48 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
       });
     }
   });
+
+  it('8. valida la presenza e integrità del glossario hardware blindato (glossary.json)', async () => {
+    const glossary = await import('../glossary.json');
+    expect(glossary.version).toBe('1.0.0');
+    expect(glossary.description).toBeDefined();
+
+    // Termini intoccabili non traducibili richiesti
+    const requiredAcronyms = ['CPU', 'GPU', 'RAM', 'SSD', 'NVMe', 'PCIe', 'S.M.A.R.T.', 'TRIM', 'NVML'];
+    for (const term of requiredAcronyms) {
+      expect(glossary.hardware_acronyms[term as keyof typeof glossary.hardware_acronyms], `Termine mancante: ${term}`).toBeDefined();
+      expect(glossary.hardware_acronyms[term as keyof typeof glossary.hardware_acronyms].translatable).toBe(false);
+    }
+
+    // Unità tecniche intoccabili
+    const requiredUnits = ['W', 'GHz', 'MHz', 'MT/s', 'CL'];
+    for (const unit of requiredUnits) {
+      expect(glossary.technical_units[unit as keyof typeof glossary.technical_units], `Unità mancante: ${unit}`).toBeDefined();
+      expect(glossary.technical_units[unit as keyof typeof glossary.technical_units].translatable).toBe(false);
+    }
+  });
+
+  it('9. verifica il mapping obbligatorio dei termini Windows e System di sistema', async () => {
+    const glossary = await import('../glossary.json');
+    const requiredWindowsTerms = ['Thermal Throttling', 'Commit Charge', 'Pagefile', 'Idle', 'Working Set', 'Paging File'];
+
+    for (const term of requiredWindowsTerms) {
+      const entry = glossary.windows_system_terms[term as keyof typeof glossary.windows_system_terms];
+      expect(entry, `Termine Windows mancante: ${term}`).toBeDefined();
+      expect(entry.translatable).toBe(false);
+      expect(entry.canonical).toBeDefined();
+      expect(entry.definition.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('10. assicura che i termini protetti siano inclusi nella lista blindata protected_terms', async () => {
+    const glossary = await import('../glossary.json');
+    expect(Array.isArray(glossary.protected_terms)).toBe(true);
+
+    const essentialTerms = ['CPU', 'GPU', 'RAM', 'SSD', 'NVMe', 'PCIe', 'S.M.A.R.T.', 'TRIM', 'NVML', 'W', 'GHz', 'Thermal Throttling', 'Commit Charge', 'Pagefile', 'Idle'];
+    for (const term of essentialTerms) {
+      expect(glossary.protected_terms).toContain(term);
+    }
+  });
 });
+
