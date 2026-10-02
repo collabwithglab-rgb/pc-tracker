@@ -353,4 +353,23 @@ Tranche 8D-4 completa la convergenza tra i fatti diagnostici nativi, i finding d
     - 75: `opt-trim-*` / `opt-clean-shader-cache` (contextualized TDR)
     - Tie-breaker alfabetico su `rec.id` in caso di parità.
 
+---
 
+## 7. SPECIFICA FORMALE TRANCHE 8E (UI PRESENTATION & VERIFICATION) * [TAG: TRANCHE-8E-VERIFICATA] *
+
+### 7.1 Obiettivi e Risultati Conseguiti
+1. **Modali di Ispezione Dedicate:**
+   - [EventLogInspectionModal.tsx](file:///c:/Users/giuse/Desktop/Build%20Pc%20(All%20Components%20&%20Updates)-%20justpeppe_z/src/components/maintenance/EventLogInspectionModal.tsx): Visualizzazione dei gruppi deduplicati con `groupAndDeduplicateEvents`, conteggio occorrenze, range temporale (`firstSeen` - `lastSeen`), filtro per provider hardware (WHEA, Storage, Display, Kernel-Power), e dicitura esatta di cap *"Almeno 50 eventi rilevati (campionamento limitato ai più recenti)"* (Sezione 2.1).
+   - [WindowsServicesInspectionModal.tsx](file:///c:/Users/giuse/Desktop/Build%20Pc%20(All%20Components%20&%20Updates)-%20justpeppe_z/src/components/maintenance/WindowsServicesInspectionModal.tsx): Visualizzazione trasparente dei 6 servizi critici nativi (`EventLog`, `Winmgmt`, `wuauserv`, `TrustedInstaller`, `VSS`, `WinDefend`), con spiegazione del modello operativo a 3 classi (Sezione 2.7), filtraggio reattivo, PID e Win32 exit codes.
+2. **Dashboard "Panoramica & Salute" ([CareOverviewTab.tsx](file:///c:/Users/giuse/Desktop/Build%20Pc%20(All%20Components%20&%20Updates)-%20justpeppe_z/src/components/maintenance/CareOverviewTab.tsx)):**
+   - 5 card native: Dispositivi DevNode, Memoria Commit (RAM), Alimentazione & Batteria, Registro Eventi (Wevtapi), Servizi di Sistema (Advapi32 SCM).
+   - Rendering delle correlazioni diagnostiche pure con badge di intensità (`DIRECT_MATCH`, `RELATED_SIGNAL`, `WEAK_CONTEXT`).
+   - Callout box con totale preservazione delle evidenze del finding secondario assorbito (`absorbedFinding`), garantendo Zero Data Loss.
+   - Badge di campionamento limitato (`care-truncation-pill`) sui finding con `metadata.isTruncatedSample === true`.
+3. **Tab "Sistema Windows" ([MaintenancePage.tsx](file:///c:/Users/giuse/Desktop/Build%20Pc%20(All%20Components%20&%20Updates)-%20justpeppe_z/src/pages/MaintenancePage.tsx)):**
+   - Area 1 arricchita con 2 nuove card native per l'ispezione diretta dell'Event Log e lo stato dei Servizi di Sistema SCM, perfettamente connesse ai rispettivi modali.
+4. **Verifica Rigorosa & Zero Regressioni:**
+   - 993/993 unit test verdi su 73 file di test.
+   - TypeScript strict (`tsc --noEmit`): 0 errori.
+   - Vite production bundle (`npm run build`): compilazione pulita in 3.96s.
+   - Privacy Audit (`npm run audit:privacy`): 100% superato, zero leak di dati personali.
