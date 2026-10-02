@@ -13,7 +13,7 @@ import {
 import { MaintenanceEntry } from './maintenance';
 import { TuningProfile } from './tuning';
 import { Component } from './component';
-import { SystemDiagnosticsSnapshot } from './diagnostics';
+import { SystemDiagnosticsSnapshot, CorrelationStrength } from './diagnostics';
 
 export type HealthSeverity = 'INFO' | 'GOOD' | 'ATTENTION' | 'WARNING' | 'CRITICAL';
 
@@ -27,6 +27,35 @@ export type HealthAffectedArea =
   | 'system'
   | 'security';
 
+/**
+ * Evidenza strutturata del finding secondario assorbito tramite DIRECT_MATCH (Tranche 8D-3).
+ * Preserva integralmente i dati originali per azzerare qualsiasi perdita informativa.
+ */
+export interface AbsorbedFindingEvidence {
+  subsumedFindingId: string;
+  originalSeverity: HealthSeverity;
+  area: HealthAffectedArea;
+  title: string;
+  evidence: string;
+  explanation: string;
+  recommendedActionId?: string;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+/**
+ * Evidenza di correlazione diagnostica associata a un Health Finding (Tranche 8D-3).
+ * Penalty propria = 0; non modifica la severity dell'anchor.
+ */
+export interface HealthFindingCorrelationEvidence {
+  correlationId: string;
+  strength: CorrelationStrength;
+  title: string;
+  hardwareEvidence: string;
+  eventEvidence: string;
+  explanation: string;
+  absorbedFinding?: AbsorbedFindingEvidence;
+}
+
 export interface HealthFinding {
   id: string;                      // Identificativo univoco e deterministico
   severity: HealthSeverity;
@@ -37,6 +66,7 @@ export interface HealthFinding {
   confidence: 'HIGH' | 'MEDIUM';
   recommendedActionId?: string;    // Riferimento all'azione raccomandata
   metadata?: Record<string, string | number | boolean>;
+  correlations?: HealthFindingCorrelationEvidence[]; // Evidenze di correlazione diagnostica (Tranche 8D-3)
 }
 
 export interface SystemFactsInput {

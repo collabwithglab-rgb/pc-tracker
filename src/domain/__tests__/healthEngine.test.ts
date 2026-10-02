@@ -7,9 +7,17 @@ import {
   computeDiagnosticCoverage,
   HARDWARE_SENSOR_CHANNEL_IDS,
   isHardwareGap,
+  enrichFindingsWithCorrelations,
+  getFindingSemanticRank,
+  sortCorrelationEvidence,
+  sanitizeCorrelationWording,
 } from '../healthEngine';
-import { SystemFactsInput } from '../../types/health';
-import { EventLogNativeFact, WindowsServiceNativeFact } from '../../types/diagnostics';
+import { HealthFinding, SystemFactsInput } from '../../types/health';
+import {
+  EventLogNativeFact,
+  WindowsServiceNativeFact,
+  DiagnosticCorrelation,
+} from '../../types/diagnostics';
 
 describe('healthEngine', () => {
   const REF_DATE = '2026-09-24T12:00:00.000Z';
@@ -2502,6 +2510,678 @@ describe('healthEngine', () => {
         expect(cov.totalChannels).toBe(15);
         expect(cov.percentage).toBe(87);
         expect(cov.hasHardwareGaps).toBe(false);
+      });
+    });
+  });
+
+  // =========================================================================
+  // TRANCHE 8D-3 — CORRELATION → HEALTH ENRICHMENT ENGINE
+  // =========================================================================
+  describe('Tranche 8D-3 — Correlation → Health Enrichment Engine', () => {
+    const createFinding = (overrides: Partial<HealthFinding> = {}): HealthFinding => ({
+      id: 'finding-1',
+      severity: 'WARNING',
+      area: 'system',
+      title: 'Finding Titolo',
+      evidence: 'Finding Evidenza',
+      explanation: 'Finding Spiegazione',
+      confidence: 'HIGH',
+      ...overrides,
+    });
+
+    const createCorrelation = (overrides: Partial<DiagnosticCorrelation> = {}): DiagnosticCorrelation => ({
+      id: 'correlation:gpu:device_driver_match:ven_10de',
+      strength: 'DIRECT_MATCH',
+      affectedArea: 'gpu',
+      title: 'Correlazione Driver Grafico TDR e Stato Dispositivo GPU',
+      hardwareEvidence: 'Dispositivo in stato anomalo',
+      eventEvidence: 'Display 4101: TDR driver nvlddmkm',
+      explanation: 'Evidenze convergenti tra arresto dispositivo GPU e ripristini TDR.',
+      ...overrides,
+    });
+
+    describe('Helper Functions Semantici', () => {
+      it('getFindingSemanticRank assegna i ranghi corretti da Rank 1 a 5', () => {
+        expect(getFindingSemanticRank(createFinding({ id: 'device-fault-10-gpu' }))).toBe(1);
+        expect(getFindingSemanticRank(createFinding({ id: 'smart-critical-ssd' }))).toBe(2);
+        expect(getFindingSemanticRank(createFinding({ id: 'gpu-temp-hot' }))).toBe(2);
+        expect(getFindingSemanticRank(createFinding({ id: 'event-whea-18' }))).toBe(3);
+        expect(getFindingSemanticRank(createFinding({ id: 'service-vss' }))).toBe(4);
+        expect(getFindingSemanticRank(createFinding({ id: 'maintenance-clean' }))).toBe(5);
+        expect(getFindingSemanticRank(createFinding({ id: 'other-generic' }))).toBe(99);
+      });
+
+      it('sortCorrelationEvidence ordina per forza e poi per ID alfabetico', () => {
+        const c1 = { correlationId: 'c-weak', strength: 'WEAK_CONTEXT' as const, title: '', hardwareEvidence: '', eventEvidence: '', explanation: '' };
+        const c2 = { correlationId: 'b-rel', strength: 'RELATED_SIGNAL' as const, title: '', hardwareEvidence: '', eventEvidence: '', explanation: '' };
+        const c3 = { correlationId: 'a-rel', strength: 'RELATED_SIGNAL' as const, title: '', hardwareEvidence: '', eventEvidence: '', explanation: '' };
+        const c4 = { correlationId: 'direct', strength: 'DIRECT_MATCH' as const, title: '', hardwareEvidence: '', eventEvidence: '', explanation: '' };
+
+        const sorted = sortCorrelationEvidence([c1, c2, c3, c4]);
+        expect(sorted.map((s) => s.correlationId)).toEqual(['direct', 'a-rel', 'b-rel', 'c-weak']);
+      });
+    });
+
+    describe('FASE 10 — Test Funzionali ed Edge Cases (20 casi)', () => {
+      // 1. nessun correlation
+      it('1. nessun correlation: restituisce i finding primari clonati e invariati', () => {
+        const f1 = createFinding({ id: 'smart-1', area: 'storage', severity: 'WARNING' });
+        const f2 = createFinding({ id: 'ram-1', area: 'ram', severity: 'ATTENTION' });
+        const result = enrichFindingsWithCorrelations([f1, f2], []);
+        expect(result).toHaveLength(2);
+        expect(result[0].id).toBe('smart-1');
+        expect(result[1].id).toBe('ram-1');
+        expect(result[0].correlations).toBeUndefined();
+      });
+
+      // 2. nessun finding primario
+      it('2. nessun finding primario: restituisce array vuoto senza errori', () => {
+        const c1 = createCorrelation();
+        const result = enrichFindingsWithCorrelations([], [c1]);
+        expect(result).toEqual([]);
+      });
+
+      // 3. correlation senza anchor valido
+      it('3. correlation senza anchor valido: correlation ignorata, nessun finding creato', () => {
+        const f1 = createFinding({ id: 'ram-usage-high', area: 'ram', severity: 'WARNING' });
+        const c1 = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:other',
+          affectedArea: 'gpu',
+        });
+        const result = enrichFindingsWithCorrelations([f1], [c1]);
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('ram-usage-high');
+        expect(result[0].correlations).toBeUndefined();
+      });
+
+      // 4. DIRECT_MATCH con anchor WARNING + secondary CRITICAL
+      it('4. DIRECT_MATCH con anchor WARNING + secondary CRITICAL: severity anchor resta WARNING', () => {
+        const anchor = createFinding({
+          id: 'device-fault-10-pci_ven_10de',
+          area: 'gpu',
+          severity: 'WARNING',
+          title: 'Problema GPU Code 10',
+        });
+        const secondary = createFinding({
+          id: 'event-display-tdr-frequent',
+          area: 'gpu',
+          severity: 'CRITICAL',
+          title: 'TDR Ricorrenti Driver Grafico',
+        });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('device-fault-10-pci_ven_10de');
+        // SEVERITY PRESERVATION: rimane WARNING, non diventa CRITICAL!
+        expect(result[0].severity).toBe('WARNING');
+        expect(result[0].correlations).toHaveLength(1);
+        expect(result[0].correlations![0].absorbedFinding).toBeDefined();
+        expect(result[0].correlations![0].absorbedFinding!.originalSeverity).toBe('CRITICAL');
+        expect(result[0].correlations![0].absorbedFinding!.subsumedFindingId).toBe('event-display-tdr-frequent');
+      });
+
+      // 5. DIRECT_MATCH con anchor CRITICAL + secondary WARNING
+      it('5. DIRECT_MATCH con anchor CRITICAL + secondary WARNING: severity anchor resta CRITICAL', () => {
+        const anchor = createFinding({
+          id: 'device-fault-43-pci_ven_10de',
+          area: 'gpu',
+          severity: 'CRITICAL',
+          title: 'GPU Arrestata Codice 43',
+        });
+        const secondary = createFinding({
+          id: 'event-display-tdr-isolated',
+          area: 'gpu',
+          severity: 'WARNING',
+          title: 'TDR Driver Grafico Isolato',
+        });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('device-fault-43-pci_ven_10de');
+        expect(result[0].severity).toBe('CRITICAL');
+        expect(result[0].correlations![0].absorbedFinding!.originalSeverity).toBe('WARNING');
+      });
+
+      // 6. più correlation sullo stesso anchor
+      it('6. più correlation sullo stesso anchor: arricchimento cumulativo e ordinamento per forza/id', () => {
+        const anchor = createFinding({
+          id: 'device-fault-10-pci_ven_10de',
+          area: 'gpu',
+          severity: 'WARNING',
+        });
+        const secondary = createFinding({
+          id: 'event-display-tdr-isolated',
+          area: 'gpu',
+          severity: 'ATTENTION',
+        });
+        const c1 = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+        });
+        const c2 = createCorrelation({
+          id: 'correlation:gpu:tdr_hardware_signal:pci_ven_10de',
+          strength: 'RELATED_SIGNAL',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor, secondary], [c2, c1]);
+        expect(result).toHaveLength(1);
+        const corrs = result[0].correlations!;
+        expect(corrs).toHaveLength(2);
+        // DIRECT_MATCH precede RELATED_SIGNAL
+        expect(corrs[0].strength).toBe('DIRECT_MATCH');
+        expect(corrs[1].strength).toBe('RELATED_SIGNAL');
+      });
+
+      // 7. più anchor candidati (ambiguità di rango minimo)
+      it('7. più anchor candidati con stesso rank minimo: SAFE FAIL, nessun assorbimento', () => {
+        const f1 = createFinding({ id: 'device-fault-10-gpu1', area: 'gpu', severity: 'WARNING' });
+        const f2 = createFinding({ id: 'device-fault-43-gpu2', area: 'gpu', severity: 'CRITICAL' });
+        const f3 = createFinding({ id: 'event-display-tdr-isolated', area: 'gpu', severity: 'ATTENTION' });
+        const corr = createCorrelation({ strength: 'DIRECT_MATCH', affectedArea: 'gpu' });
+
+        const result = enrichFindingsWithCorrelations([f1, f2, f3], [corr]);
+        // Safe fail: nessun assorbimento, tutti e 3 i finding sopravvivono
+        expect(result).toHaveLength(3);
+        expect(result.map((f) => f.id)).toEqual(['device-fault-10-gpu1', 'device-fault-43-gpu2', 'event-display-tdr-isolated']);
+      });
+
+      // 8. candidati con stesso rank
+      it('8. candidati con stesso rank (es. due event log): SAFE FAIL, nessun assorbimento', () => {
+        const f1 = createFinding({ id: 'event-disk-7-isolated', area: 'storage', severity: 'ATTENTION' });
+        const f2 = createFinding({ id: 'event-disk-11-communication', area: 'storage', severity: 'ATTENTION' });
+        const corr = createCorrelation({
+          id: 'correlation:storage:bad_blocks_smart_match:disk1',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'storage',
+        });
+
+        const result = enrichFindingsWithCorrelations([f1, f2], [corr]);
+        // Stesso rango (Rank 3): SAFE FAIL
+        expect(result).toHaveLength(2);
+      });
+
+      // 9. RELATED_SIGNAL senza primary finding compatibile
+      it('9. RELATED_SIGNAL senza primary finding compatibile: zero nuovi finding, zero score delta', () => {
+        const ramFinding = createFinding({ id: 'ram-usage-high', area: 'ram', severity: 'WARNING' });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:tdr_isolated_signal:gpu1',
+          strength: 'RELATED_SIGNAL',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations([ramFinding], [corr]);
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('ram-usage-high');
+        expect(result[0].correlations).toBeUndefined();
+      });
+
+      // 10. WEAK_CONTEXT senza primary finding
+      it('10. WEAK_CONTEXT senza primary finding compatibile: correlation ignorata', () => {
+        const corr = createCorrelation({
+          id: 'correlation:system:weak_power:generic',
+          strength: 'WEAK_CONTEXT',
+          affectedArea: 'system',
+        });
+        const result = enrichFindingsWithCorrelations([], [corr]);
+        expect(result).toHaveLength(0);
+      });
+
+      // 11. secondary con metadata
+      it('11. secondary con metadata: metadati preservati integralmente in absorbedFinding', () => {
+        const anchor = createFinding({
+          id: 'device-fault-10-pci_ven_10de',
+          area: 'gpu',
+          severity: 'WARNING',
+        });
+        const secondary = createFinding({
+          id: 'event-display-tdr-isolated',
+          area: 'gpu',
+          severity: 'ATTENTION',
+          metadata: { eventId: 4101, count: 2, isTruncated: false, driver: 'nvlddmkm.sys' },
+        });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+        expect(result).toHaveLength(1);
+        const absorbed = result[0].correlations![0].absorbedFinding!;
+        expect(absorbed.metadata).toEqual({
+          eventId: 4101,
+          count: 2,
+          isTruncated: false,
+          driver: 'nvlddmkm.sys',
+        });
+      });
+
+      // 12. secondary con recommendedActionId
+      it('12. secondary con recommendedActionId: recommendedActionId preservato in absorbedFinding', () => {
+        const anchor = createFinding({
+          id: 'device-fault-10-pci_ven_10de',
+          area: 'gpu',
+          severity: 'WARNING',
+          recommendedActionId: 'inspect-device-fault',
+        });
+        const secondary = createFinding({
+          id: 'event-display-tdr-isolated',
+          area: 'gpu',
+          severity: 'ATTENTION',
+          recommendedActionId: 'clean-shader-cache',
+        });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+        expect(result[0].recommendedActionId).toBe('inspect-device-fault');
+        expect(result[0].correlations![0].absorbedFinding!.recommendedActionId).toBe('clean-shader-cache');
+      });
+
+      // 13. anchor senza recommendedActionId
+      it('13. anchor senza recommendedActionId: eredita quello del secondario assorbito', () => {
+        const anchor = createFinding({
+          id: 'device-fault-10-pci_ven_10de',
+          area: 'gpu',
+          severity: 'WARNING',
+          recommendedActionId: undefined,
+        });
+        const secondary = createFinding({
+          id: 'event-display-tdr-isolated',
+          area: 'gpu',
+          severity: 'ATTENTION',
+          recommendedActionId: 'clean-shader-cache',
+        });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+        expect(result[0].recommendedActionId).toBe('clean-shader-cache');
+      });
+
+      // 14. Event Log truncated
+      it('14. Event Log truncated: informazione di campionamento parziale preservata', () => {
+        const anchor = createFinding({
+          id: 'device-fault-10-pci_ven_10de',
+          area: 'gpu',
+          severity: 'WARNING',
+        });
+        const secondary = createFinding({
+          id: 'event-display-tdr-frequent',
+          area: 'gpu',
+          severity: 'WARNING',
+          evidence: '50 eventi rilevati nel campione limitato di diagnostica (Display 4101)',
+          metadata: { isTruncated: true, count: 50 },
+        });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+          eventEvidence: '50 eventi nel campione parziale limitato',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+        const absorbed = result[0].correlations![0].absorbedFinding!;
+        expect(absorbed.evidence).toContain('campione limitato');
+        expect(absorbed.metadata?.isTruncated).toBe(true);
+      });
+
+      // 15. duplicate / repeated correlation
+      it('15. duplicate correlation in input: deduplicata preservando una sola evidenza', () => {
+        const anchor = createFinding({
+          id: 'device-fault-10-pci_ven_10de',
+          area: 'gpu',
+          severity: 'WARNING',
+        });
+        const corr = createCorrelation({
+          id: 'correlation:gpu:tdr_hardware_signal:pci_ven_10de',
+          strength: 'RELATED_SIGNAL',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations([anchor], [corr, corr]);
+        expect(result[0].correlations).toHaveLength(1);
+      });
+
+      // 16. determinismo: stesso input → stesso output
+      it('16. determinismo: chiamate multiple con stesso input producono output identico al 100%', () => {
+        const f1 = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' });
+        const f2 = createFinding({ id: 'event-display-tdr-isolated', area: 'gpu', severity: 'ATTENTION' });
+        const corr = createCorrelation({ id: 'correlation:gpu:device_driver_match:pci_ven_10de', strength: 'DIRECT_MATCH' });
+
+        const resA = enrichFindingsWithCorrelations([f1, f2], [corr]);
+        const resB = enrichFindingsWithCorrelations([f1, f2], [corr]);
+        expect(resA).toEqual(resB);
+      });
+
+      // 17. preservazione dell'ordine canonico dei finding
+      it('17. preservazione ordine canonico: i finding sopravvissuti mantengono la posizione relativa originale', () => {
+        const fStorage = createFinding({ id: 'smart-critical-disk1', area: 'storage', severity: 'CRITICAL' });
+        const fRam = createFinding({ id: 'ram-usage-high', area: 'ram', severity: 'WARNING' });
+        const fGpuFault = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' });
+        const fDisplayTdr = createFinding({ id: 'event-display-tdr-isolated', area: 'gpu', severity: 'ATTENTION' });
+        const fService = createFinding({ id: 'service-vss-disabled', area: 'system', severity: 'ATTENTION' });
+
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+        });
+
+        const result = enrichFindingsWithCorrelations(
+          [fStorage, fRam, fGpuFault, fDisplayTdr, fService],
+          [corr]
+        );
+
+        // fDisplayTdr è assorbito in fGpuFault. L'ordine relativo dei 4 rimasti è intatto:
+        expect(result.map((f) => f.id)).toEqual([
+          'smart-critical-disk1',
+          'ram-usage-high',
+          'device-fault-10-pci_ven_10de',
+          'service-vss-disabled',
+        ]);
+      });
+
+      // 18. score identico a quello atteso dopo la rimozione del secondary assorbito
+      it('18. score evaluation dopo enrichment: score calcolato sui soli finding finali', () => {
+        const fStorage = createFinding({ id: 'smart-errors-attention-disk1', area: 'storage', severity: 'ATTENTION' }); // -4
+        const fDevFault = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' }); // -12
+        const fDisplayTdr = createFinding({ id: 'event-display-tdr-frequent', area: 'gpu', severity: 'CRITICAL' }); // -25 (assorbito!)
+
+        const corr = createCorrelation({
+          id: 'correlation:gpu:device_driver_match:pci_ven_10de',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'gpu',
+        });
+
+        const enriched = enrichFindingsWithCorrelations([fStorage, fDevFault, fDisplayTdr], [corr]);
+        expect(enriched).toHaveLength(2); // fDisplayTdr rimosso!
+        // buildHealthReport interno: penalty = 12 (WARNING) + 4 (ATTENTION) = 16. Score = 100 - 16 = 84.
+        // Se non fosse assorbito, penalty sarebbe 25 + 12 + 4 = 41 -> Score = 59!
+      });
+
+      // 19. nessuna doppia penalità
+      it('19. zero double-penalty: un DIRECT_MATCH rimuove il secondario e previene penalità duplicata', () => {
+        const anchor = createFinding({ id: 'smart-critical-disk1', area: 'storage', severity: 'CRITICAL' });
+        const secondary = createFinding({ id: 'event-disk-7-isolated', area: 'storage', severity: 'ATTENTION' });
+        const corr = createCorrelation({
+          id: 'correlation:storage:bad_blocks_smart_match:disk1',
+          strength: 'DIRECT_MATCH',
+          affectedArea: 'storage',
+        });
+
+        const enriched = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+        expect(enriched).toHaveLength(1);
+        expect(enriched[0].id).toBe('smart-critical-disk1');
+      });
+
+      // 20. nessuna modifica della severity dell'anchor
+      it('20. nessuna modifica della severity dell\'anchor: resta rigidamente quella originale per ogni grado', () => {
+        for (const sev of ['INFO', 'GOOD', 'ATTENTION', 'WARNING', 'CRITICAL'] as const) {
+          const anchor = createFinding({
+            id: 'device-fault-10-pci_ven_10de',
+            area: 'gpu',
+            severity: sev,
+          });
+          const secondary = createFinding({
+            id: 'event-display-tdr-frequent',
+            area: 'gpu',
+            severity: 'CRITICAL',
+          });
+          const corr = createCorrelation({ strength: 'DIRECT_MATCH', affectedArea: 'gpu' });
+
+          const result = enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+          expect(result[0].severity).toBe(sev);
+        }
+      });
+    });
+
+    describe('FASE 11 — Property Tests (Invarianti P1 – P8)', () => {
+      // P1. Permutation Invariance di correlations
+      it('P1. Permutation Invariance: l\'ordine di correlations in input non altera finding né correlations[]', () => {
+        const anchor = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' });
+        const secondary = createFinding({ id: 'event-display-tdr-isolated', area: 'gpu', severity: 'ATTENTION' });
+        const c1 = createCorrelation({ id: 'correlation:gpu:device_driver_match:pci_ven_10de', strength: 'DIRECT_MATCH' });
+        const c2 = createCorrelation({ id: 'correlation:gpu:tdr_hardware_signal:pci_ven_10de', strength: 'RELATED_SIGNAL' });
+
+        const res1 = enrichFindingsWithCorrelations([anchor, secondary], [c1, c2]);
+        const res2 = enrichFindingsWithCorrelations([anchor, secondary], [c2, c1]);
+
+        expect(res1).toEqual(res2);
+      });
+
+      // P2. Severity dell'anchor invariata
+      it('P2. Anchor Severity Invariance: nessun enrichment muta la severity originale dell\'anchor', () => {
+        const anchor = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'ATTENTION' });
+        const secondary = createFinding({ id: 'event-display-tdr-frequent', area: 'gpu', severity: 'CRITICAL' });
+        const c = createCorrelation({ strength: 'DIRECT_MATCH', affectedArea: 'gpu' });
+
+        const res = enrichFindingsWithCorrelations([anchor, secondary], [c]);
+        expect(res[0].severity).toBe('ATTENTION');
+      });
+
+      // P3. Nessun secondary assorbito sopravvive
+      it('P3. Secondary Elimination: nessun ID assorbito è presente tra i finding finali', () => {
+        const anchor = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' });
+        const secondary = createFinding({ id: 'event-display-tdr-isolated', area: 'gpu', severity: 'ATTENTION' });
+        const c = createCorrelation({ strength: 'DIRECT_MATCH', affectedArea: 'gpu' });
+
+        const res = enrichFindingsWithCorrelations([anchor, secondary], [c]);
+        const finalIds = res.map((f) => f.id);
+        expect(finalIds).not.toContain('event-display-tdr-isolated');
+      });
+
+      // P4. Nessuna correlation introduce penalty propria
+      it('P4. Zero Intrinsic Correlation Penalty: correlation senza assorbimento non altera i finding né produce penalità', () => {
+        const f1 = createFinding({ id: 'event-whea-18-single', area: 'cpu', severity: 'WARNING' });
+        const c = createCorrelation({
+          id: 'correlation:cpu:undervolt_whea_18:daily_uv',
+          strength: 'RELATED_SIGNAL',
+          affectedArea: 'cpu',
+        });
+
+        const res = enrichFindingsWithCorrelations([f1], [c]);
+        expect(res).toHaveLength(1);
+        expect(res[0].severity).toBe('WARNING');
+        expect(res[0].correlations).toHaveLength(1);
+      });
+
+      // P5. Zero double penalty
+      it('P5. Anti-Double Penalty: l\'assorbimento elimina la seconda penalità dello score', () => {
+        const anchor = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' }); // -12
+        const secondary = createFinding({ id: 'event-display-tdr-isolated', area: 'gpu', severity: 'ATTENTION' }); // -4
+        const c = createCorrelation({ strength: 'DIRECT_MATCH', affectedArea: 'gpu' });
+
+        const res = enrichFindingsWithCorrelations([anchor, secondary], [c]);
+        expect(res).toHaveLength(1);
+        // Risultato ha solo anchor (-12), il secondario (-4) è rimosso
+      });
+
+      // P6. Nessuna perdita dati del secondary
+      it('P6. Full Data Retention: tutti i dati del secondario sono preservati in absorbedFinding', () => {
+        const anchor = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' });
+        const secondary: HealthFinding = {
+          id: 'event-display-tdr-isolated',
+          severity: 'ATTENTION',
+          area: 'gpu',
+          title: 'Titolo TDR',
+          evidence: 'Evidenza TDR',
+          explanation: 'Spiegazione TDR',
+          confidence: 'HIGH',
+          recommendedActionId: 'action-test',
+          metadata: { customField: 42, flag: true },
+        };
+        const c = createCorrelation({ strength: 'DIRECT_MATCH', affectedArea: 'gpu' });
+
+        const res = enrichFindingsWithCorrelations([anchor, secondary], [c]);
+        const absorbed = res[0].correlations![0].absorbedFinding!;
+        expect(absorbed.subsumedFindingId).toBe('event-display-tdr-isolated');
+        expect(absorbed.originalSeverity).toBe('ATTENTION');
+        expect(absorbed.area).toBe('gpu');
+        expect(absorbed.title).toBe('Titolo TDR');
+        expect(absorbed.evidence).toBe('Evidenza TDR');
+        expect(absorbed.explanation).toBe('Spiegazione TDR');
+        expect(absorbed.recommendedActionId).toBe('action-test');
+        expect(absorbed.metadata).toEqual({ customField: 42, flag: true });
+      });
+
+      // P7. Deterministic Correlation Ordering
+      it('P7. Correlation Ordering Determinism: DIRECT_MATCH > RELATED_SIGNAL > WEAK_CONTEXT > ordine alfabetico', () => {
+        const anchor = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' });
+        const cWeak = createCorrelation({ id: 'correlation:gpu:z_weak', strength: 'WEAK_CONTEXT' });
+        const cRelB = createCorrelation({ id: 'correlation:gpu:b_signal', strength: 'RELATED_SIGNAL' });
+        const cRelA = createCorrelation({ id: 'correlation:gpu:a_signal', strength: 'RELATED_SIGNAL' });
+        const cDirect = createCorrelation({ id: 'correlation:gpu:device_driver_match:pci_ven_10de', strength: 'DIRECT_MATCH' });
+
+        const res = enrichFindingsWithCorrelations([anchor], [cWeak, cRelB, cRelA, cDirect]);
+        const corrs = res[0].correlations!;
+        expect(corrs).toHaveLength(4);
+        expect(corrs[0].strength).toBe('DIRECT_MATCH');
+        expect(corrs[1].correlationId).toBe('correlation:gpu:a_signal');
+        expect(corrs[2].correlationId).toBe('correlation:gpu:b_signal');
+        expect(corrs[3].strength).toBe('WEAK_CONTEXT');
+      });
+
+      // P8. Input Immutability
+      it('P8. Input Immutability: la funzione pura non muta in alcun modo gli oggetti di input', () => {
+        const anchor = createFinding({ id: 'device-fault-10-pci_ven_10de', area: 'gpu', severity: 'WARNING' });
+        const secondary = createFinding({ id: 'event-display-tdr-isolated', area: 'gpu', severity: 'ATTENTION' });
+        const corr = createCorrelation({ strength: 'DIRECT_MATCH', affectedArea: 'gpu' });
+
+        const origAnchorJson = JSON.stringify(anchor);
+        const origSecJson = JSON.stringify(secondary);
+        const origCorrJson = JSON.stringify(corr);
+
+        enrichFindingsWithCorrelations([anchor, secondary], [corr]);
+
+        expect(JSON.stringify(anchor)).toBe(origAnchorJson);
+        expect(JSON.stringify(secondary)).toBe(origSecJson);
+        expect(JSON.stringify(corr)).toBe(origCorrJson);
+      });
+    });
+
+    describe('Wording Anti-Causale e Sanitizzazione (FASE 8)', () => {
+      it('sostituisce espressioni categoriche temporali non dimostrate con formulazioni neutre', () => {
+        expect(sanitizeCorrelationWording('profilo undervolt attivo registrato')).toBe(
+          'profilo di tuning CPU presente nel contesto di analisi registrato'
+        );
+        expect(sanitizeCorrelationWording('coincidenza temporale tra eventi')).toBe(
+          'coesistenza nel contesto di analisi tra eventi'
+        );
+      });
+    });
+
+    describe('Integrazione End-to-End in evaluateSystemHealth (FASE 12)', () => {
+      it('integra GPU Device Problem e Display TDR: DIRECT_MATCH, assorbimento e anti-doppia penalità', () => {
+        const facts: SystemFactsInput = {
+          referenceDate: REF_DATE,
+          diagnostics: {
+            timestamp: REF_DATE,
+            status: 'success',
+            collectionDurationMs: 5,
+            deviceProblems: {
+              availability: 'available',
+              source: 'CM_Get_DevNode_Status',
+              totalDevicesScanned: 10,
+              problemCount: 1,
+              devicesWithProblems: [
+                {
+                  deviceId: 'PCI\\VEN_10DE&DEV_2206',
+                  friendlyName: 'NVIDIA GeForce RTX 3080',
+                  problemCode: 43,
+                  problemLabel: 'CM_PROB_FAILED_POST (Codice 43)',
+                  problemDescription: 'Dispositivo arrestato da Windows',
+                  statusFlags: 0x1802000,
+                  severity: 'critical',
+                },
+              ],
+            },
+            memoryCommit: {
+              availability: 'available',
+              source: 'test',
+              commitTotalBytes: 1,
+              commitLimitBytes: 10,
+              commitPeakBytes: 5,
+              physicalTotalBytes: 10,
+              physicalAvailableBytes: 5,
+              systemCacheBytes: 1,
+              kernelPagedBytes: 1,
+              kernelNonpagedBytes: 1,
+              processCount: 1,
+              threadCount: 1,
+              commitUtilizationPercent: 10,
+              physicalUtilizationPercent: 50,
+            },
+            powerStatus: {
+              availability: 'available',
+              source: 'test',
+              acLineStatus: 1,
+              batteryFlag: 128,
+              batteryLifePercent: null,
+              batterySaverActive: false,
+              hasSystemBattery: false,
+              isOnAC: true,
+              isOnBattery: false,
+              powerArchitecture: 'desktop_like',
+            },
+            eventLog: {
+              availability: 'available',
+              source: 'Wevtapi',
+              queryTimeWindowHours: 168,
+              maxEventsCap: 50,
+              returnedEventCount: 1,
+              truncated: false,
+              events: [
+                {
+                  channel: 'System',
+                  provider: 'Display',
+                  eventId: 4101,
+                  level: 3,
+                  timestamp: REF_DATE,
+                  recordId: 100,
+                  targetContext: 'PCI\\VEN_10DE&DEV_2206',
+                  payload: { type: 'display', driverName: 'nvlddmkm' },
+                },
+              ],
+            },
+          },
+        };
+
+        const report = evaluateSystemHealth(facts);
+
+        // Deve esistere il finding per il guasto GPU
+        const gpuFault = report.findings.find((f) => f.id.startsWith('device-fault-43'));
+        expect(gpuFault).toBeDefined();
+        expect(gpuFault!.severity).toBe('CRITICAL');
+        expect(gpuFault!.correlations).toBeDefined();
+        expect(gpuFault!.correlations!.length).toBeGreaterThan(0);
+        expect(gpuFault!.correlations![0].strength).toBe('DIRECT_MATCH');
+        expect(gpuFault!.correlations![0].absorbedFinding).toBeDefined();
+        expect(gpuFault!.correlations![0].absorbedFinding!.subsumedFindingId).toBe('event-display-tdr-isolated');
+
+        // Il finding event-display-tdr non deve sopravvivere nell'array finale (assorbito!)
+        const displayFinding = report.findings.find((f) => f.id.startsWith('event-display-tdr'));
+        expect(displayFinding).toBeUndefined();
+
+        // Anti-doppia penalità verificata:
+        // Solo il guasto GPU (-25) penalizza lo score. Non -25 (GPU) - 4 (TDR) = -29!
+        expect(report.healthScore).toBe(75);
       });
     });
   });

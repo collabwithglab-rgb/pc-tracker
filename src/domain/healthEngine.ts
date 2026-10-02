@@ -19,12 +19,18 @@ import {
   DiagnosticChannel,
   DiagnosticChannelStatus,
   DiagnosticCoverageLevel,
+  AbsorbedFindingEvidence,
+  HealthFindingCorrelationEvidence,
 } from '../types/health';
 import { isMetricAvailable } from '../services/monitoringService';
 import {
   WindowsServiceNativeFact,
   WINDOWS_SERVICES_CATALOG,
+  DiagnosticCorrelation,
+  DiagnosticCorrelationInput,
+  CorrelationStrength,
 } from '../types/diagnostics';
+import { computeDiagnosticCorrelations } from './diagnosticCorrelationEngine';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -160,8 +166,20 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   const serviceFindings = evaluateWindowsServicesHealth(facts);
   findings.push(...serviceFindings);
 
-  // 7. Calcolo del punteggio sintetico e ripartizione per area
-  const report = buildHealthReport(findings, refDate);
+  // 6d. Calcolo e Arricchimento Correlazioni Diagnostiche (Tranche 8D-3)
+  const correlationInput: DiagnosticCorrelationInput = {
+    deviceProblems: facts.diagnostics?.deviceProblems,
+    eventLog: facts.diagnostics?.eventLog,
+    services: facts.diagnostics?.systemServices,
+    tuningProfiles: facts.tuningProfiles,
+    smartDisks: facts.smartDisks,
+    powerStatus: facts.diagnostics?.powerStatus,
+  };
+  const correlations = computeDiagnosticCorrelations(correlationInput, refDate);
+  const finalFindings = enrichFindingsWithCorrelations(findings, correlations);
+
+  // 7. Calcolo del punteggio sintetico e ripartizione per area sui finding finali
+  const report = buildHealthReport(finalFindings, refDate);
 
   // 8. Calcolo puro della Copertura Diagnostica (indipendente dallo Health Score)
   report.diagnosticCoverage = computeDiagnosticCoverage(facts);
@@ -1394,6 +1412,444 @@ export function evaluateWindowsServicesHealth(facts: SystemFactsInput): HealthFi
   }
 
   return findings;
+}
+
+// ---------------------------------------------------------------------------
+// 5b. CORRELATION ENRICHMENT & ANTI-DOUBLE-PENALTY ENGINE (Tranche 8D-3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Rango semantico deterministico per la selezione dell'Anchor Finding (Tranche 8D-3).
+ * Precedenza hardware-first oggettiva:
+ * Rank 1: Device node faults fisici (device-fault-*)
+ * Rank 2: Telemetria diretta e SMART (smart-*, gpu-temp-*, ram-available-*, etc.)
+ * Rank 3: Event Log del sistema operativo (event-*)
+ * Rank 4: Servizi di sistema Windows (service-*)
+ * Rank 5: Manutenzione / Integrità file / Sicurezza (maintenance-*, sysfiles-*, etc.)
+ */
+export function getFindingSemanticRank(finding: HealthFinding): number {
+  const id = finding.id.toLowerCase();
+  if (id.startsWith('device-fault-')) return 1;
+  if (
+    id.startsWith('smart-') ||
+    id.startsWith('gpu-temp-') ||
+    id.startsWith('gpu-load-') ||
+    id.startsWith('cpu-temp-') ||
+    id.startsWith('cpu-load-') ||
+    id.startsWith('ram-available-') ||
+    id.startsWith('ram-usage-') ||
+    id.startsWith('memory-commit-') ||
+    id.startsWith('drive-low-space-')
+  ) {
+    return 2;
+  }
+  if (id.startsWith('event-')) return 3;
+  if (id.startsWith('service-')) return 4;
+  if (
+    id.startsWith('maintenance-') ||
+    id.startsWith('sysfiles-') ||
+    id.startsWith('security-') ||
+    id.startsWith('recycle-bin-') ||
+    id.startsWith('winget-')
+  ) {
+    return 5;
+  }
+  return 99;
+}
+
+/**
+ * Normalizza il wording di evidenze e spiegazioni per garantire anti-causalità assoluta (FASE 8).
+ * Sostituisce espressioni categoriche temporali non dimostrate con formule neutre.
+ */
+export function sanitizeCorrelationWording(text?: string | null): string {
+  if (!text) return '';
+  return text
+    .replace(/profilo undervolt attivo/gi, 'profilo di tuning CPU presente nel contesto di analisi')
+    .replace(/profilo di undervolt attivo/gi, 'profilo di tuning CPU presente nel contesto di analisi')
+    .replace(/undervolt attivo/gi, 'profilo di tuning CPU presente nel contesto di analisi')
+    .replace(/coincidenza temporale/gi, 'coesistenza nel contesto di analisi');
+}
+
+const STRENGTH_SORT_ORDER: Record<CorrelationStrength, number> = {
+  DIRECT_MATCH: 0,
+  RELATED_SIGNAL: 1,
+  WEAK_CONTEXT: 2,
+  NO_CORRELATION: 3,
+};
+
+/**
+ * Ordina deterministicamente le correlazioni associate a un finding:
+ * DIRECT_MATCH > RELATED_SIGNAL > WEAK_CONTEXT > NO_CORRELATION
+ * A parità di forza: ordine alfabetico per correlationId (FASE 9).
+ */
+export function sortCorrelationEvidence(
+  items: HealthFindingCorrelationEvidence[]
+): HealthFindingCorrelationEvidence[] {
+  return [...items].sort((a, b) => {
+    const sDiff = (STRENGTH_SORT_ORDER[a.strength] ?? 3) - (STRENGTH_SORT_ORDER[b.strength] ?? 3);
+    if (sDiff !== 0) return sDiff;
+    return a.correlationId.localeCompare(b.correlationId);
+  });
+}
+
+/**
+ * Verifica deterministica se un finding primario è compatibile con una correlazione diagnostica.
+ */
+export function isFindingCompatibleWithCorrelation(
+  finding: HealthFinding,
+  correlation: DiagnosticCorrelation
+): boolean {
+  const cId = correlation.id.toLowerCase();
+  const fId = finding.id.toLowerCase();
+
+  // Se la correlazione targetizza esplicitamente questo finding ID
+  if (cId.includes(fId)) {
+    return true;
+  }
+
+  // 1. GPU & DISPLAY TDR
+  if (cId.startsWith('correlation:gpu:')) {
+    if (fId.startsWith('event-display-tdr-')) return true;
+    if (fId.startsWith('device-fault-')) {
+      if (finding.area === 'gpu') return true;
+      if (cId.includes('device_driver_match') || cId.includes('tdr_hardware_signal')) {
+        const devId = (finding.metadata?.deviceId as string)?.toLowerCase() || '';
+        if (
+          devId.includes('pci\\ven_10de') ||
+          devId.includes('pci\\ven_1002') ||
+          devId.includes('pci\\ven_8086')
+        ) return true;
+        if (
+          finding.title.toLowerCase().includes('gpu') ||
+          finding.title.toLowerCase().includes('video') ||
+          finding.title.toLowerCase().includes('grafic')
+        ) return true;
+        if (finding.area === 'system') return true;
+      }
+    }
+    if (fId.startsWith('gpu-temp-') || fId.startsWith('gpu-load-')) return true;
+    if (finding.area === 'gpu') return true;
+  }
+
+  // 2. STORAGE (Bad blocks, controller, paging, NTFS)
+  if (cId.startsWith('correlation:storage:')) {
+    if (cId.includes('bad_blocks')) {
+      if (fId.startsWith('event-disk-7-')) return true;
+      if (fId.startsWith('smart-')) return true;
+      if (
+        fId.startsWith('device-fault-') &&
+        (finding.area === 'storage' ||
+          finding.title.toLowerCase().includes('disk') ||
+          finding.title.toLowerCase().includes('disco'))
+      ) return true;
+    }
+    if (cId.includes('controller')) {
+      if (fId.startsWith('event-disk-11-')) return true;
+      if (fId.startsWith('smart-')) return true;
+      if (
+        fId.startsWith('device-fault-') &&
+        (finding.area === 'storage' ||
+          finding.title.toLowerCase().includes('disk') ||
+          finding.title.toLowerCase().includes('disco'))
+      ) return true;
+    }
+    if (cId.includes('paging_io')) {
+      if (fId.startsWith('event-disk-51-')) return true;
+      if (fId.startsWith('memory-commit-')) return true;
+    }
+    if (cId.includes('ntfs_filesystem_corruption')) {
+      if (fId === 'event-ntfs-55-corruption') return true;
+    }
+    if (cId.includes('ntfs_maintenance_check')) {
+      if (fId === 'event-ntfs-98-check-required') return true;
+    }
+    if (cId.includes('ntfs_verified_healthy')) {
+      if (fId === 'event-ntfs-98-verified') return true;
+    }
+    if (finding.area === 'storage') return true;
+  }
+
+  // 3. WHEA / CPU / TUNING
+  if (cId.includes('whea_17') || cId.includes('whea_signal_17')) {
+    if (fId.startsWith('event-whea-17-')) return true;
+  }
+  if (cId.includes('whea_18') || cId.includes('whea_signal_18')) {
+    if (fId.startsWith('event-whea-18-')) return true;
+  }
+  if (cId.includes('whea_19') || cId.includes('whea_signal_19')) {
+    if (fId.startsWith('event-whea-19-')) return true;
+  }
+  if (cId.includes('whea_47') || cId.includes('whea_signal_47')) {
+    if (fId.startsWith('event-whea-47-')) return true;
+  }
+  if (cId.includes('whea_') && fId.startsWith('event-whea-')) {
+    return true;
+  }
+
+  // 4. KERNEL-POWER 41
+  if (cId.startsWith('correlation:system:kernel_power_bugcheck:')) {
+    if (fId === 'event-kp41-bugcheck' || fId.startsWith('event-kp41-')) return true;
+  }
+
+  // 5. WINDOWS SERVICES
+  if (cId.startsWith('correlation:system:service_exit_error:')) {
+    if (fId.startsWith('service-')) {
+      const parts = cId.split(':');
+      const servName = parts[parts.length - 1];
+      if (servName && fId.includes(servName)) return true;
+      const metaServ = (finding.metadata?.serviceName as string)?.toLowerCase();
+      if (metaServ && servName && metaServ === servName) return true;
+    }
+  }
+
+  // Fallback semantico per mock o test custom con stessa area
+  if (correlation.affectedArea === finding.area) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Associa un'evidenza di correlazione a un finding primario.
+ * Deduplica per correlationId e preserva eventuali dati di assorbimento.
+ */
+function attachCorrelationToFinding(
+  finding: HealthFinding,
+  evidence: HealthFindingCorrelationEvidence
+): void {
+  if (!finding.correlations) {
+    finding.correlations = [];
+  }
+  const existingIdx = finding.correlations.findIndex((c) => c.correlationId === evidence.correlationId);
+  if (existingIdx >= 0) {
+    if (evidence.absorbedFinding && !finding.correlations[existingIdx].absorbedFinding) {
+      finding.correlations[existingIdx] = evidence;
+    }
+  } else {
+    finding.correlations.push(evidence);
+  }
+}
+
+/**
+ * Seleziona deterministicamente il miglior finding primario per una correlazione (RELATED_SIGNAL / WEAK_CONTEXT).
+ */
+function selectBestFindingForCorrelation(
+  candidates: HealthFinding[],
+  correlation: DiagnosticCorrelation
+): HealthFinding | undefined {
+  if (candidates.length === 0) return undefined;
+  if (candidates.length === 1) return candidates[0];
+
+  const cId = correlation.id.toLowerCase();
+  for (const f of candidates) {
+    if (cId.includes(f.id.toLowerCase())) {
+      return f;
+    }
+  }
+
+  // Ordina per rango semantico crescente (priorità hardware/telemetria)
+  const sorted = [...candidates].sort(
+    (a, b) => getFindingSemanticRank(a) - getFindingSemanticRank(b)
+  );
+  return sorted[0];
+}
+
+/**
+ * Motore Puro di Arricchimento Correlazioni e Anti-Doppia Penalità (Tranche 8D-3).
+ *
+ * Riceve i finding primari (8D-1 / 8D-2) e le correlazioni diagnostiche pure (8C),
+ * e produce un nuovo array di finding arricchiti senza mutazioni degli input.
+ *
+ * REGOLE ASSOLUTE:
+ * 1. Severity dell'Anchor RIGOROSAMENTE IMMUTABILE.
+ * 2. Precedenza semantica hardware-first per la selezione dell'Anchor (Rank 1 > Rank 2 > Rank 3 > Rank 4 > Rank 5).
+ * 3. Safe-fail: Se non esiste anchor univoco o i candidati hanno lo stesso rango -> NESSUN assorbimento.
+ * 4. Zero perdita dati: tutti i dati del secondario assorbito confluiscono in absorbedFinding.
+ * 5. Zero double penalty: il secondario assorbito è escluso dall'array finale.
+ * 6. Preservazione dell'ordine canonico dei finding primari.
+ * 7. Ordinamento deterministico di correlations[]: DIRECT_MATCH > RELATED_SIGNAL > WEAK_CONTEXT > NO_CORRELATION, poi alfabetico.
+ * 8. Wording anti-causale garantito.
+ */
+export function enrichFindingsWithCorrelations(
+  primaryFindings: HealthFinding[],
+  correlations: DiagnosticCorrelation[]
+): HealthFinding[] {
+  if (!primaryFindings || primaryFindings.length === 0) {
+    return [];
+  }
+
+  // Deep clone preliminare per garantire assoluta immutabilità degli input (P8)
+  const workingFindings: HealthFinding[] = primaryFindings.map((f) => ({
+    ...f,
+    metadata: f.metadata ? { ...f.metadata } : undefined,
+    correlations: f.correlations
+      ? f.correlations.map((c) => ({
+          ...c,
+          absorbedFinding: c.absorbedFinding
+            ? {
+                ...c.absorbedFinding,
+                metadata: c.absorbedFinding.metadata
+                  ? { ...c.absorbedFinding.metadata }
+                  : undefined,
+              }
+            : undefined,
+        }))
+      : undefined,
+  }));
+
+  if (!correlations || correlations.length === 0) {
+    return workingFindings;
+  }
+
+  // Deduplicazione delle correlazioni in input preservando il primo riscontro
+  const uniqueCorrelations: DiagnosticCorrelation[] = [];
+  const seenCorrelationIds = new Set<string>();
+  for (const c of correlations) {
+    if (!seenCorrelationIds.has(c.id)) {
+      seenCorrelationIds.add(c.id);
+      uniqueCorrelations.push(c);
+    }
+  }
+
+  const absorbedFindingIds = new Set<string>();
+
+  for (const correlation of uniqueCorrelations) {
+    if (correlation.strength === 'NO_CORRELATION') {
+      continue;
+    }
+
+    // Trova i finding compatibili non ancora assorbiti
+    const compatible = workingFindings.filter(
+      (f) => !absorbedFindingIds.has(f.id) && isFindingCompatibleWithCorrelation(f, correlation)
+    );
+
+    if (compatible.length === 0) {
+      // Nessun finding primario compatibile: correlation ignorata nel Health output
+      continue;
+    }
+
+    const sanitizedTitle = sanitizeCorrelationWording(correlation.title);
+    const sanitizedHardwareEvidence = sanitizeCorrelationWording(correlation.hardwareEvidence);
+    const sanitizedEventEvidence = sanitizeCorrelationWording(correlation.eventEvidence);
+    const sanitizedExplanation = sanitizeCorrelationWording(correlation.explanation);
+
+    if (correlation.strength === 'DIRECT_MATCH') {
+      if (compatible.length >= 2) {
+        // Calcola rank semantico
+        const ranked = compatible.map((f) => ({
+          finding: f,
+          rank: getFindingSemanticRank(f),
+        }));
+
+        ranked.sort((a, b) => a.rank - b.rank);
+        const minRank = ranked[0].rank;
+        const topCandidates = ranked.filter((r) => r.rank === minRank);
+
+        // Safe-Fail: se più candidati condividono il rank minimo, ambiguità di anchor -> NESSUN assorbimento
+        if (topCandidates.length > 1) {
+          const target = topCandidates[0].finding;
+          attachCorrelationToFinding(target, {
+            correlationId: correlation.id,
+            strength: 'DIRECT_MATCH',
+            title: sanitizedTitle,
+            hardwareEvidence: sanitizedHardwareEvidence,
+            eventEvidence: sanitizedEventEvidence,
+            explanation: sanitizedExplanation,
+          });
+          continue;
+        }
+
+        const anchor = topCandidates[0].finding;
+        const secondaryCandidates = ranked.filter((r) => r.rank > minRank);
+
+        // Safe-Fail: se non ci sono candidati secondari con rank inferiore
+        if (secondaryCandidates.length === 0) {
+          attachCorrelationToFinding(anchor, {
+            correlationId: correlation.id,
+            strength: 'DIRECT_MATCH',
+            title: sanitizedTitle,
+            hardwareEvidence: sanitizedHardwareEvidence,
+            eventEvidence: sanitizedEventEvidence,
+            explanation: sanitizedExplanation,
+          });
+          continue;
+        }
+
+        // Seleziona il secondario da assorbire
+        const secondary = secondaryCandidates[0].finding;
+
+        absorbedFindingIds.add(secondary.id);
+
+        const absorbedData: AbsorbedFindingEvidence = {
+          subsumedFindingId: secondary.id,
+          originalSeverity: secondary.severity,
+          area: secondary.area,
+          title: secondary.title,
+          evidence: secondary.evidence,
+          explanation: secondary.explanation,
+          ...(secondary.recommendedActionId ? { recommendedActionId: secondary.recommendedActionId } : {}),
+          ...(secondary.metadata ? { metadata: { ...secondary.metadata } } : {}),
+        };
+
+        // Eredita recommendedActionId se l'anchor non ne possiede uno
+        if (!anchor.recommendedActionId && secondary.recommendedActionId) {
+          anchor.recommendedActionId = secondary.recommendedActionId;
+        }
+
+        // L'anchor mantiene TASSATIVAMENTE la propria severity originale (SEVERITY PRESERVATION)
+        attachCorrelationToFinding(anchor, {
+          correlationId: correlation.id,
+          strength: 'DIRECT_MATCH',
+          title: sanitizedTitle,
+          hardwareEvidence: sanitizedHardwareEvidence,
+          eventEvidence: sanitizedEventEvidence,
+          explanation: sanitizedExplanation,
+          absorbedFinding: absorbedData,
+        });
+      } else {
+        // compatible.length === 1: Anchor unico senza secondario da assorbire
+        const anchor = compatible[0];
+        attachCorrelationToFinding(anchor, {
+          correlationId: correlation.id,
+          strength: 'DIRECT_MATCH',
+          title: sanitizedTitle,
+          hardwareEvidence: sanitizedHardwareEvidence,
+          eventEvidence: sanitizedEventEvidence,
+          explanation: sanitizedExplanation,
+        });
+      }
+    } else {
+      // RELATED_SIGNAL o WEAK_CONTEXT:
+      // NON assorbono mai. Arricchiscono il miglior candidato primario compatibile.
+      const target = selectBestFindingForCorrelation(compatible, correlation);
+      if (target) {
+        attachCorrelationToFinding(target, {
+          correlationId: correlation.id,
+          strength: correlation.strength,
+          title: sanitizedTitle,
+          hardwareEvidence: sanitizedHardwareEvidence,
+          eventEvidence: sanitizedEventEvidence,
+          explanation: sanitizedExplanation,
+        });
+      }
+    }
+  }
+
+  // Ordina le correlazioni su ciascun finding sopravvissuto e filtra i secondari assorbiti
+  const finalFindings: HealthFinding[] = [];
+  for (const f of workingFindings) {
+    if (!absorbedFindingIds.has(f.id)) {
+      if (f.correlations && f.correlations.length > 0) {
+        f.correlations = sortCorrelationEvidence(f.correlations);
+      } else {
+        delete f.correlations;
+      }
+      finalFindings.push(f);
+    }
+  }
+
+  return finalFindings;
 }
 
 // ---------------------------------------------------------------------------
