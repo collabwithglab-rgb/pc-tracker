@@ -1,5 +1,7 @@
 import itLocale from './it.json';
 import enLocale from './en.json';
+import esLocale from './es.json';
+import frLocale from './fr.json';
 import { SupportedLocale } from '../types';
 import { getBcp47, resolveFallbackChain } from './registry';
 
@@ -19,6 +21,8 @@ type Dictionary = Partial<Record<string, string>>;
 const DICTIONARIES: Record<SupportedLocale, Dictionary> = {
   it: itLocale,
   en: enLocale,
+  es: esLocale,
+  fr: frLocale,
 };
 
 /**

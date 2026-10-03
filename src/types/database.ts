@@ -21,7 +21,7 @@ export type ArchiveViewPreference = 'cards' | 'table';
  * Lingue con dizionario reale. Aggiungere un codice qui obbliga TypeScript a richiedere
  * la voce corrispondente in `src/locales/registry.ts` e `src/locales/translator.ts`.
  */
-export type SupportedLocale = 'it' | 'en';
+export type SupportedLocale = 'it' | 'en' | 'es' | 'fr';
 
 export interface AppSettings {
   // Identità del Setup

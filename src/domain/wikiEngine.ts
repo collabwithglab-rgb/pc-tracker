@@ -320,16 +320,17 @@ export function getWikiStats(articles: WikiArticle[]) {
   };
 }
 
-const CLIPBOARD_LABELS = {
+const CLIPBOARD_LABELS: Record<'it' | 'en', { category: string; readTime: string; steps: string; formula: string; tips: string }> = {
   it: { category: 'Categoria', readTime: 'Tempo di lettura', steps: 'Procedura Passo-Passo', formula: 'Formula', tips: 'Consigli Pro' },
   en: { category: 'Category', readTime: 'Reading time', steps: 'Step-by-Step Procedure', formula: 'Formula', tips: 'Pro Tips' },
-} as const;
+};
 
 /**
  * Formatta un articolo della Wiki in Markdown pulito per la copia negli appunti
  */
 export function formatArticleForClipboard(article: WikiArticle, locale: SupportedLocale = 'it'): string {
-  const labels = CLIPBOARD_LABELS[resolveContentLocale(locale, ['it', 'en'])];
+  const contentLocale = resolveContentLocale(locale, ['it', 'en']) as 'it' | 'en';
+  const labels = CLIPBOARD_LABELS[contentLocale] || CLIPBOARD_LABELS.it;
   const sections: string[] = [
     `# ${article.title}`,
     `*${article.badge} · ${labels.category}: ${article.category} · ${labels.readTime}: ${article.readTime}*`,

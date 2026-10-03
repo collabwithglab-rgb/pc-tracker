@@ -1,6 +1,8 @@
-﻿import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import itLocale from '../it.json';
 import enLocale from '../en.json';
+import esLocale from '../es.json';
+import frLocale from '../fr.json';
 import {
   LOCALE_REGISTRY,
   SUPPORTED_LOCALES,
@@ -19,6 +21,8 @@ import { WIKI_ARTICLES_EN, WIKI_CATEGORIES_EN } from '../../constants/wikiDataEn
 
 const IT = itLocale as Record<string, string>;
 const EN = enLocale as Record<string, string>;
+const ES = esLocale as Record<string, string>;
+const FR = frLocale as Record<string, string>;
 
 describe('i18n Core â€” Registro, Fallback, Plurali, Date e Contenuti', () => {
   describe('1. Registro lingue (unica fonte di veritÃ )', () => {
@@ -42,7 +46,9 @@ describe('i18n Core â€” Registro, Fallback, Plurali, Date e Contenuti', () 
     it('non accetta lingue senza dizionario reale', () => {
       expect(isSupportedLocale('it')).toBe(true);
       expect(isSupportedLocale('en')).toBe(true);
-      for (const phantom of ['de', 'fr', 'es', 'zh', 'ja', '', null, 42]) {
+      expect(isSupportedLocale('es')).toBe(true);
+      expect(isSupportedLocale('fr')).toBe(true);
+      for (const phantom of ['de', 'zh', 'ja', 'pt', 'ru', '', null, 42]) {
         expect(isSupportedLocale(phantom)).toBe(false);
       }
     });
@@ -109,7 +115,7 @@ describe('i18n Core â€” Registro, Fallback, Plurali, Date e Contenuti', () 
       expect(oneKeys.length).toBeGreaterThan(10);
       for (const oneKey of oneKeys) {
         const base = oneKey.slice(0, -'_one'.length);
-        for (const dict of [IT, EN]) {
+        for (const dict of [IT, EN, ES, FR]) {
           expect(dict[base], `Chiave base mancante per ${oneKey}`).toBeTruthy();
           expect(dict[oneKey]).toContain('{count}');
           expect(dict[base]).toContain('{count}');

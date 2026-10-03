@@ -37,6 +37,8 @@ export const INTERNATIONAL_FALLBACK_LOCALE: SupportedLocale = 'en';
 export const LOCALE_REGISTRY: Record<SupportedLocale, LocaleDefinition> = {
   it: { code: 'it', nativeName: 'Italiano', flag: '🇮🇹', bcp47: 'it-IT', fallback: [] },
   en: { code: 'en', nativeName: 'English', flag: '🇬🇧', bcp47: 'en-US', fallback: [] },
+  es: { code: 'es', nativeName: 'Español', flag: '🇪🇸', bcp47: 'es-ES', fallback: ['en'] },
+  fr: { code: 'fr', nativeName: 'Français', flag: '🇫🇷', bcp47: 'fr-FR', fallback: ['en'] },
 };
 
 export const SUPPORTED_LOCALES = Object.keys(LOCALE_REGISTRY) as SupportedLocale[];

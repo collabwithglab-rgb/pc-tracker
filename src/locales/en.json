@@ -1606,5 +1606,7 @@
   "import_backup_atomic_prefix": "The operation is",
   "import_backup_atomic_strong": "fully atomic",
   "import_backup_atomic_suffix": ": if you confirm, the local IndexedDB database will be updated with the data from the backup file.",
-  "import_backup_restoring": "Restoring..."
+  "import_backup_restoring": "Restoring...",
+  "settings_language_es_desc": "Spanish (Español)",
+  "settings_language_fr_desc": "French (Français)"
 }
