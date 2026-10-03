@@ -1,5 +1,6 @@
 export * from './types';
 export * from './i18nContext';
+export * from './currencyRegistry';
 export {
   LOCALE_REGISTRY,
   SUPPORTED_LOCALES,

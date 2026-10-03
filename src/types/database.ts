@@ -23,6 +23,11 @@ export type ArchiveViewPreference = 'cards' | 'table';
  */
 export type SupportedLocale = 'it' | 'en' | 'es' | 'fr' | 'de' | 'zh';
 
+/**
+ * Valute ufficialmente supportate con formattazione nativa BCP-47.
+ */
+export type SupportedCurrency = 'EUR' | 'USD' | 'GBP' | 'CHF' | 'JPY' | 'CNY' | 'CAD' | 'AUD';
+
 export interface AppSettings {
   // Identità del Setup
   rigName: string; // default: ""
@@ -32,6 +37,7 @@ export interface AppSettings {
 
   // Interfaccia & Visualizzazione Globale
   language?: SupportedLocale; // default: "it"
+  currency?: SupportedCurrency; // default: "EUR"
   currencySymbol: string; // default: "€"
   dateFormat: DateFormatPreference; // default: "DD/MM/YYYY"
   uiDensity: UIDensity; // default: "comfortable"
@@ -97,6 +103,7 @@ export interface ImportPreview {
     rigName?: string;
     buildYear?: number;
     currencySymbol?: string;
+    currency?: SupportedCurrency;
   };
   parsedData: DatabaseSchema;
 }

@@ -1,5 +1,6 @@
 import { DateFormatPreference, SupportedLocale } from '../types';
 import { getBcp47, MASTER_LOCALE } from './registry';
+import { getCurrencyFractionDigits, DEFAULT_CURRENCY } from './currencyRegistry';
 
 /**
  * FORMATTAZIONE LOCALE — valute e date secondo il tag BCP-47 della lingua.
@@ -15,14 +16,15 @@ const numberFormatCache = new Map<string, Intl.NumberFormat>();
 const dateFormatCache = new Map<string, Intl.DateTimeFormat>();
 
 function getCurrencyFormatter(bcp47: string, currency: string): Intl.NumberFormat {
-  const cacheKey = `${bcp47}|${currency}`;
+  const fractionDigits = getCurrencyFractionDigits(currency);
+  const cacheKey = `${bcp47}|${currency}|${fractionDigits}`;
   let formatter = numberFormatCache.get(cacheKey);
   if (!formatter) {
     formatter = new Intl.NumberFormat(bcp47, {
       style: 'currency',
       currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     });
     numberFormatCache.set(cacheKey, formatter);
   }
@@ -50,7 +52,7 @@ function getDateFormatter(bcp47: string, utc: boolean): Intl.DateTimeFormat {
 export function formatCurrency(
   amount: number,
   localeCode: SupportedLocale = MASTER_LOCALE,
-  currency: string = 'EUR'
+  currency: string = DEFAULT_CURRENCY
 ): string {
   const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
   return getCurrencyFormatter(getBcp47(localeCode), currency).format(safeAmount);

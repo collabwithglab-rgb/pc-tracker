@@ -18,7 +18,14 @@ import {
   TuningProfile,
   OptimizationExecutionRecord,
   AppSettings,
+  SupportedCurrency,
 } from '../types';
+import {
+  isSupportedCurrency,
+  getCurrencySymbol,
+  inferCurrencyFromSymbol,
+  DEFAULT_CURRENCY,
+} from '../locales/currencyRegistry';
 import {
   STORES,
   getAllFromStore,
@@ -619,10 +626,18 @@ export function validateImportJSON(jsonString: string): ImportValidationResult {
 
     // Estrazione metadati opzionali di sintesi per la preview
     const rawSettings = (migratedData.settings || {}) as unknown as Record<string, unknown>;
+    let inferredCurrency: SupportedCurrency = DEFAULT_CURRENCY;
+    if (isSupportedCurrency(rawSettings.currency)) {
+      inferredCurrency = rawSettings.currency;
+    } else if (typeof rawSettings.currencySymbol === 'string' && rawSettings.currencySymbol.trim()) {
+      inferredCurrency = inferCurrencyFromSymbol(rawSettings.currencySymbol);
+    }
+
     const settingsSummary = {
       rigName: typeof rawSettings.rigName === 'string' && rawSettings.rigName.trim() ? rawSettings.rigName.trim() : undefined,
       buildYear: typeof rawSettings.buildYear === 'number' ? rawSettings.buildYear : undefined,
-      currencySymbol: typeof rawSettings.currencySymbol === 'string' ? rawSettings.currencySymbol : '€',
+      currency: inferredCurrency,
+      currencySymbol: getCurrencySymbol(inferredCurrency),
     };
 
     const exportedAtString =

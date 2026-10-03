@@ -13,6 +13,7 @@ import {
   OptimizationExecutionRecord,
   DEFAULT_SCHEDULER_SETTINGS,
   SupportedLocale,
+  SupportedCurrency,
 } from '../types';
 import { APP_VERSION } from '../constants/version';
 import {
@@ -36,6 +37,12 @@ import {
   normalizeReminderInteractions,
 } from '../domain';
 import { isSupportedLocale, detectSystemLocale } from '../locales/registry';
+import {
+  isSupportedCurrency,
+  getCurrencySymbol,
+  inferCurrencyFromSymbol,
+  DEFAULT_CURRENCY,
+} from '../locales/currencyRegistry';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   rigName: '',
@@ -43,6 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   buildYear: undefined,
   quickSetupCompleted: false,
   language: 'it',
+  currency: 'EUR',
   currencySymbol: '€',
   dateFormat: 'DD/MM/YYYY',
   uiDensity: 'comfortable',
@@ -110,6 +118,14 @@ export function normalizeSettings(rawSettings: unknown): AppSettings {
     ? s.language
     : (DEFAULT_SETTINGS.language || 'it');
 
+  let currency: SupportedCurrency = DEFAULT_CURRENCY;
+  if (isSupportedCurrency(s.currency)) {
+    currency = s.currency;
+  } else if (typeof s.currencySymbol === 'string' && s.currencySymbol.trim()) {
+    currency = inferCurrencyFromSymbol(s.currencySymbol);
+  }
+  const currencySymbol = getCurrencySymbol(currency);
+
   return {
     rigName: typeof s.rigName === 'string' ? s.rigName.trim() : DEFAULT_SETTINGS.rigName,
     rigDescription:
@@ -117,7 +133,8 @@ export function normalizeSettings(rawSettings: unknown): AppSettings {
     buildYear,
     quickSetupCompleted: typeof s.quickSetupCompleted === 'boolean' ? s.quickSetupCompleted : false,
     language,
-    currencySymbol: '€', // PC Tracker rimane rigorosamente focalizzato sull'euro
+    currency,
+    currencySymbol,
     dateFormat: s.dateFormat === 'YYYY-MM-DD' ? 'YYYY-MM-DD' : 'DD/MM/YYYY',
     uiDensity: s.uiDensity === 'compact' ? 'compact' : 'comfortable',
     reducedMotion:
