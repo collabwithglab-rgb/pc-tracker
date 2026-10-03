@@ -179,7 +179,8 @@ La roadmap è organizzata in fasi sequenziali, indipendenti, verificabili e modu
 - [x] **Tranche 4**: Smart Maintenance Scheduler & UI Prossimi Promemoria (snooze persistito, lead time, impostazioni scheduler).
 - [x] **Tranche 5**: Valutazione Architetturale Notifiche Windows Native (**Decisione: OPTION 1 — KEEP IN-APP ONLY**, zero processi residenti in background).
 - [x] **Tranche 6**: Deep PC Diagnostics & Optimization Expansion Audit (Mappatura telemetria, gap analysis P0-P3, blacklist snake-oil, documento di riferimento `docs/diagnostics-and-optimization-audit.md`).
-- [ ] **Tranche 7** *(Prossima)*: Core Hardware Faults, Commit Memory & Power Architecture (`CfgMgr32` device errors, `PSAPI` commit charge, `GetSystemPowerStatus` Desktop vs Laptop).
-- [ ] **Tranche 8**: Startup Intelligence & Network Diagnostics (`StartupApproved\Run`, test latenza/packet loss ICMP on-demand).
+- [x] **Tranche 7**: Core Hardware Faults, Commit Memory & Power Architecture (`CfgMgr32` device errors, `PSAPI` commit charge, `GetSystemPowerStatus` Desktop vs Laptop).
+- [x] **Tranche 8**: Deep Event Log Correlation & Native Services SCM (WHEA, Kernel-Power 41, Disk/NTFS, Win32 SCM catalog, anti-double-penalty).
 - [x] **Tranche 9**: Telemetria GPU AMD Radeon (Caricamento dinamico `atiadlxx.dll` via ADL/ADLX, parità telemetrica, supporto Hotspot TJunction 110°C).
+- [ ] **Tranche 10** *(Prossima)*: Startup Intelligence & Network Diagnostics (`StartupApproved\Run`, test latenza/packet loss ICMP on-demand, Windows Update check).
 
