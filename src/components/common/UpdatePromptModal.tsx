@@ -12,6 +12,7 @@ import {
 import { Modal } from './Modal';
 import { AppUpdateInfo } from '../../services/updaterService';
 import { getChangelogForVersion } from '../../constants/changelog';
+import { useTranslation } from '../../locales';
 
 interface UpdatePromptModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
   onOpenChangelog,
   onOpenWikiArticle,
 }) => {
+  const { t } = useTranslation();
   const newVersion = updateInfo.newVersion || 'Nuova';
   const matchingChangelog = getChangelogForVersion(newVersion);
   const isChangelogAvailable = matchingChangelog.version === newVersion.replace(/^v/, '');
@@ -61,8 +63,8 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={downloading ? () => {} : onClose}
-      title="Nuovo Aggiornamento Disponibile"
-      subtitle="Una nuova versione ufficiale di PC Tracker è pronta per l'installazione."
+      title={t('update_prompt_title')}
+      subtitle={t('update_prompt_subtitle')}
       maxWidth="620px"
     >
       <div className="update-prompt-container">
@@ -207,7 +209,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                 id="btn-update-prompt-later"
               >
                 <Clock size={15} />
-                <span>Ricordamelo più tardi</span>
+                <span>{t('update_prompt_btn_later')}</span>
               </button>
             )}
 
@@ -220,7 +222,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
               style={{ minWidth: '150px' }}
             >
               <Download size={16} />
-              <span>{downloading ? 'Installazione...' : 'Aggiorna Ora'}</span>
+              <span>{downloading ? 'Installazione...' : t('update_prompt_btn_install')}</span>
             </button>
           </div>
         </div>

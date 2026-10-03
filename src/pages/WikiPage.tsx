@@ -27,9 +27,8 @@ import {
   Check,
   ArrowLeft,
 } from 'lucide-react';
-import { WIKI_CATEGORIES } from '../constants/wikiData';
 import { WikiActionLink, WikiArticle, WikiBadge, WikiCategory } from '../types/wiki';
-import { searchWikiArticles, getWikiStats, formatArticleForClipboard, getAllWikiArticles } from '../domain/wikiEngine';
+import { searchWikiArticles, getWikiStats, formatArticleForClipboard, getAllWikiArticles, getWikiCategories } from '../domain/wikiEngine';
 import { NavSection } from '../components/layout/Sidebar';
 import { useTranslation } from '../locales';
 
@@ -50,7 +49,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
   onOpenMovementSelector,
   onOpenQuickSetup,
 }) => {
-  const { t } = useTranslation();
+  const { t, currentLocale } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<WikiCategory>('all');
   const [activeBadge, setActiveBadge] = useState<WikiBadge | 'ALL'>('ALL');
@@ -176,7 +175,8 @@ export const WikiPage: React.FC<WikiPageProps> = ({
   };
 
   // Articoli totali unificati (knowledge base + guide di release auto-generate)
-  const allWikiArticles = useMemo(() => getAllWikiArticles(), []);
+  const allWikiArticles = useMemo(() => getAllWikiArticles(currentLocale), [currentLocale]);
+  const categories = useMemo(() => getWikiCategories(currentLocale), [currentLocale]);
 
   // Statistiche e conteggi
   const stats = useMemo(() => getWikiStats(allWikiArticles), [allWikiArticles]);
@@ -310,15 +310,29 @@ export const WikiPage: React.FC<WikiPageProps> = ({
     );
   };
 
+  const getBadgeLabel = (badge: WikiBadge | 'ALL'): string => {
+    switch (badge) {
+      case 'ALL': return t('wiki_category_all');
+      case 'RELEASE': return t('wiki_badge_release');
+      case 'TUTORIAL': return t('wiki_badge_tutorial');
+      case 'CONCETTO CHIAVE': return t('wiki_badge_key_concept');
+      case 'TIP PRO': return t('wiki_badge_pro_tip');
+      case 'FINANZE': return t('wiki_badge_finances');
+      case 'WINDOWS': return t('wiki_badge_windows');
+      case 'FAQ': return t('wiki_badge_faq');
+      default: return badge;
+    }
+  };
+
   const BADGE_OPTIONS: Array<{ id: WikiBadge | 'ALL'; label: string }> = [
     { id: 'ALL', label: t('wiki_category_all') },
-    { id: 'RELEASE', label: 'Release' },
-    { id: 'TUTORIAL', label: 'Tutorial' },
-    { id: 'CONCETTO CHIAVE', label: 'Concetti Chiave' },
-    { id: 'TIP PRO', label: t('wiki_pro_tip') },
-    { id: 'FINANZE', label: 'Finanze' },
-    { id: 'WINDOWS', label: 'Windows' },
-    { id: 'FAQ', label: 'FAQ' },
+    { id: 'RELEASE', label: t('wiki_badge_release') },
+    { id: 'TUTORIAL', label: t('wiki_badge_tutorial') },
+    { id: 'CONCETTO CHIAVE', label: t('wiki_badge_key_concept') },
+    { id: 'TIP PRO', label: t('wiki_badge_pro_tip') },
+    { id: 'FINANZE', label: t('wiki_badge_finances') },
+    { id: 'WINDOWS', label: t('wiki_badge_windows') },
+    { id: 'FAQ', label: t('wiki_badge_faq') },
   ];
 
   return (
@@ -405,7 +419,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
           onClick={() => setOnlyBookmarks(!onlyBookmarks)}
           role="tab"
           aria-selected={onlyBookmarks}
-          title="Mostra solo le guide contrassegnate con la stella"
+          title={t('wiki_filter_bookmarks')}
           style={onlyBookmarks ? { borderColor: '#f59e0b', color: '#f59e0b' } : {}}
         >
           <Star size={13} fill={onlyBookmarks ? '#f59e0b' : 'none'} color="#f59e0b" />
@@ -413,7 +427,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
           <span className="wiki-chip-count">{bookmarkedIds.size}</span>
         </button>
 
-        {WIKI_CATEGORIES.map((cat) => {
+        {categories.map((cat) => {
           const isActive = !onlyBookmarks && activeCategory === cat.id;
           const count = stats.categoryCounts[cat.id] ?? 0;
           return (
@@ -487,7 +501,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
           <h3 className="wiki-empty-title">{t('wiki_no_results_title')}</h3>
           <p className="wiki-empty-desc">
             {onlyBookmarks
-              ? 'Non hai ancora salvato alcuna guida nei preferiti. Clicca sulla stella in alto a destra su qualsiasi articolo per ritrovarlo qui!'
+              ? t('wiki_empty_no_bookmarks')
               : t('wiki_no_results_desc')}
           </p>
           <button
@@ -507,7 +521,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
             const isTarget = targetHighlightId === article.id;
             const isBookmarked = bookmarkedIds.has(article.id);
             const isCopied = copiedId === article.id;
-            const catMeta = WIKI_CATEGORIES.find((c) => c.id === article.category);
+            const catMeta = categories.find((c) => c.id === article.category);
 
             return (
               <article
@@ -525,7 +539,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
                   <div className="wiki-article-header-main">
                     <div className="wiki-article-meta-row">
                       <span className={`wiki-badge ${getBadgeClass(article.badge)}`}>
-                        {article.badge}
+                        {getBadgeLabel(article.badge)}
                       </span>
                       {catMeta && catMeta.id !== 'all' && (
                         <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>

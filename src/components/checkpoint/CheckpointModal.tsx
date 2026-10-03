@@ -5,6 +5,7 @@ import { Checkpoint, CheckpointTrigger, TemporalPosition } from '../../types';
 import { formatDate } from '../../utils';
 import { getRigSummaryAtPosition } from '../../domain';
 import { Bookmark, Sparkles, AlertCircle, HardDrive, DollarSign } from 'lucide-react';
+import { useTranslation } from '../../locales';
 
 interface CheckpointModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
   relatedUpgradeId,
   onSuccess,
 }) => {
+  const { t, formatCurrency } = useTranslation();
   const {
     components,
     events,
@@ -53,9 +55,9 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
     return {
       componentCount: installed.length,
       rigPurchaseCost: currentRigCost,
-      dateLabel: 'Oggi (Configurazione Attuale)',
+      dateLabel: t('chk_today_current'),
     };
-  }, [position, components, events, currentRigCost, getInstalledComponents]);
+  }, [position, components, events, currentRigCost, getInstalledComponents, t]);
 
   // Reset del form all'apertura del modale
   useEffect(() => {
@@ -67,13 +69,13 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
       if (initialName) {
         setName(initialName);
       } else if (position) {
-        setName(`Configurazione al ${formatDate(position.date)}`);
+        setName(t('chk_default_name_date', { date: formatDate(position.date) }));
       } else {
         const todayStr = new Date().toISOString().split('T')[0];
-        setName(`Checkpoint ${formatDate(todayStr)}`);
+        setName(t('chk_default_name_today', { date: formatDate(todayStr) }));
       }
     }
-  }, [isOpen, initialName, position]);
+  }, [isOpen, initialName, position, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,11 +83,11 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
 
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length < 2) {
-      setError('Il nome del checkpoint deve contenere almeno 2 caratteri.');
+      setError(t('chk_err_min_len'));
       return;
     }
     if (trimmedName.length > 100) {
-      setError('Il nome del checkpoint non può superare 100 caratteri.');
+      setError(t('chk_err_max_len'));
       return;
     }
 
@@ -122,7 +124,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={position ? 'Salva Configurazione Storica come Checkpoint' : 'Salva Configurazione Attuale come Checkpoint'}
+      title={t('chk_modal_title')}
       maxWidth="540px"
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -148,7 +150,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
           <div style={styles.previewCard}>
             <div style={styles.previewCardLabel}>
               <HardDrive size={13} color="var(--accent-primary)" />
-              <span>Componenti Montati</span>
+              <span>{t('chk_preview_components')}</span>
             </div>
             <div className="font-mono" style={styles.previewCardValue}>
               {previewSummary.componentCount}
@@ -157,10 +159,10 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
           <div style={styles.previewCard}>
             <div style={styles.previewCardLabel}>
               <DollarSign size={13} color="var(--accent-emerald)" />
-              <span>Costo Storico Rig</span>
+              <span>{t('chk_preview_cost')}</span>
             </div>
             <div className="font-mono" style={styles.previewCardValue}>
-              €{previewSummary.rigPurchaseCost.toFixed(2)}
+              {formatCurrency(previewSummary.rigPurchaseCost)}
             </div>
           </div>
         </div>
@@ -168,7 +170,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
         {/* Campo: Nome Checkpoint */}
         <div className="form-group">
           <label className="form-label required" htmlFor="checkpoint-name">
-            Nome Checkpoint
+            {t('chk_name_label')}
           </label>
           <input
             id="checkpoint-name"
@@ -176,7 +178,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
             className="form-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Es. Build Originaria 2024, Passaggio a RTX 4090..."
+            placeholder={t('chk_name_placeholder')}
             maxLength={100}
             required
             autoFocus
@@ -186,7 +188,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
         {/* Campo: Note Opzionali */}
         <div className="form-group">
           <label className="form-label" htmlFor="checkpoint-notes">
-            Note o Dettagli (opzionale)
+            {t('chk_notes_label')}
           </label>
           <textarea
             id="checkpoint-notes"
@@ -194,7 +196,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Descrivi brevemente lo scopo di questo checkpoint o le modifiche apportate..."
+            placeholder={t('chk_notes_placeholder')}
             style={{ resize: 'vertical' }}
           />
         </div>
@@ -215,7 +217,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
             className="btn btn-secondary"
             disabled={isSubmitting}
           >
-            Annulla
+            {t('action_cancel')}
           </button>
           <button
             type="submit"
@@ -223,7 +225,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
             disabled={isSubmitting || !name.trim()}
           >
             <Bookmark size={15} />
-            <span>{isSubmitting ? 'Salvataggio...' : 'Salva Checkpoint'}</span>
+            <span>{isSubmitting ? t('chk_saving') : t('chk_save_btn')}</span>
           </button>
         </div>
       </form>

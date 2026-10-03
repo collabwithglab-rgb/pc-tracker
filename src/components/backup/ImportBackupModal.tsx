@@ -2,6 +2,7 @@ import React from 'react';
 import { Upload, AlertTriangle, Package, CheckCircle2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { ImportPreview } from '../../types/database';
+import { useTranslation } from '../../locales';
 
 interface ImportBackupModalProps {
   isOpen: boolean;
@@ -27,14 +28,15 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
   currentCounts,
   isImporting = false,
 }) => {
+  const { t } = useTranslation();
   if (!previewData) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Anteprima Ripristino Backup"
-      subtitle={`File analizzato: ${fileName}`}
+      title={t('import_backup_title')}
+      subtitle={`${t('import_backup_subtitle')} (${fileName})`}
       maxWidth="580px"
     >
       <div style={styles.container}>
@@ -140,7 +142,7 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
             className="btn btn-secondary micro-press"
             disabled={isImporting}
           >
-            Annulla
+            {t('import_backup_cancel')}
           </button>
           <button
             type="button"
@@ -150,7 +152,7 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
             id="btn-confirm-import-backup"
           >
             <Upload size={15} />
-            <span>{isImporting ? 'Ripristino in corso...' : 'Ripristina Database'}</span>
+            <span>{isImporting ? 'Ripristino in corso...' : t('import_backup_btn')}</span>
           </button>
         </div>
       </div>

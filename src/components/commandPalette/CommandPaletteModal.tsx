@@ -30,6 +30,7 @@ import {
   searchCommands,
 } from '../../domain/commandRegistry';
 import { HardwareIconBadge } from '../common/ComponentIcon';
+import { useTranslation } from '../../locales';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   components,
   getComputed,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -226,7 +228,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             type="text"
             className="command-palette-input"
             style={styles.input}
-            placeholder="Cerca comandi, pagine, strumenti o componenti... (↑↓ navigare, ↵ scegliere)"
+            placeholder={t('cmd_palette_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-autocomplete="list"
@@ -250,15 +252,30 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             <div style={styles.emptyState}>
               <AlertCircle size={22} color="var(--text-tertiary)" style={{ marginBottom: 6 }} />
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                Nessun comando o componente trovato per "{searchQuery}"
+                {t('cmd_palette_no_results', { query: searchQuery })}
               </p>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: 3 }}>
-                Prova a cercare per marca, modello, categoria (es. GPU, SSD) o funzione di sistema.
+                {t('cmd_palette_no_results_hint')}
               </p>
             </div>
           ) : (
             filteredResults.map((item, index) => {
               const isSelected = index === selectedIndex;
+              const catLabel = (() => {
+                switch (item.category) {
+                  case 'navigation':
+                    return t('cmd_cat_navigation');
+                  case 'deep-navigation':
+                    return t('cmd_cat_deep_nav');
+                  case 'actions':
+                    return t('cmd_cat_action');
+                  case 'components':
+                    return t('cmd_cat_component');
+                  default:
+                    return COMMAND_CATEGORY_LABELS[item.category] || item.category;
+                }
+              })();
+
               return (
                 <div
                   key={item.id}
@@ -296,7 +313,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
                   <div style={styles.itemCategoryBadge}>
                     <span style={styles.badgeText}>
-                      {COMMAND_CATEGORY_LABELS[item.category] || item.category}
+                      {catLabel}
                     </span>
                     {isSelected && (
                       <CornerDownLeft size={13} color="var(--accent-primary)" style={{ marginLeft: 6 }} />
@@ -312,19 +329,21 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         <div style={styles.footer}>
           <div style={styles.footerHints}>
             <span>
-              <kbd style={styles.miniKbd}>↑</kbd> <kbd style={styles.miniKbd}>↓</kbd> Naviga
+              <kbd style={styles.miniKbd}>↑</kbd> <kbd style={styles.miniKbd}>↓</kbd> {t('cmd_palette_hint_navigate')}
             </span>
             <span style={{ margin: '0 8px', color: 'var(--border-default)' }}>•</span>
             <span>
-              <kbd style={styles.miniKbd}>↵</kbd> Seleziona
+              <kbd style={styles.miniKbd}>↵</kbd> {t('cmd_palette_hint_select')}
             </span>
             <span style={{ margin: '0 8px', color: 'var(--border-default)' }}>•</span>
             <span>
-              <kbd style={styles.miniKbd}>Esc</kbd> Chiudi
+              <kbd style={styles.miniKbd}>Esc</kbd> {t('cmd_palette_hint_close')}
             </span>
           </div>
           <div style={styles.footerCount}>
-            {filteredResults.length} {filteredResults.length === 1 ? 'risultato' : 'risultati'}
+            {filteredResults.length === 1
+              ? t('cmd_palette_result_count_single', { count: filteredResults.length })
+              : t('cmd_palette_results_count', { count: filteredResults.length })}
           </div>
         </div>
       </div>

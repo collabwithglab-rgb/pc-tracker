@@ -10,6 +10,7 @@ import {
 import { Modal } from './Modal';
 import { APP_CHANGELOG, getChangelogForVersion, ReleaseChangelog } from '../../constants/changelog';
 import { APP_VERSION } from '../../constants/version';
+import { useTranslation } from '../../locales';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
   initialVersion = APP_VERSION,
   onOpenWikiArticle,
 }) => {
+  const { t } = useTranslation();
   const [selectedVersion, setSelectedVersion] = useState<string>(initialVersion);
 
   // Sincronizza la versione selezionata all'apertura
@@ -56,8 +58,8 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleConfirm}
-      title="Novità dell'Aggiornamento"
-      subtitle="Scopri tutte le novità, i miglioramenti e i fix introdotti in PC Tracker"
+      title={t('whats_new_title')}
+      subtitle={t('whats_new_subtitle')}
       maxWidth="720px"
     >
       <div className="whatsnew-modal-content">
@@ -220,7 +222,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
           style={{ padding: '8px 20px', gap: '8px' }}
         >
           <Check size={16} strokeWidth={2.4} />
-          <span>Ho capito, andiamo!</span>
+          <span>{t('whats_new_close')}</span>
         </button>
       </div>
     </Modal>

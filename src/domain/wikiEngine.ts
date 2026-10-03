@@ -1,6 +1,8 @@
-import { WikiArticle, WikiBadge, WikiCategory } from '../types/wiki';
+import { WikiArticle, WikiBadge, WikiCategory, WikiCategoryMeta } from '../types/wiki';
 import { ReleaseChangelog, APP_CHANGELOG } from '../constants/changelog';
-import { WIKI_ARTICLES } from '../constants/wikiData';
+import { WIKI_CATEGORIES, WIKI_ARTICLES } from '../constants/wikiData';
+import { WIKI_CATEGORIES_EN, WIKI_ARTICLES_EN } from '../constants/wikiDataEn';
+import { SupportedLocale } from '../types';
 
 /**
  * Normalizza una stringa per ricerca case-insensitive senza accenti/spazi superflui
@@ -14,30 +16,42 @@ export function normalizeSearchTerm(term: string): string {
 }
 
 /**
+ * Restituisce le categorie della Wiki localizzate in base alla lingua attiva
+ */
+export function getWikiCategories(locale: SupportedLocale = 'it'): WikiCategoryMeta[] {
+  return locale === 'en' ? WIKI_CATEGORIES_EN : WIKI_CATEGORIES;
+}
+
+/**
  * Genera automaticamente articoli completi per la Mini-Wiki a partire dal registro
  * dei Changelog delle release (APP_CHANGELOG).
  * 
- * Ogni release viene trasformata in un articolo strutturato con:
- * - Titolo e sintesi ufficiale
- * - Sezione Domande Frequenti (Q&A) sulle novità, miglioramenti e fix
- * - Procedure passo-passo operative
- * - Action links interattivi verso le sezioni dell'app
- * - Indicizzazione per parole chiave
+ * Supporta la generazione localizzata in Italiano e Inglese.
  */
-export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]): WikiArticle[] {
+export function generateWikiArticlesFromChangelog(
+  changelogs: ReleaseChangelog[],
+  locale: SupportedLocale = 'it'
+): WikiArticle[] {
+  const isEn = locale === 'en';
+
   return changelogs.map((rel) => {
     const articleId = rel.wikiArticleId || `release-v${rel.version}`;
     const totalChanges = rel.added.length + rel.improved.length + rel.fixed.length;
     const readTime = `${Math.max(2, Math.ceil(totalChanges / 2))} min`;
 
     // Contenuto strutturato Q&A
-    const content: string[] = [
-      `La versione ufficiale v${rel.version} di PC Tracker è stata pubblicata il ${rel.date}. Questo rilascio include ${rel.added.length} nuove funzionalità, ${rel.improved.length} ottimizzazioni dell'esperienza utente e ${rel.fixed.length} correzioni di stabilità.`,
-      `Panoramica sintetica: ${rel.summary}`,
-    ];
+    const content: string[] = isEn
+      ? [
+          `Official release v${rel.version} of PC Tracker was published on ${rel.date}. This release includes ${rel.added.length} new features, ${rel.improved.length} user experience improvements and ${rel.fixed.length} stability fixes.`,
+          `Summary: ${rel.summary}`,
+        ]
+      : [
+          `La versione ufficiale v${rel.version} di PC Tracker è stata pubblicata il ${rel.date}. Questo rilascio include ${rel.added.length} nuove funzionalità, ${rel.improved.length} ottimizzazioni dell'esperienza utente e ${rel.fixed.length} correzioni di stabilità.`,
+          `Panoramica sintetica: ${rel.summary}`,
+        ];
 
     if (rel.added.length > 0) {
-      content.push(`### ❓ Quali sono le nuove funzionalità introdotte nella v${rel.version}?`);
+      content.push(isEn ? `### ❓ What are the new features introduced in v${rel.version}?` : `### ❓ Quali sono le nuove funzionalità introdotte nella v${rel.version}?`);
       rel.added.forEach((item) => {
         const tagBadge = item.tag ? ` [${item.tag}]` : '';
         content.push(`• **${item.title}**${tagBadge}: ${item.description}`);
@@ -45,7 +59,7 @@ export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]
     }
 
     if (rel.improved.length > 0) {
-      content.push(`### ⚡ Quali miglioramenti e ottimizzazioni include?`);
+      content.push(isEn ? `### ⚡ What improvements and optimizations are included?` : `### ⚡ Quali miglioramenti e ottimizzazioni include?`);
       rel.improved.forEach((item) => {
         const tagBadge = item.tag ? ` [${item.tag}]` : '';
         content.push(`• **${item.title}**${tagBadge}: ${item.description}`);
@@ -53,7 +67,7 @@ export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]
     }
 
     if (rel.fixed.length > 0) {
-      content.push(`### 🛠️ Quali bug o criticità sono stati corretti?`);
+      content.push(isEn ? `### 🛠️ What bugs or critical issues were fixed?` : `### 🛠️ Quali bug o criticità sono stati corretti?`);
       rel.fixed.forEach((item) => {
         const tagBadge = item.tag ? ` [${item.tag}]` : '';
         content.push(`• **${item.title}**${tagBadge}: ${item.description}`);
@@ -63,35 +77,70 @@ export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]
     // Passaggi operativi personalizzati per release note
     const steps: string[] = [];
     if (rel.version === '3.1.0') {
-      steps.push('Accedi alla nuova sezione "Cura del PC" dalla barra laterale per consultare la Panoramica con Health Score (0-100) e le raccomandazioni motivate.');
-      steps.push('Apri la scheda "Monitoraggio Live" per osservare in tempo reale il carico di CPU, RAM, spazio dischi e telemetria termica e frequenze GPU NVIDIA.');
-      steps.push('Esegui con un click le ottimizzazioni trasparenti proposte (TRIM SSD, Pulizia disco, Riparazione SFC) per mantenere il computer sempre efficiente.');
+      if (isEn) {
+        steps.push('Open the new "PC Care & Health" section from the sidebar to view the Overview with Health Score (0-100) and actionable recommendations.');
+        steps.push('Open the "Live Monitoring" tab to observe real-time CPU, RAM, disk usage, NVIDIA GPU temperatures and clock frequencies.');
+        steps.push('Run transparent one-click optimizations (SSD TRIM, Disk Cleanup, SFC Repair) to keep your PC fast and efficient.');
+      } else {
+        steps.push('Accedi alla nuova sezione "Cura del PC" dalla barra laterale per consultare la Panoramica con Health Score (0-100) e le raccomandazioni motivate.');
+        steps.push('Apri la scheda "Monitoraggio Live" per osservare in tempo reale il carico di CPU, RAM, spazio dischi e telemetria termica e frequenze GPU NVIDIA.');
+        steps.push('Esegui con un click le ottimizzazioni trasparenti proposte (TRIM SSD, Pulizia disco, Riparazione SFC) per mantenere il computer sempre efficiente.');
+      }
     } else if (rel.version === '0.3.0') {
-      steps.push('Premi Ctrl+K (o Cmd+K) da qualsiasi schermata per aprire la Command Palette e cercare componenti, eseguire azioni rapide o navigare direttamente.');
-      steps.push('Accedi a "Il Mio PC Attuale" o a un Checkpoint storico e clicca su "Confronta Rig" per visualizzare le differenze di hardware, costo e assorbimento energetico (TDP).');
-      steps.push('Usa il pulsante Inverti ⇄ per scambiare la baseline di confronto e analizzare il differenziale speculare.');
+      if (isEn) {
+        steps.push('Press Ctrl+K (or Cmd+K) from any screen to open the Command Palette and search components, execute quick actions or navigate directly.');
+        steps.push('Go to "My Current Rig" or a historical Checkpoint and click "Compare Builds" to analyze hardware, cost and power consumption (TDP) deltas.');
+        steps.push('Use the Swap ⇄ button to switch comparison baseline and review the specular differential.');
+      } else {
+        steps.push('Premi Ctrl+K (o Cmd+K) da qualsiasi schermata per aprire la Command Palette e cercare componenti, eseguire azioni rapide o navigare direttamente.');
+        steps.push('Accedi a "Il Mio PC Attuale" o a un Checkpoint storico e clicca su "Confronta Rig" per visualizzare le differenze di hardware, costo e assorbimento energetico (TDP).');
+        steps.push('Usa il pulsante Inverti ⇄ per scambiare la baseline di confronto e analizzare il differenziale speculare.');
+      }
     } else if (rel.version === '0.2.2') {
-      steps.push('Apri la schermata "Il Mio PC" per visualizzare la stima in tempo reale del Power Budget e verificare l\'adeguatezza del tuo alimentatore (PSU).');
-      steps.push('Accedi alla scheda di un componente a magazzino e clicca "Genera Annuncio" per creare in 1 click testi pronti per Subito, eBay e Vinted.');
-      steps.push('Apri la Cassaforte Ricevute per allegare scontrini o fatture PDF/PNG e monitorare il conto alla rovescia della garanzia.');
+      if (isEn) {
+        steps.push('Open the "My Current Rig" screen to view real-time Power Budget estimates and verify your PSU adequacy.');
+        steps.push('Open any component in inventory and click "Generate Listing" to create ready-to-use descriptions for Subito, eBay and Vinted.');
+        steps.push('Open the Receipt Vault to attach PDF/PNG invoice files and track warranty countdowns.');
+      } else {
+        steps.push('Apri la schermata "Il Mio PC" per visualizzare la stima in tempo reale del Power Budget e verificare l\'adeguatezza del tuo alimentatore (PSU).');
+        steps.push('Accedi alla scheda di un componente a magazzino e clicca "Genera Annuncio" per creare in 1 click testi pronti per Subito, eBay e Vinted.');
+        steps.push('Apri la Cassaforte Ricevute per allegare scontrini o fatture PDF/PNG e monitorare il conto alla rovescia della garanzia.');
+      }
     } else if (rel.version === '0.2.0') {
-      steps.push('Accedi alla sezione "Time Travel" per riavvolgere la linea temporale e ricostruire la configurazione esatta del PC in qualsiasi data passata.');
-      steps.push('Crea Checkpoint immutabili per congelare pietre miliari storiche del tuo computer.');
+      if (isEn) {
+        steps.push('Access "Time Travel" to rewind the timeline and reconstruct your exact PC build at any historical date.');
+        steps.push('Create immutable Checkpoints to freeze milestone builds of your computer.');
+      } else {
+        steps.push('Accedi alla sezione "Time Travel" per riavvolgere la linea temporale e ricostruire la configurazione esatta del PC in qualsiasi data passata.');
+        steps.push('Crea Checkpoint immutabili per congelare pietre miliari storiche del tuo computer.');
+      }
     } else {
-      steps.push('Verifica la presenza dell\'aggiornamento installato tramite la versione visualizzata nella barra laterale.');
-      steps.push('Esplora le novità descritte accedendo alle relative sezioni dedicate dell\'applicazione.');
-      steps.push('Salva un backup di sicurezza JSON periodico dalla barra superiore per la massima tranquillità.');
+      if (isEn) {
+        steps.push('Verify the installed update through the version displayed in the sidebar.');
+        steps.push('Explore new features by visiting their dedicated sections in the application.');
+        steps.push('Save a periodic JSON safety backup from the top header for complete peace of mind.');
+      } else {
+        steps.push('Verifica la presenza dell\'aggiornamento installato tramite la versione visualizzata nella barra laterale.');
+        steps.push('Esplora le novità descritte accedendo alle relative sezioni dedicate dell\'applicazione.');
+        steps.push('Salva un backup di sicurezza JSON periodico dalla barra superiore per la massima tranquillità.');
+      }
     }
 
-    const tips: string[] = [
-      'Tutti gli aggiornamenti di PC Tracker per Windows sono firmati crittograficamente con chiave Ed25519 e preservano al 100% i tuoi dati residenti su IndexedDB.',
-      'Puoi rivedere le note di rilascio sintetiche in qualsiasi momento cliccando sul numero di versione in fondo alla barra laterale.',
-    ];
+    const tips: string[] = isEn
+      ? [
+          'All PC Tracker Windows updates are cryptographically signed with Ed25519 and preserve 100% of your local IndexedDB data.',
+          'You can review concise release notes anytime by clicking the version number at the bottom of the sidebar.',
+        ]
+      : [
+          'Tutti gli aggiornamenti di PC Tracker per Windows sono firmati crittograficamente con chiave Ed25519 e preservano al 100% i tuoi dati residenti su IndexedDB.',
+          'Puoi rivedere le note di rilascio sintetiche in qualsiasi momento cliccando sul numero di versione in fondo alla barra laterale.',
+        ];
 
     // Parole chiave per ricerca
     const keywords: string[] = [
       'release',
       'aggiornamento',
+      'update',
       'novita',
       'changelog',
       'versione',
@@ -104,29 +153,29 @@ export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]
     // Action links
     const actionLinks = rel.version === '3.1.0'
       ? [
-          { label: 'Cura del PC & Salute', targetSection: 'maintenance', iconName: 'Wrench' as const },
-          { label: 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
-          { label: 'Dashboard', targetSection: 'dashboard', iconName: 'Cpu' as const },
+          { label: isEn ? 'PC Care & Health' : 'Cura del PC & Salute', targetSection: 'maintenance', iconName: 'Wrench' as const },
+          { label: isEn ? 'My Current Rig' : 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
+          { label: isEn ? 'Dashboard' : 'Dashboard', targetSection: 'dashboard', iconName: 'Cpu' as const },
         ]
       : rel.version === '0.3.0'
       ? [
-          { label: 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
-          { label: 'Time Travel & Checkpoint', targetSection: 'time-travel', iconName: 'History' as const },
-          { label: 'Storico Upgrade', targetSection: 'upgrades', iconName: 'ArrowUpRight' as const },
+          { label: isEn ? 'My Current Rig' : 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
+          { label: isEn ? 'Time Travel & Checkpoints' : 'Time Travel & Checkpoint', targetSection: 'time-travel', iconName: 'History' as const },
+          { label: isEn ? 'Upgrade History' : 'Storico Upgrade', targetSection: 'upgrades', iconName: 'ArrowUpRight' as const },
         ]
       : rel.version === '0.2.2'
       ? [
-          { label: 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
-          { label: 'Vendite & Annunci', targetSection: 'marketplace', iconName: 'Tag' as const },
+          { label: isEn ? 'My Current Rig' : 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },
+          { label: isEn ? 'Sales & Listings' : 'Vendite & Annunci', targetSection: 'marketplace', iconName: 'Tag' as const },
         ]
       : [
-          { label: 'Dashboard', targetSection: 'dashboard', iconName: 'Cpu' as const },
-          { label: 'Impostazioni', targetSection: 'settings', iconName: 'Settings' as const },
+          { label: isEn ? 'Dashboard' : 'Dashboard', targetSection: 'dashboard', iconName: 'Cpu' as const },
+          { label: isEn ? 'Settings' : 'Impostazioni', targetSection: 'settings', iconName: 'Settings' as const },
         ];
 
     return {
       id: articleId,
-      title: `Guida Release v${rel.version}: ${rel.title}`,
+      title: isEn ? `Release Guide v${rel.version}: ${rel.title}` : `Guida Release v${rel.version}: ${rel.title}`,
       category: 'releases',
       badge: 'RELEASE',
       readTime,
@@ -144,11 +193,12 @@ export function generateWikiArticlesFromChangelog(changelogs: ReleaseChangelog[]
  * Restituisce l'elenco completo unificato di tutti gli articoli della Mini-Wiki,
  * fondendo la knowledge base manuale con gli articoli auto-generati dal changelog delle release.
  */
-export function getAllWikiArticles(): WikiArticle[] {
-  const generated = generateWikiArticlesFromChangelog(APP_CHANGELOG);
-  const existingIds = new Set(WIKI_ARTICLES.map((a) => a.id));
+export function getAllWikiArticles(locale: SupportedLocale = 'it'): WikiArticle[] {
+  const generated = generateWikiArticlesFromChangelog(APP_CHANGELOG, locale);
+  const baseArticles = locale === 'en' ? WIKI_ARTICLES_EN : WIKI_ARTICLES;
+  const existingIds = new Set(baseArticles.map((a) => a.id));
   const uniqueGenerated = generated.filter((a) => !existingIds.has(a.id));
-  return [...uniqueGenerated, ...WIKI_ARTICLES];
+  return [...uniqueGenerated, ...baseArticles];
 }
 
 /**

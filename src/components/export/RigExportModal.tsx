@@ -24,6 +24,7 @@ import {
 } from '../../domain/rigExportEngine';
 import { InstalledComponentItem } from '../../store/PCContext';
 import { saveBackupFileWithDialog, isDesktopApp } from '../../services';
+import { useTranslation } from '../../locales';
 
 export type ExportChannel = 'gemini' | 'discord' | 'whatsapp' | 'markdown' | 'print';
 
@@ -48,6 +49,7 @@ export const RigExportModal: React.FC<RigExportModalProps> = ({
   currentRigCost = 0,
   onNotify,
 }) => {
+  const { t, formatCurrency } = useTranslation();
   const [detailLevel, setDetailLevel] = useState<ExportDetailLevel>('quick');
   const [channel, setChannel] = useState<ExportChannel>('gemini');
   const [geminiPreset, setGeminiPreset] = useState<GeminiPromptPreset>('upgrade');
@@ -141,8 +143,8 @@ export const RigExportModal: React.FC<RigExportModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Esporta & Condividi Scheda PC"
-      subtitle={`${rigName} • ${installedComponents.length} componenti operativi`}
+      title={t('exp_modal_title')}
+      subtitle={`${rigName} • ${installedComponents.length} componenti`}
       maxWidth="720px"
     >
       <div style={styles.container}>
@@ -184,7 +186,7 @@ export const RigExportModal: React.FC<RigExportModalProps> = ({
                 onChange={(e) => setIncludeCost(e.target.checked)}
                 style={{ accentColor: 'var(--accent-primary)' }}
               />
-              <span>Includi prezzi di acquisto e valore totale (€ {currentRigCost.toFixed(2)})</span>
+              <span>{t('exp_include_prices')} ({formatCurrency(currentRigCost)})</span>
             </label>
           )}
         </div>
@@ -300,18 +302,12 @@ export const RigExportModal: React.FC<RigExportModalProps> = ({
               {hasCopied ? (
                 <>
                   <Check size={16} color="var(--accent-emerald)" />
-                  <span>Copiato negli appunti!</span>
+                  <span>{t('exp_copied_btn')}</span>
                 </>
               ) : (
                 <>
                   <Copy size={16} />
-                  <span>
-                    {channel === 'gemini'
-                      ? 'Copia per Gemini'
-                      : channel === 'discord'
-                      ? 'Copia per Discord'
-                      : 'Copia Testo'}
-                  </span>
+                  <span>{t('exp_copy_btn')}</span>
                 </>
               )}
             </button>

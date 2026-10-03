@@ -15,6 +15,7 @@ import {
 import { WARRANTY_PRESETS, calculateExpiryDateFromPreset } from '../../domain';
 import { usePCStore } from '../../store';
 import { AlertCircle, ShieldCheck, Edit2 } from 'lucide-react';
+import { useTranslation } from '../../locales';
 
 interface EventEditModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
   event,
   componentName,
 }) => {
+  const { t } = useTranslation();
   const { updateComponentEvent } = usePCStore();
 
   const [date, setDate] = useState('');
@@ -226,8 +228,8 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Modifica Evento: ${typeLabel}`}
-      subtitle={`Componente: ${componentName}`}
+      title={`${t('event_edit_title')}: ${typeLabel}`}
+      subtitle={`${t('event_edit_subtitle')} (${componentName})`}
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {error && (
@@ -239,7 +241,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
 
         <div className="form-group">
           <label className="form-label" htmlFor="edit-event-date">
-            Data Evento *
+            {t('event_edit_date_label')} *
           </label>
           <input
             id="edit-event-date"
@@ -536,7 +538,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
 
         <div className="form-group">
           <label className="form-label" htmlFor="edit-event-notes">
-            Note Aggiuntive
+            {t('event_edit_notes_label')}
           </label>
           <textarea
             id="edit-event-notes"
@@ -550,11 +552,11 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
 
         <div className="form-actions" style={{ marginTop: '8px' }}>
           <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isSubmitting}>
-            Annulla
+            {t('event_edit_cancel')}
           </button>
           <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
             <Edit2 size={15} />
-            <span>{isSubmitting ? 'Salvataggio...' : 'Salva Modifiche'}</span>
+            <span>{isSubmitting ? t('chk_saving') : t('event_edit_save')}</span>
           </button>
         </div>
       </form>

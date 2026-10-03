@@ -3,6 +3,7 @@ import { Modal } from '../common/Modal';
 import { usePCStore } from '../../store';
 import { Checkpoint } from '../../types';
 import { Edit3, AlertCircle } from 'lucide-react';
+import { useTranslation } from '../../locales';
 
 interface CheckpointEditModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
   onClose,
   checkpoint,
 }) => {
+  const { t } = useTranslation();
   const { updateCheckpoint } = usePCStore();
 
   const [name, setName] = useState<string>('');
@@ -39,11 +41,11 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
 
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length < 2) {
-      setError('Il nome del checkpoint deve contenere almeno 2 caratteri.');
+      setError(t('chk_err_min_len'));
       return;
     }
     if (trimmedName.length > 100) {
-      setError('Il nome del checkpoint non può superare 100 caratteri.');
+      setError(t('chk_err_max_len'));
       return;
     }
 
@@ -68,7 +70,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Modifica Dettagli Checkpoint"
+      title={t('chk_edit_title')}
       maxWidth="480px"
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -80,7 +82,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
 
         <div className="form-group">
           <label className="form-label required" htmlFor="edit-checkpoint-name">
-            Nome Checkpoint
+            {t('chk_name_label')}
           </label>
           <input
             id="edit-checkpoint-name"
@@ -88,7 +90,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
             className="form-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Nome del checkpoint"
+            placeholder={t('chk_name_placeholder')}
             maxLength={100}
             required
             autoFocus
@@ -97,7 +99,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
 
         <div className="form-group">
           <label className="form-label" htmlFor="edit-checkpoint-notes">
-            Note (opzionale)
+            {t('chk_notes_label')}
           </label>
           <textarea
             id="edit-checkpoint-notes"
@@ -105,7 +107,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Aggiungi o modifica le note..."
+            placeholder={t('chk_notes_placeholder')}
             style={{ resize: 'vertical' }}
           />
         </div>
@@ -124,7 +126,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
             className="btn btn-secondary"
             disabled={isSubmitting}
           >
-            Annulla
+            {t('action_cancel')}
           </button>
           <button
             type="submit"
@@ -132,7 +134,7 @@ export const CheckpointEditModal: React.FC<CheckpointEditModalProps> = ({
             disabled={isSubmitting || !name.trim()}
           >
             <Edit3 size={15} />
-            <span>{isSubmitting ? 'Salvataggio...' : 'Salva Modifiche'}</span>
+            <span>{isSubmitting ? t('chk_saving') : t('action_save')}</span>
           </button>
         </div>
       </form>

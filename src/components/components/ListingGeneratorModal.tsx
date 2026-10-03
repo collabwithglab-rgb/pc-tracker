@@ -24,6 +24,7 @@ import {
   RotateCcw,
   Sliders,
 } from 'lucide-react';
+import { useTranslation } from '../../locales';
 
 export interface ListingGeneratorModalProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export const ListingGeneratorModal: React.FC<ListingGeneratorModalProps> = ({
   warranty,
   receiptCount = 0,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<MarketplacePlatform>('subito');
 
   // Opzioni configurabili dell'annuncio
@@ -178,7 +180,7 @@ export const ListingGeneratorModal: React.FC<ListingGeneratorModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🏷️ Generatore Annuncio di Vendita"
+      title={`🏷️ ${t('listing_gen_title')}`}
       subtitle={`${component.name} • ${COMPONENT_CATEGORY_LABELS[component.category]}`}
       maxWidth="900px"
     >
@@ -441,7 +443,7 @@ export const ListingGeneratorModal: React.FC<ListingGeneratorModalProps> = ({
               style={{ fontSize: '12.5px', padding: '6px 12px' }}
               onClick={onClose}
             >
-              Chiudi
+              {t('action_close')}
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -454,7 +456,7 @@ export const ListingGeneratorModal: React.FC<ListingGeneratorModalProps> = ({
                 {copiedFeedback === 'description' ? <Check size={14} /> : <Copy size={14} />}
                 <span>
                   {copiedFeedback === 'description'
-                    ? 'Descrizione Copiata!'
+                    ? t('listing_gen_copied')
                     : activeTab === 'ai_prompt'
                     ? 'Copia Prompt'
                     : 'Copia Descrizione'}
@@ -469,7 +471,7 @@ export const ListingGeneratorModal: React.FC<ListingGeneratorModalProps> = ({
                   onClick={handleCopyAll}
                 >
                   {copiedFeedback === 'all' ? <Check size={14} /> : <Copy size={14} />}
-                  <span>{copiedFeedback === 'all' ? 'Copiato negli appunti!' : 'Copia Titolo + Testo'}</span>
+                  <span>{copiedFeedback === 'all' ? t('listing_gen_copied') : t('listing_gen_copy')}</span>
                 </button>
               )}
             </div>

@@ -7,12 +7,15 @@ import {
 } from 'lucide-react';
 import { RigPowerBudget, ComponentCategory } from '../../types';
 import { ComponentIcon } from '../common/ComponentIcon';
+import { useTranslation } from '../../locales';
 
 interface PowerBudgetCardProps {
   budget: RigPowerBudget;
 }
 
 export const PowerBudgetCard: React.FC<PowerBudgetCardProps> = ({ budget }) => {
+  const { t } = useTranslation();
+
   const getCategoryIcon = (category: ComponentCategory, size = 14) => {
     return <ComponentIcon category={category} size={size} />;
   };
@@ -21,9 +24,9 @@ export const PowerBudgetCard: React.FC<PowerBudgetCardProps> = ({ budget }) => {
     // Se la stima è parziale, evidenziamo in modo trasparente l'incompletezza della base dati
     if (budget.isPartialEstimate) {
       return (
-        <span className="power-budget-badge power-budget-badge-reduced" title="Alcuni componenti non hanno dati di potenza disponibili">
+        <span className="power-budget-badge power-budget-badge-reduced" title={t('power_status_warning')}>
           <Info size={12} />
-          <span>Stima di sistema parziale</span>
+          <span>{t('power_status_warning')}</span>
         </span>
       );
     }
@@ -32,23 +35,23 @@ export const PowerBudgetCard: React.FC<PowerBudgetCardProps> = ({ budget }) => {
       switch (budget.headroomStatus) {
         case 'high':
           return (
-            <span className="power-budget-badge power-budget-badge-high" title="Margine stimato abbondante (>= 150 W)">
+            <span className="power-budget-badge power-budget-badge-high" title={t('power_status_optimal')}>
               <ShieldCheck size={12} />
-              <span>Ampio margine stimato</span>
+              <span>{t('power_status_optimal')}</span>
             </span>
           );
         case 'reduced':
           return (
-            <span className="power-budget-badge power-budget-badge-reduced" title="Margine stimato ridotto (50-149 W)">
+            <span className="power-budget-badge power-budget-badge-reduced" title={t('power_status_warning')}>
               <ShieldAlert size={12} />
-              <span>Margine stimato ridotto</span>
+              <span>{t('power_status_warning')}</span>
             </span>
           );
         case 'critical':
           return (
-            <span className="power-budget-badge power-budget-badge-critical" title="Margine stimato critico o insufficiente (< 50 W)">
+            <span className="power-budget-badge power-budget-badge-critical" title={t('power_status_critical')}>
               <ShieldAlert size={12} />
-              <span>Margine critico o negativo</span>
+              <span>{t('power_status_critical')}</span>
             </span>
           );
       }
@@ -57,7 +60,7 @@ export const PowerBudgetCard: React.FC<PowerBudgetCardProps> = ({ budget }) => {
     return (
       <span className="power-budget-badge power-budget-badge-unknown">
         <Info size={12} />
-        <span>{budget.hasPsu ? 'Potenza PSU non specificata' : 'Alimentatore non registrato'}</span>
+        <span>{budget.hasPsu ? t('power_psu_rating') : t('power_psu_unspecified')}</span>
       </span>
     );
   };
@@ -69,13 +72,13 @@ export const PowerBudgetCard: React.FC<PowerBudgetCardProps> = ({ budget }) => {
         <div className="power-budget-title-group">
           <h3 className="power-budget-title">
             <Zap size={17} color="var(--accent-amber)" />
-            <span>Power Budget & Stima Consumi</span>
+            <span>{t('power_card_title')}</span>
           </h3>
           {renderBadge()}
         </div>
 
         <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-          Dati tecnici dichiarati & proxy di stima
+          {t('power_card_subtitle')}
         </span>
       </div>
 

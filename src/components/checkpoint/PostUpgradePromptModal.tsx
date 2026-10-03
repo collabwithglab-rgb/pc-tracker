@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal } from '../common/Modal';
 import { Sparkles, Bookmark } from 'lucide-react';
+import { useTranslation } from '../../locales';
 
 interface PostUpgradePromptModalProps {
   isOpen: boolean;
@@ -15,11 +16,13 @@ export const PostUpgradePromptModal: React.FC<PostUpgradePromptModalProps> = ({
   onConfirmSave,
   upgradeTitle,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Nuova Generazione Hardware Rilevata"
+      title={t('chk_post_upgrade_title')}
       maxWidth="480px"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -29,10 +32,10 @@ export const PostUpgradePromptModal: React.FC<PostUpgradePromptModalProps> = ({
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={styles.bannerTitle}>
-              {upgradeTitle || 'Upgrade Generazionale Completato'}
+              {upgradeTitle || t('chk_post_upgrade_title')}
             </div>
             <div style={styles.bannerText}>
-              Questo upgrade segna una nuova generazione del tuo PC. Vuoi salvare questa configurazione come milestone Checkpoint nella timeline storica?
+              {t('chk_post_upgrade_desc')}
             </div>
           </div>
         </div>
@@ -43,7 +46,7 @@ export const PostUpgradePromptModal: React.FC<PostUpgradePromptModalProps> = ({
             onClick={onClose}
             className="btn btn-secondary"
           >
-            Ignora
+            {t('chk_post_upgrade_skip')}
           </button>
           <button
             type="button"
@@ -54,7 +57,7 @@ export const PostUpgradePromptModal: React.FC<PostUpgradePromptModalProps> = ({
             className="btn btn-primary"
           >
             <Bookmark size={15} />
-            <span>Salva Checkpoint</span>
+            <span>{t('chk_post_upgrade_confirm')}</span>
           </button>
         </div>
       </div>

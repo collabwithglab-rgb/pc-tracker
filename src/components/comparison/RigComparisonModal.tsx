@@ -21,6 +21,7 @@ import {
   Package,
   X,
 } from 'lucide-react';
+import { useTranslation } from '../../locales';
 
 interface RigComparisonModalProps {
   isOpen: boolean;
@@ -37,25 +38,26 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
   initialSourceB,
   onOpenComponentDetail,
 }) => {
+  const { t } = useTranslation();
   const { components, events, checkpoints, getInstalledComponents, getComponentComputed } = usePCStore();
 
   // Opzioni disponibili per la selezione
   const sourceOptions = useMemo(() => {
     const opts: Array<{ id: string; label: string; date?: string }> = [
-      { id: 'current', label: 'Il Mio PC Attuale' },
+      { id: 'current', label: t('cmp_source_current') },
     ];
 
     // Checkpoint salvati
     checkpoints.forEach((chk) => {
       opts.push({
         id: `checkpoint-${chk.id}`,
-        label: `Checkpoint: ${chk.name}`,
+        label: t('cmp_source_checkpoint_prefix', { name: chk.name }),
         date: chk.referenceDate,
       });
     });
 
     return opts;
-  }, [checkpoints]);
+  }, [checkpoints, t]);
 
   // Selezioni A e B
   const [sourceA, setSourceA] = useState<string>(() => {
@@ -190,26 +192,26 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
       case 'replaced':
         return (
           <span className="badge" style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-primary)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
-            Sostituito
+            {t('cmp_badge_replaced')}
           </span>
         );
       case 'added':
         return (
           <span className="badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            + Aggiunto
+            {t('cmp_badge_added')}
           </span>
         );
       case 'removed':
         return (
           <span className="badge" style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', color: 'var(--accent-ruby)', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
-            - Rimosso
+            {t('cmp_badge_removed')}
           </span>
         );
       case 'unchanged':
       default:
         return (
           <span className="badge" style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
-            Invariato
+            {t('cmp_badge_unchanged')}
           </span>
         );
     }
@@ -236,13 +238,13 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
               <GitCompare size={18} color="var(--accent-primary)" />
             </div>
             <div>
-              <h2 style={styles.title}>Confronto Configurazioni Hardware</h2>
+              <h2 style={styles.title}>{t('cmp_modal_title')}</h2>
               <p style={styles.subtitle}>
-                Analisi differenziale punto a punto, variazione di spesa storica e delta Power Budget
+                {t('cmp_modal_subtitle')}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="modal-close-btn" style={styles.closeBtn} title="Chiudi (Esc)">
+          <button onClick={onClose} className="modal-close-btn" style={styles.closeBtn} title={t('action_close')}>
             <X size={18} />
           </button>
         </div>
@@ -250,7 +252,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
         {/* Selettori Configurazioni A e B con Tasto Inverti */}
         <div style={styles.selectorBar}>
           <div style={styles.selectorGroup}>
-            <label style={styles.selectorLabel}>Configurazione A (Baseline)</label>
+            <label style={styles.selectorLabel}>{t('cmp_source_a_label')}</label>
             <select
               value={sourceA}
               onChange={(e) => setSourceA(e.target.value)}
@@ -270,14 +272,14 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
             onClick={handleSwap}
             className="btn btn-secondary micro-press"
             style={styles.swapBtn}
-            title="Inverti Configurazione A e B"
+            title={t('cmp_swap_btn')}
           >
             <ArrowRightLeft size={16} />
-            <span style={{ fontSize: '11.5px', marginLeft: 4 }}>Inverti</span>
+            <span style={{ fontSize: '11.5px', marginLeft: 4 }}>{t('cmp_swap_btn')}</span>
           </button>
 
           <div style={styles.selectorGroup}>
-            <label style={styles.selectorLabel}>Configurazione B (Confronto)</label>
+            <label style={styles.selectorLabel}>{t('cmp_source_b_label')}</label>
             <select
               value={sourceB}
               onChange={(e) => setSourceB(e.target.value)}
@@ -399,28 +401,28 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
               className={`btn btn-secondary ${activeFilter === 'all' ? 'active' : ''}`}
               style={{ fontSize: '12px', padding: '5px 12px' }}
             >
-              Tutti ({comparison.entries.length})
+              {t('cmp_filter_all')}
             </button>
             <button
               onClick={() => setActiveFilter('replaced')}
               className={`btn btn-secondary ${activeFilter === 'replaced' ? 'active' : ''}`}
               style={{ fontSize: '12px', padding: '5px 12px' }}
             >
-              Sostituiti ({comparison.summary.replacedCount})
+              {t('cmp_filter_replaced', { count: comparison.summary.replacedCount })}
             </button>
             <button
               onClick={() => setActiveFilter('added_removed')}
               className={`btn btn-secondary ${activeFilter === 'added_removed' ? 'active' : ''}`}
               style={{ fontSize: '12px', padding: '5px 12px' }}
             >
-              Aggiunti / Rimossi ({comparison.summary.addedCount + comparison.summary.removedCount})
+              {t('cmp_filter_added_removed', { count: comparison.summary.addedCount + comparison.summary.removedCount })}
             </button>
             <button
               onClick={() => setActiveFilter('unchanged')}
               className={`btn btn-secondary ${activeFilter === 'unchanged' ? 'active' : ''}`}
               style={{ fontSize: '12px', padding: '5px 12px' }}
             >
-              Invariati ({comparison.summary.unchangedCount})
+              {t('cmp_filter_unchanged', { count: comparison.summary.unchangedCount })}
             </button>
           </div>
         </div>
@@ -431,7 +433,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
             <div style={styles.emptyNotice}>
               <CheckCircle2 size={24} color="var(--accent-primary)" />
               <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: 8 }}>
-                Nessun elemento corrisponde al filtro selezionato.
+                {t('cmp_empty_no_diff')}
               </p>
             </div>
           ) : (
@@ -581,7 +583,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
             Confronto deterministico calcolato in memoria • Zero scritture nel database
           </span>
           <button onClick={onClose} className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 16px' }}>
-            Chiudi
+            {t('action_close')}
           </button>
         </div>
       </div>

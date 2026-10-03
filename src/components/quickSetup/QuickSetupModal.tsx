@@ -18,6 +18,7 @@ import {
 import { ComponentCategory, Component } from '../../types';
 import { usePCStore, QuickSetupImportItem } from '../../store';
 import { detectHardware, DetectedComponent } from '../../services';
+import { useTranslation, TranslationKey } from '../../locales';
 
 interface QuickSetupModalProps {
   isOpen: boolean;
@@ -44,21 +45,6 @@ interface ManualComponentItem {
   price: string;
   enabled: boolean;
 }
-
-const CATEGORY_LABELS: Record<ComponentCategory, string> = {
-  cpu: 'Processore (CPU)',
-  gpu: 'Scheda Video (GPU)',
-  ram: 'Memoria RAM',
-  storage: 'Disco / SSD',
-  motherboard: 'Scheda Madre',
-  psu: 'Alimentatore',
-  case: 'Case',
-  cooling: 'Dissipatore',
-  monitor: 'Monitor',
-  peripherals: 'Periferica',
-  accessories: 'Accessorio',
-  other: 'Altro',
-};
 
 const CATEGORY_COLORS: Record<ComponentCategory, { bg: string; color: string; border: string }> = {
   cpu: { bg: 'rgba(56, 189, 248, 0.12)', color: 'var(--accent-primary)', border: 'rgba(56, 189, 248, 0.3)' },
@@ -113,6 +99,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   onOpenWikiGuide,
 }) => {
   const { settings, updateSettings, importQuickSetupData, getInstalledComponents } = usePCStore();
+  const { t } = useTranslation();
 
   const currentYear = new Date().getFullYear();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -131,9 +118,9 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   // Componenti Manuali (Case, PSU, Dissipatore)
   const [showManualSection, setShowManualSection] = useState(false);
   const [manualItems, setManualItems] = useState<ManualComponentItem[]>([
-    { category: 'psu', label: 'Alimentatore (PSU)', brand: '', model: '', price: '', enabled: false },
-    { category: 'case', label: 'Case del PC', brand: '', model: '', price: '', enabled: false },
-    { category: 'cooling', label: 'Dissipatore CPU', brand: '', model: '', price: '', enabled: false },
+    { category: 'psu', label: t('quicksetup_manual_psu_label'), brand: '', model: '', price: '', enabled: false },
+    { category: 'case', label: t('quicksetup_manual_case_label'), brand: '', model: '', price: '', enabled: false },
+    { category: 'cooling', label: t('quicksetup_manual_cooling_label'), brand: '', model: '', price: '', enabled: false },
   ]);
 
   // Reset dello stato quando il modale si apre
@@ -149,12 +136,12 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
       setIsSubmitting(false);
       setShowManualSection(false);
       setManualItems([
-        { category: 'psu', label: 'Alimentatore (PSU)', brand: '', model: '', price: '', enabled: false },
-        { category: 'case', label: 'Case del PC', brand: '', model: '', price: '', enabled: false },
-        { category: 'cooling', label: 'Dissipatore CPU', brand: '', model: '', price: '', enabled: false },
+        { category: 'psu', label: t('quicksetup_manual_psu_label'), brand: '', model: '', price: '', enabled: false },
+        { category: 'case', label: t('quicksetup_manual_case_label'), brand: '', model: '', price: '', enabled: false },
+        { category: 'cooling', label: t('quicksetup_manual_cooling_label'), brand: '', model: '', price: '', enabled: false },
       ]);
     }
-  }, [isOpen]);
+  }, [isOpen, t]);
 
   const handleStartSetup = () => {
     setStep(2);
@@ -321,30 +308,30 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   const getStepTitle = () => {
     switch (step) {
       case 1:
-        return 'Benvenuto in PC Tracker';
+        return t('quicksetup_step1_title');
       case 2:
-        return 'Identifica il tuo PC';
+        return t('quicksetup_step2_title');
       case 3:
-        return 'Scansione Hardware in Corso...';
+        return t('quicksetup_step3_title');
       case 4:
-        return 'Hardware Rilevato';
+        return t('quicksetup_step4_title');
       case 5:
-        return 'Il tuo PC è pronto!';
+        return t('quicksetup_step5_title');
     }
   };
 
   const getStepSubtitle = () => {
     switch (step) {
       case 1:
-        return 'Il tuo storico hardware, finalmente organizzato.';
+        return t('quicksetup_step1_subtitle');
       case 2:
-        return 'Configuriamo le informazioni di base del tuo computer.';
+        return t('quicksetup_step2_subtitle');
       case 3:
-        return 'Analisi locale in corso tramite Windows. Nessun dato cloud.';
+        return t('quicksetup_step3_subtitle');
       case 4:
-        return `${detectedItems.length} componenti identificati automaticamente`;
+        return t('quicksetup_step4_subtitle', { count: detectedItems.length });
       case 5:
-        return 'Configurazione iniziale completata con successo.';
+        return t('quicksetup_step5_subtitle');
     }
   };
 
@@ -362,7 +349,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
       subtitle={getStepSubtitle()}
       maxWidth="640px"
       onBack={step === 2 ? () => setStep(1) : undefined}
-      backTitle={step === 2 ? 'Indietro' : undefined}
+      backTitle={step === 2 ? t('quicksetup_back_btn') : undefined}
     >
       <div style={styles.container}>
         {/* STEP 1: Benvenuto */}
@@ -373,25 +360,24 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
             </div>
 
             <div style={styles.heroText}>
-              <h2 style={styles.heroTitle}>Configuriamo il tuo PC in meno di 2 minuti</h2>
+              <h2 style={styles.heroTitle}>{t('quicksetup_step1_hero_title')}</h2>
               <p style={styles.heroDescription}>
-                PC Tracker analizzerà localmente il tuo computer Windows per riconoscere
-                processore, scheda video, memoria, dischi e scheda madre.
+                {t('quicksetup_step1_hero_desc')}
               </p>
             </div>
 
             <div style={styles.guaranteeBox}>
               <div style={styles.guaranteeItem}>
                 <CheckCircle2 size={16} color="var(--accent-emerald)" />
-                <span><strong>100% Locale</strong>: nessun dato inviato a server esterni o cloud.</span>
+                <span>{t('quicksetup_guarantee_local')}</span>
               </div>
               <div style={styles.guaranteeItem}>
                 <CheckCircle2 size={16} color="var(--accent-emerald)" />
-                <span><strong>Zero dati inventati</strong>: nessuna stima fittizia o prezzo generato dal nulla.</span>
+                <span>{t('quicksetup_guarantee_no_fake')}</span>
               </div>
               <div style={styles.guaranteeItem}>
                 <CheckCircle2 size={16} color="var(--accent-emerald)" />
-                <span><strong>Pieno Controllo</strong>: confermi tu ogni singolo pezzo prima di salvarlo.</span>
+                <span>{t('quicksetup_guarantee_control')}</span>
               </div>
             </div>
 
@@ -402,7 +388,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 style={styles.skipBtn}
                 onClick={handleSkipEntireSetup}
               >
-                Salta e configura a mano
+                {t('quicksetup_skip_btn')}
               </button>
               <button
                 type="button"
@@ -411,7 +397,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 onClick={handleStartSetup}
                 autoFocus
               >
-                Inizia configurazione
+                {t('quicksetup_start_btn')}
                 <ArrowRight size={16} />
               </button>
             </div>
@@ -448,7 +434,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                     id="btn-quicksetup-import-backup"
                   >
                     <Upload size={13} color="var(--accent-primary)" />
-                    <span>Hai già un backup? <strong>Ripristina da JSON</strong></span>
+                    <span>{t('quicksetup_restore_backup_prefix')} <strong>{t('quicksetup_restore_backup_bold')}</strong></span>
                   </button>
                 )}
 
@@ -471,7 +457,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                     id="btn-quicksetup-wiki-guide"
                   >
                     <BookOpen size={13} color="var(--accent-primary)" />
-                    <span>Guida Primi Passi</span>
+                    <span>{t('quicksetup_guide_btn')}</span>
                   </button>
                 )}
               </div>
@@ -484,7 +470,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
           <div style={styles.stepContent}>
             <div style={styles.formGroup}>
               <label style={styles.label} htmlFor="qs-rig-name">
-                Nome del PC
+                {t('quicksetup_rig_name_label')}
               </label>
               <input
                 id="qs-rig-name"
@@ -492,17 +478,17 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 className="form-input"
                 value={rigName}
                 onChange={(e) => setRigName(e.target.value)}
-                placeholder="es. Gaming PC, Workstation, Mini-ITX..."
+                placeholder={t('quicksetup_rig_name_placeholder')}
                 style={styles.input}
                 maxLength={40}
                 autoFocus
               />
-              <span style={styles.hint}>Come chiami solitamente questa macchina.</span>
+              <span style={styles.hint}>{t('quicksetup_rig_name_hint')}</span>
             </div>
 
             <div style={styles.formGroup}>
               <label style={styles.label} htmlFor="qs-rig-desc">
-                Descrizione opzionale
+                {t('quicksetup_rig_desc_label')}
               </label>
               <input
                 id="qs-rig-desc"
@@ -510,7 +496,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 className="form-input"
                 value={rigDescription}
                 onChange={(e) => setRigDescription(e.target.value)}
-                placeholder="es. Il mio principale PC da gaming e lavoro"
+                placeholder={t('quicksetup_rig_desc_placeholder')}
                 style={styles.input}
                 maxLength={60}
               />
@@ -518,7 +504,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
 
             <div style={styles.formGroup}>
               <label style={styles.label} htmlFor="qs-build-year">
-                Anno build
+                {t('quicksetup_build_year_label')}
               </label>
               <input
                 id="qs-build-year"
@@ -531,7 +517,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 style={{ ...styles.input, maxWidth: '140px' }}
               />
               <span style={styles.hint}>
-                Utilizzato come data iniziale per gli eventi di montaggio dei componenti.
+                {t('quicksetup_build_year_hint')}
               </span>
             </div>
 
@@ -541,7 +527,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 className="btn btn-secondary"
                 onClick={() => setStep(1)}
               >
-                Indietro
+                {t('quicksetup_back_btn')}
               </button>
               <button
                 type="button"
@@ -550,7 +536,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 onClick={handleRunScan}
               >
                 <Sparkles size={16} />
-                Rileva hardware
+                {t('quicksetup_detect_hardware_btn')}
               </button>
             </div>
           </div>
@@ -560,19 +546,19 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
         {step === 3 && (
           <div style={styles.stepContent}>
             <div style={styles.heroText}>
-              <h3 style={styles.heroTitle}>Analisi dell'hardware in corso...</h3>
+              <h3 style={styles.heroTitle}>{t('quicksetup_step3_hero_title')}</h3>
               <p style={styles.heroDescription}>
-                PC Tracker sta interrogando Windows in locale per identificare i pezzi.
+                {t('quicksetup_step3_hero_desc')}
               </p>
             </div>
 
             <div style={styles.scanChecklist}>
               {[
-                { label: 'Processore (CPU)', icon: Cpu, doneStep: 0 },
-                { label: 'Scheda Madre (Motherboard)', icon: Layers, doneStep: 1 },
-                { label: 'Scheda Video (GPU)', icon: Monitor, doneStep: 2 },
-                { label: 'Memoria RAM', icon: Layers, doneStep: 3 },
-                { label: 'Unità Disco / SSD', icon: HardDrive, doneStep: 4 },
+                { label: t('quicksetup_scan_cpu'), icon: Cpu, doneStep: 0 },
+                { label: t('quicksetup_scan_mobo'), icon: Layers, doneStep: 1 },
+                { label: t('quicksetup_scan_gpu'), icon: Monitor, doneStep: 2 },
+                { label: t('quicksetup_scan_ram'), icon: Layers, doneStep: 3 },
+                { label: t('quicksetup_scan_storage'), icon: HardDrive, doneStep: 4 },
               ].map((item) => {
                 const isCompleted = scanStepIndex > item.doneStep;
                 const isCurrent = scanStepIndex === item.doneStep;
@@ -597,12 +583,12 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                       {isCompleted ? (
                         <span style={styles.badgeSuccess}>
                           <Check size={14} />
-                          Rilevato
+                          {t('quicksetup_scan_detected')}
                         </span>
                       ) : isCurrent ? (
-                        <span style={styles.badgeLoading}>Lettura...</span>
+                        <span style={styles.badgeLoading}>{t('quicksetup_scan_reading')}</span>
                       ) : (
-                        <span style={styles.badgePending}>In coda</span>
+                        <span style={styles.badgePending}>{t('quicksetup_scan_queued')}</span>
                       )}
                     </div>
                   </div>
@@ -628,8 +614,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
             <div style={styles.disclaimerBox}>
               <AlertCircle size={18} color="var(--accent-amber)" style={{ flexShrink: 0 }} />
               <p style={styles.disclaimerText}>
-                <strong>Alimentatore, case e dissipatore</strong> non sono rilevabili con certezza da Windows:
-                puoi aggiungerli in basso o in qualsiasi momento con <em>+ Nuovo Movimento</em>.
+                {t('quicksetup_step4_disclaimer')}
               </p>
             </div>
 
@@ -637,7 +622,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
             <div style={styles.itemsList}>
               {detectedItems.length === 0 ? (
                 <div style={styles.emptyState}>
-                  <p>Nessun componente rilevato automaticamente.</p>
+                  <p>{t('quicksetup_step4_empty')}</p>
                 </div>
               ) : (
                 detectedItems.map((item) => {
@@ -656,7 +641,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                         <div style={styles.editCardContent}>
                           <div style={styles.editRow}>
                             <div style={{ flex: 1 }}>
-                              <label style={styles.microLabel}>Produttore</label>
+                              <label style={styles.microLabel}>{t('quicksetup_edit_brand')}</label>
                               <input
                                 type="text"
                                 className="form-input"
@@ -668,7 +653,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                               />
                             </div>
                             <div style={{ flex: 2 }}>
-                              <label style={styles.microLabel}>Modello</label>
+                              <label style={styles.microLabel}>{t('quicksetup_edit_model')}</label>
                               <input
                                 type="text"
                                 className="form-input"
@@ -683,7 +668,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
 
                           <div style={styles.editRow}>
                             <div style={{ flex: 1 }}>
-                              <label style={styles.microLabel}>Categoria</label>
+                              <label style={styles.microLabel}>{t('quicksetup_edit_category')}</label>
                               <select
                                 className="form-input"
                                 value={item.category}
@@ -692,21 +677,21 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                                 }
                                 style={styles.microInput}
                               >
-                                {Object.entries(CATEGORY_LABELS).map(([catKey, label]) => (
+                                {Object.keys(CATEGORY_COLORS).map((catKey) => (
                                   <option key={catKey} value={catKey}>
-                                    {label}
+                                    {t(`category_${catKey}` as TranslationKey)}
                                   </option>
                                 ))}
                               </select>
                             </div>
 
                             <div style={{ flex: 1 }}>
-                              <label style={styles.microLabel}>Prezzo d'acquisto (€) [Opzionale]</label>
+                              <label style={styles.microLabel}>{t('quicksetup_edit_price_optional')}</label>
                               <input
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                placeholder="es. 349 (opzionale)"
+                                placeholder={t('quicksetup_edit_price_placeholder')}
                                 className="form-input"
                                 value={item.purchasePrice || ''}
                                 onChange={(e) =>
@@ -723,7 +708,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                                 style={styles.microBtn}
                                 onClick={() => handleToggleEdit(item.id)}
                               >
-                                Fatto
+                                {t('quicksetup_edit_done_btn')}
                               </button>
                             </div>
                           </div>
@@ -747,7 +732,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                                     borderColor: catStyle.border,
                                   }}
                                 >
-                                  {CATEGORY_LABELS[item.category] || item.category}
+                                  {t(`category_${item.category}` as TranslationKey)}
                                 </span>
 
                                 <span style={styles.componentName}>
@@ -757,14 +742,14 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                                 {/* Smart Diff: badge già presente */}
                                 {item.alreadyInstalled && (
                                   <span style={styles.badgeAlreadyInstalled}>
-                                    Già presente nel PC
+                                    {t('quicksetup_already_installed')}
                                   </span>
                                 )}
 
                                 {/* Badge iGPU Integrata */}
                                 {item.isIntegrated && (
                                   <span style={styles.badgeIGPU}>
-                                    iGPU Integrata
+                                    {t('quicksetup_igpu_badge')}
                                   </span>
                                 )}
 
@@ -792,9 +777,9 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                               </div>
 
                               <span style={styles.sourceText}>
-                                Fonte: {item.source}
+                                {t('quicksetup_source_label')} {item.source}
                                 {item.capacity && item.category !== 'gpu' ? ` • ${item.capacity}` : ''}
-                                {item.purchasePrice ? ` • Prezzo: €${item.purchasePrice}` : ''}
+                                {item.purchasePrice ? ` • ${t('quicksetup_price_label')} €${item.purchasePrice}` : ''}
                               </span>
                             </div>
                           </label>
@@ -804,10 +789,10 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                             className="btn btn-outline"
                             style={styles.editBtn}
                             onClick={() => handleToggleEdit(item.id)}
-                            title="Modifica dettagli o aggiungi prezzo reale"
+                            title={t('quicksetup_edit_btn')}
                           >
                             <Pencil size={13} />
-                            Modifica
+                            {t('quicksetup_edit_btn')}
                           </button>
                         </div>
                       )}
@@ -827,11 +812,11 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Plus size={15} color="var(--accent-primary)" />
                   <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
-                    Completa la configurazione (Alimentatore, Case, Dissipatore)
+                    {t('quicksetup_manual_accordion_title')}
                   </span>
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--accent-primary)' }}>
-                  {showManualSection ? 'Chiudi' : 'Aggiungi subito'}
+                  {showManualSection ? t('quicksetup_manual_accordion_close') : t('quicksetup_manual_accordion_open')}
                 </span>
               </button>
 
@@ -853,7 +838,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                         <div style={styles.manualInputsGroup}>
                           <input
                             type="text"
-                            placeholder="Marca (es. Corsair)"
+                            placeholder={t('quicksetup_manual_brand_placeholder')}
                             value={m.brand}
                             onChange={(e) => handleUpdateManualField(idx, 'brand', e.target.value)}
                             className="form-input"
@@ -861,7 +846,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                           />
                           <input
                             type="text"
-                            placeholder="Modello (es. RM850x)"
+                            placeholder={t('quicksetup_manual_model_placeholder')}
                             value={m.model}
                             onChange={(e) => handleUpdateManualField(idx, 'model', e.target.value)}
                             className="form-input"
@@ -869,7 +854,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                           />
                           <input
                             type="number"
-                            placeholder="Prezzo € (opzionale)"
+                            placeholder={t('quicksetup_manual_price_placeholder')}
                             value={m.price}
                             onChange={(e) => handleUpdateManualField(idx, 'price', e.target.value)}
                             className="form-input"
@@ -890,7 +875,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 className="btn btn-secondary"
                 onClick={handleSkipEntireSetup}
               >
-                Salta importazione
+                {t('quicksetup_skip_import')}
               </button>
               <button
                 type="button"
@@ -900,8 +885,8 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 disabled={isSubmitting || totalToImport === 0}
               >
                 {isSubmitting
-                  ? 'Salvataggio...'
-                  : `Importa ${totalToImport} componenti`}
+                  ? t('quicksetup_saving')
+                  : t('quicksetup_import_components_btn', { count: totalToImport })}
                 <Check size={16} />
               </button>
             </div>
@@ -916,25 +901,24 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
             </div>
 
             <div style={styles.heroText}>
-              <h2 style={styles.heroTitle}>Il tuo PC è pronto!</h2>
+              <h2 style={styles.heroTitle}>{t('quicksetup_step5_hero_title')}</h2>
               <p style={styles.heroDescription}>
-                Abbiamo registrato <strong>{rigName}</strong> con {importedCount} componenti
-                attualmente installati e pronti per essere tracciati.
+                {t('quicksetup_step5_hero_desc', { rigName, count: importedCount })}
               </p>
             </div>
 
             <div style={styles.summaryStatsRow}>
               <div style={styles.summaryStat}>
                 <span style={styles.summaryStatVal}>{importedCount}</span>
-                <span style={styles.summaryStatLabel}>Componenti importati</span>
+                <span style={styles.summaryStatLabel}>{t('quicksetup_step5_stat_imported')}</span>
               </div>
               <div style={styles.summaryStat}>
                 <span style={styles.summaryStatVal}>0</span>
-                <span style={styles.summaryStatLabel}>Dati inventati</span>
+                <span style={styles.summaryStatLabel}>{t('quicksetup_step5_stat_fake')}</span>
               </div>
               <div style={styles.summaryStat}>
                 <span style={styles.summaryStatVal}>100%</span>
-                <span style={styles.summaryStatLabel}>Locale & Privato</span>
+                <span style={styles.summaryStatLabel}>{t('quicksetup_step5_stat_local')}</span>
               </div>
             </div>
 
@@ -946,7 +930,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                 onClick={handleFinalFinish}
                 autoFocus
               >
-                Vai al mio PC
+                {t('quicksetup_step5_finish_btn')}
                 <ArrowRight size={16} />
               </button>
             </div>
