@@ -1610,5 +1610,20 @@
   "settings_language_es_desc": "Spanisch (Español)",
   "settings_language_fr_desc": "Französisch (Français)",
   "settings_language_de_desc": "Deutsch",
-  "settings_language_zh_desc": "Vereinfachtes Chinesisch (简体中文)"
+  "settings_language_zh_desc": "Vereinfachtes Chinesisch (简体中文)",
+  "currency_eur": "Euro (€)",
+  "currency_usd": "US-Dollar ($)",
+  "currency_gbp": "Britisches Pfund (£)",
+  "currency_chf": "Schweizer Franken (CHF)",
+  "currency_jpy": "Japanischer Yen (¥)",
+  "currency_cny": "Chinesischer Yuan (¥)",
+  "currency_cad": "Kanadischer Dollar (CA$)",
+  "currency_aud": "Australischer Dollar (AU$)",
+  "settings_currency_title": "Referenzwährung",
+  "settings_currency_desc": "Wählen Sie die Hauptwährung für Preise, Ausgaben, Erlöse und Bilanzen in der gesamten Anwendung.",
+  "settings_currency_preview_label": "Formatierungsvorschau",
+  "settings_currency_decimals_label": "Standard-Dezimalstellen",
+  "settings_currency_changed_toast": "Währung aktualisiert: {currency} ({symbol})",
+  "quicksetup_currency_label": "Referenzwährung",
+  "quicksetup_currency_desc": "Währung, in der Hardware-Käufe und Verkäufe erfasst werden."
 }

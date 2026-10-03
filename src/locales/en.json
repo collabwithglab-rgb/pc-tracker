@@ -1610,5 +1610,20 @@
   "settings_language_es_desc": "Spanish (Español)",
   "settings_language_fr_desc": "French (Français)",
   "settings_language_de_desc": "German (Deutsch)",
-  "settings_language_zh_desc": "Simplified Chinese (简体中文)"
+  "settings_language_zh_desc": "Simplified Chinese (简体中文)",
+  "currency_eur": "Euro (€)",
+  "currency_usd": "US Dollar ($)",
+  "currency_gbp": "British Pound (£)",
+  "currency_chf": "Swiss Franc (CHF)",
+  "currency_jpy": "Japanese Yen (¥)",
+  "currency_cny": "Chinese Yuan (¥)",
+  "currency_cad": "Canadian Dollar (CA$)",
+  "currency_aud": "Australian Dollar (AU$)",
+  "settings_currency_title": "Reference Currency",
+  "settings_currency_desc": "Choose the primary currency used for prices, expenses, proceeds, and financial balances across the app.",
+  "settings_currency_preview_label": "Formatting Preview",
+  "settings_currency_decimals_label": "Standard decimals",
+  "settings_currency_changed_toast": "Currency updated: {currency} ({symbol})",
+  "quicksetup_currency_label": "Reference Currency",
+  "quicksetup_currency_desc": "Currency used to track hardware purchases and sales."
 }

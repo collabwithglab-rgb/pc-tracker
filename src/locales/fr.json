@@ -1610,5 +1610,20 @@
   "settings_language_es_desc": "Espagnol (Español)",
   "settings_language_fr_desc": "Français",
   "settings_language_de_desc": "Allemand (Deutsch)",
-  "settings_language_zh_desc": "Chinois Simplifié (简体中文)"
+  "settings_language_zh_desc": "Chinois Simplifié (简体中文)",
+  "currency_eur": "Euro (€)",
+  "currency_usd": "Dollar américain ($)",
+  "currency_gbp": "Livre sterling (£)",
+  "currency_chf": "Franc suisse (CHF)",
+  "currency_jpy": "Yen japonais (¥)",
+  "currency_cny": "Yuan chinois (¥)",
+  "currency_cad": "Dollar canadien (CA$)",
+  "currency_aud": "Dollar australien (AU$)",
+  "settings_currency_title": "Devise de référence",
+  "settings_currency_desc": "Choisissez la devise principale utilisée pour les prix, dépenses, recettes et bilans dans l'application.",
+  "settings_currency_preview_label": "Aperçu du format",
+  "settings_currency_decimals_label": "Décimales standard",
+  "settings_currency_changed_toast": "Devise mise à jour : {currency} ({symbol})",
+  "quicksetup_currency_label": "Devise de référence",
+  "quicksetup_currency_desc": "Devise utilisée pour enregistrer les achats et ventes de matériel."
 }

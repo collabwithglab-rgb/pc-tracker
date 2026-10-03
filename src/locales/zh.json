@@ -1610,5 +1610,20 @@
   "settings_language_es_desc": "西班牙语 (Español)",
   "settings_language_fr_desc": "法语 (Français)",
   "settings_language_de_desc": "德语 (Deutsch)",
-  "settings_language_zh_desc": "简体中文"
+  "settings_language_zh_desc": "简体中文",
+  "currency_eur": "欧元 (€)",
+  "currency_usd": "美元 ($)",
+  "currency_gbp": "英镑 (£)",
+  "currency_chf": "瑞士法郎 (CHF)",
+  "currency_jpy": "日元 (¥)",
+  "currency_cny": "人民币 (¥)",
+  "currency_cad": "加拿大元 (CA$)",
+  "currency_aud": "澳大利亚元 (AU$)",
+  "settings_currency_title": "基准货币",
+  "settings_currency_desc": "选择在整个应用中用于价格、支出、收益和财务统计的基准结算货币。",
+  "settings_currency_preview_label": "格式化预览",
+  "settings_currency_decimals_label": "标准小数位数",
+  "settings_currency_changed_toast": "货币已更新：{currency} ({symbol})",
+  "quicksetup_currency_label": "基准货币",
+  "quicksetup_currency_desc": "用于记录硬件买入与二手转让交易的基准货币。"
 }

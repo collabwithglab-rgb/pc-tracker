@@ -1610,5 +1610,20 @@
   "settings_language_es_desc": "Spagnolo (Español)",
   "settings_language_fr_desc": "Francese (Français)",
   "settings_language_de_desc": "Tedesco (Deutsch)",
-  "settings_language_zh_desc": "Cinese Semplificato (简体中文)"
+  "settings_language_zh_desc": "Cinese Semplificato (简体中文)",
+  "currency_eur": "Euro (€)",
+  "currency_usd": "Dollaro Statunitense ($)",
+  "currency_gbp": "Sterlina Britannica (£)",
+  "currency_chf": "Franco Svizzero (CHF)",
+  "currency_jpy": "Yen Giapponese (¥)",
+  "currency_cny": "Yuan Cinese (¥)",
+  "currency_cad": "Dollaro Canadese (CA$)",
+  "currency_aud": "Dollaro Australiano (AU$)",
+  "settings_currency_title": "Valuta di Riferimento",
+  "settings_currency_desc": "Scegli la valuta principale utilizzata per prezzi, costi, ricavi e bilanci in tutta l'applicazione.",
+  "settings_currency_preview_label": "Anteprima Formattazione",
+  "settings_currency_decimals_label": "Decimali standard",
+  "settings_currency_changed_toast": "Valuta aggiornata: {currency} ({symbol})",
+  "quicksetup_currency_label": "Valuta di Riferimento",
+  "quicksetup_currency_desc": "Valuta con cui registrerai i costi d'acquisto e le vendite hardware."
 }
