@@ -152,7 +152,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
         onCancel();
       }
     } catch (err: unknown) {
-      setErrors({ form: err instanceof Error ? err.message : 'Errore sconosciuto durante il salvataggio' });
+      setErrors({ form: err instanceof Error ? err.message : t('component_form_save_unknown_error') });
     } finally {
       setIsSubmitting(false);
     }

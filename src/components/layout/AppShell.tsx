@@ -132,7 +132,7 @@ export const AppShell: React.FC = () => {
               } else {
                 showNotification(
                   'success',
-                  `Aggiornamento v${res.newVersion} disponibile in Impostazioni.`
+                  t('appshell_update_available_settings', { version: String(res.newVersion) })
                 );
               }
             } catch {
@@ -235,14 +235,14 @@ export const AppShell: React.FC = () => {
     try {
       const result = validateImportJSON(text);
       if (!result.isValid) {
-        showNotification('error', `File di backup non valido (${fileName}): ${result.error}`);
+        showNotification('error', t('appshell_import_invalid_file', { fileName, error: String(result.error) }));
         return;
       }
       setImportFileName(fileName);
       setImportPreviewData(result);
       setIsImportModalOpen(true);
     } catch (err) {
-      showNotification('error', `Errore durante la lettura del file: ${(err as Error).message}`);
+      showNotification('error', t('appshell_import_read_error', { error: (err as Error).message }));
     }
   };
 
@@ -288,11 +288,11 @@ export const AppShell: React.FC = () => {
       setImportPreviewData(null);
       showNotification(
         'success',
-        `Backup ripristinato con successo: ${countC} componenti, ${countE} eventi, ${countU} upgrade.`
+        t('appshell_import_success', { components: countC, events: countE, upgrades: countU })
       );
     } catch (err) {
       setIsImportModalOpen(false);
-      showNotification('error', `Errore durante l'importazione: ${(err as Error).message}`);
+      showNotification('error', t('appshell_import_error', { error: (err as Error).message }));
     } finally {
       setIsImporting(false);
     }
@@ -315,7 +315,7 @@ export const AppShell: React.FC = () => {
             const text = await file.text();
             processImportText(text, file.name);
           } catch (err) {
-            showNotification('error', `Errore nella lettura del file trascinato: ${(err as Error).message}`);
+            showNotification('error', t('appshell_import_drop_read_error', { error: (err as Error).message }));
           }
         }
       }
@@ -326,7 +326,7 @@ export const AppShell: React.FC = () => {
       window.removeEventListener('dragover', handleDragOver);
       window.removeEventListener('drop', handleDrop);
     };
-  }, []);
+  }, [t]);
 
   const getSectionMetadata = (section: NavSection) => {
     switch (section) {
@@ -519,10 +519,10 @@ export const AppShell: React.FC = () => {
       });
       if (!res.success) {
         setUpdateInstallState((prev) => ({ ...prev, downloading: false, error: res.error }));
-        showNotification('error', `Errore aggiornamento: ${res.error}`);
+        showNotification('error', t('appshell_update_error', { error: String(res.error) }));
       }
     } catch (err) {
-      const msg = (err as Error).message || 'Errore durante il download dell\'aggiornamento.';
+      const msg = (err as Error).message || t('appshell_update_download_error');
       setUpdateInstallState((prev) => ({ ...prev, downloading: false, error: msg }));
       showNotification('error', msg);
     }
@@ -535,10 +535,10 @@ export const AppShell: React.FC = () => {
       const filename = `pc-tracker-backup-${today}.json`;
       const res = await saveBackupFileWithDialog(filename, jsonString);
       if (!res.canceled) {
-        showNotification('success', 'Backup JSON salvato con successo!');
+        showNotification('success', t('backup_save_success'));
       }
     } catch (err) {
-      showNotification('error', `Errore durante il backup: ${(err as Error).message}`);
+      showNotification('error', t('backup_save_error', { error: (err as Error).message }));
     }
   };
 

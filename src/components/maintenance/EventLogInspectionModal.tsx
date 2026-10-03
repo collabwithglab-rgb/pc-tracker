@@ -8,6 +8,7 @@ import {
 import { EventLogDiagnosticsSnapshot } from '../../types/diagnostics';
 import { groupAndDeduplicateEvents, DiagnosticEventGroup } from '../../domain/diagnosticCorrelationEngine';
 import { Modal } from '../common/Modal';
+import { useTranslation, getBcp47 } from '../../locales';
 
 interface EventLogInspectionModalProps {
   isOpen: boolean;
@@ -154,6 +155,7 @@ export const EventLogInspectionModal: React.FC<EventLogInspectionModalProps> = (
   eventLogSnapshot,
   referenceDate,
 }) => {
+  const { currentLocale } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
@@ -207,11 +209,12 @@ export const EventLogInspectionModal: React.FC<EventLogInspectionModalProps> = (
   const formatDateLabel = (isoDate: string) => {
     try {
       const d = new Date(isoDate);
-      return d.toLocaleDateString('it-IT', {
+      const bcp = getBcp47(currentLocale);
+      return d.toLocaleDateString(bcp, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-      }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      }) + ' ' + d.toLocaleTimeString(bcp, { hour: '2-digit', minute: '2-digit' });
     } catch {
       return isoDate;
     }

@@ -146,7 +146,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
     deleteTuningProfile,
   } = usePCStore();
 
-  const { t, formatCurrency, formatDate } = useI18n();
+  const { t, formatCurrency, formatDate, currentLocale } = useI18n();
 
   const [editingEvent, setEditingEvent] = useState<ComponentEvent | null>(null);
 
@@ -345,7 +345,7 @@ export const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({
 
   const handleDeleteEvent = async (ev: ComponentEvent) => {
     if (!component) return;
-    const check = canDeleteEvent(ev.id, events);
+    const check = canDeleteEvent(ev.id, events, currentLocale);
     if (!check.canDelete) {
       alert(check.error || t('detail_event_delete_error'));
       return;

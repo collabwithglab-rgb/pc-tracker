@@ -23,6 +23,7 @@ import {
   Terminal,
   Activity,
 } from 'lucide-react';
+import { useTranslation, getBcp47 } from '../../locales';
 import { SystemDiagnosticsSnapshot } from '../../types/diagnostics';
 import { EventLogInspectionModal } from './EventLogInspectionModal';
 import { WindowsServicesInspectionModal } from './WindowsServicesInspectionModal';
@@ -187,6 +188,8 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
   onOpenWikiArticle: _onOpenWikiArticle,
   onShowNotification,
 }) => {
+  const { currentLocale } = useTranslation();
+  const bcp47 = getBcp47(currentLocale);
   const {
     optimizationHistory,
     recordOptimizationExecution,
@@ -1419,7 +1422,7 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                     <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: rec.actionDescription ? 'var(--space-2xs)' : '0' }}>
                       <span style={{ color: 'var(--text-muted)', minWidth: '110px' }}>Ultima Azione:</span>
                       <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
-                        {new Date(rec.lastExecution.timestampCompleted || rec.lastExecution.timestampStarted).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })} ore {new Date(rec.lastExecution.timestampCompleted || rec.lastExecution.timestampStarted).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} ({getOutcomeLabel(rec.lastExecution.outcome)})
+                        {new Date(rec.lastExecution.timestampCompleted || rec.lastExecution.timestampStarted).toLocaleDateString(bcp47, { day: '2-digit', month: '2-digit', year: 'numeric' })} ore {new Date(rec.lastExecution.timestampCompleted || rec.lastExecution.timestampStarted).toLocaleTimeString(bcp47, { hour: '2-digit', minute: '2-digit' })} ({getOutcomeLabel(rec.lastExecution.outcome)})
                       </span>
                     </div>
                   )}
@@ -1619,7 +1622,7 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', minWidth: 0 }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                        {new Date(rec.timestampStarted).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })} {new Date(rec.timestampStarted).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(rec.timestampStarted).toLocaleDateString(bcp47, { day: '2-digit', month: '2-digit', year: 'numeric' })} {new Date(rec.timestampStarted).toLocaleTimeString(bcp47, { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
                         {rec.recommendationTitle}

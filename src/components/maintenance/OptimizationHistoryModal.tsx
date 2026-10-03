@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { OptimizationExecutionRecord } from '../../types';
 import { Modal } from '../common/Modal';
+import { useTranslation, getBcp47 } from '../../locales';
 import {
   getOutcomeBadgeClass,
   getOutcomeLabel,
@@ -28,12 +29,13 @@ export const OptimizationHistoryModal: React.FC<OptimizationHistoryModalProps> =
   onClose,
   onDeleteRecord,
 }) => {
+  const { currentLocale } = useTranslation();
   if (!record) return null;
 
   const formatDate = (iso: string) => {
     try {
       const d = new Date(iso);
-      return d.toLocaleString('it-IT', {
+      return d.toLocaleString(getBcp47(currentLocale), {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',

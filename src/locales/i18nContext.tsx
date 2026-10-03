@@ -111,3 +111,13 @@ export function useTranslation(): I18nContextValue {
 }
 
 export const useI18n = useTranslation;
+
+/**
+ * Variante tollerante di `useTranslation` per i primitivi condivisi (Modal, Toast) che possono
+ * essere renderizzati anche fuori da `I18nProvider` (es. test isolati): in tal caso usa la lingua di sistema.
+ */
+export function useOptionalTranslation(): (key: TranslationKey, params?: TranslationParams) => string {
+  const context = useContext(I18nContext);
+  if (context) return context.t;
+  return (key, params) => translate(detectSystemLocale(), key, params);
+}

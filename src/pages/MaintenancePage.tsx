@@ -852,7 +852,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                   </div>
 
                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-ruby)', fontFamily: 'var(--font-mono)' }}>
-                    € {conditionSummary.totalCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatCurrency(conditionSummary.totalCost)}
                   </div>
 
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>

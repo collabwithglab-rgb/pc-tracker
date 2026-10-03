@@ -107,6 +107,8 @@ import {
   isValidISODateString,
 } from '../domain';
 import { generateId } from '../utils/id';
+import { translate, type TranslationKey, type TranslationParams } from '../locales/translator';
+import { detectSystemLocale } from '../locales/registry';
 
 export interface ComponentInput {
   name: string;
@@ -356,6 +358,11 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const showNotification = (type: 'success' | 'error', message: string) =>
     setNotification({ type, message });
 
+  // Lingua attiva per i messaggi dello store e per le note auto-generate negli eventi.
+  // Le note restano testo libero (nessuna migrazione): vengono scritte nella lingua attiva al momento della creazione.
+  const lang = data.settings.language ?? detectSystemLocale();
+  const tr = (key: TranslationKey, params?: TranslationParams): string => translate(lang, key, params);
+
   const reloadFromDB = async () => {
     try {
       setIsLoading(true);
@@ -370,7 +377,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
       setData(dbData);
     } catch (err) {
-      const msg = `Errore durante il caricamento da IndexedDB: ${(err as Error).message}`;
+      const msg = tr('store_load_error', { error: (err as Error).message });
       setError(msg);
       setNotification({ type: 'error', message: msg });
       throw err;
@@ -390,7 +397,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     componentInput: ComponentInput,
     purchaseInput?: InitialPurchaseInput
   ): Promise<Component> => {
-    const compValidation = validateComponent(componentInput);
+    const compValidation = validateComponent(componentInput, lang);
     if (!compValidation.isValid) {
       const firstError = Object.values(compValidation.errors)[0];
       setNotification({ type: 'error', message: firstError });
@@ -415,7 +422,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       const purchaseValidation = validatePurchaseEvent({
         ...purchaseInput,
         componentId: newComponent.id,
-      });
+      }, undefined, lang);
 
       if (!purchaseValidation.isValid) {
         const firstError = Object.values(purchaseValidation.errors)[0];
@@ -460,7 +467,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     await reloadFromDB();
     setNotification({
       type: 'success',
-      message: `Componente "${newComponent.name}" aggiunto con successo!`,
+      message: tr('store_component_added', { name: newComponent.name }),
     });
 
     return newComponent;
@@ -475,7 +482,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   ): Promise<void> => {
     const existing = data.components.find((c) => c.id === id);
     if (!existing) {
-      throw new Error(`Componente con ID ${id} non trovato.`);
+      throw new Error(tr('store_component_not_found_id', { id }));
     }
 
     const mergedData: Partial<Component> = {
@@ -483,7 +490,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...updates,
     };
 
-    const validation = validateComponent(mergedData);
+    const validation = validateComponent(mergedData, lang);
     if (!validation.isValid) {
       const firstError = Object.values(validation.errors)[0];
       setNotification({ type: 'error', message: firstError });
@@ -509,7 +516,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     await reloadFromDB();
     setNotification({
       type: 'success',
-      message: `Componente "${updatedComponent.name}" aggiornato con successo!`,
+      message: tr('store_component_updated', { name: updatedComponent.name }),
     });
   };
 
@@ -523,8 +530,8 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     setNotification({
       type: 'success',
       message: existing
-        ? `Componente "${existing.name}" e i suoi eventi eliminati con successo.`
-        : 'Componente eliminato.',
+        ? tr('store_component_deleted_named', { name: existing.name })
+        : tr('store_component_deleted'),
     });
   };
 
@@ -534,7 +541,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const installComponent = async (componentId: string, input: InstallInput): Promise<void> => {
     const comp = data.components.find((c) => c.id === componentId);
     if (!comp) {
-      throw new Error(`Componente ${componentId} non trovato.`);
+      throw new Error(tr('store_component_not_found', { id: componentId }));
     }
 
     const compEvents = data.events.filter((e) => e.componentId === componentId);
@@ -542,7 +549,9 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
     const validation = validateInstallEvent(
       { componentId, date: input.date, slotOrLocation: input.slotOrLocation },
-      currentStatus
+      currentStatus,
+      undefined,
+      lang
     );
 
     if (!validation.isValid) {
@@ -565,7 +574,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     await reloadFromDB();
     setNotification({
       type: 'success',
-      message: `"${comp.name}" installato nel PC con successo!`,
+      message: tr('store_component_installed', { name: comp.name }),
     });
   };
 
@@ -575,7 +584,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const uninstallComponent = async (componentId: string, input: UninstallInput): Promise<void> => {
     const comp = data.components.find((c) => c.id === componentId);
     if (!comp) {
-      throw new Error(`Componente ${componentId} non trovato.`);
+      throw new Error(tr('store_component_not_found', { id: componentId }));
     }
 
     const compEvents = data.events.filter((e) => e.componentId === componentId);
@@ -583,7 +592,9 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
     const validation = validateUninstallEvent(
       { componentId, date: input.date, reason: input.reason },
-      currentStatus
+      currentStatus,
+      undefined,
+      lang
     );
 
     if (!validation.isValid) {
@@ -606,7 +617,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     await reloadFromDB();
     setNotification({
       type: 'success',
-      message: `"${comp.name}" rimosso dal PC e riposto in magazzino.`,
+      message: tr('store_component_uninstalled', { name: comp.name }),
     });
   };
 
@@ -622,14 +633,14 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const newComp = data.components.find((c) => c.id === newComponentId);
 
     if (!oldComp || !newComp) {
-      throw new Error('Componenti per la sostituzione non trovati.');
+      throw new Error(tr('store_replace_not_found'));
     }
 
     // Validazione lifecycle: il vecchio pezzo deve essere attualmente IN_USE
     const oldCompEvents = data.events.filter((e) => e.componentId === oldComponentId);
     const oldStatus = computeComponentStatus(oldCompEvents);
     if (oldStatus !== 'IN_USE') {
-      const msg = `Impossibile sostituire "${oldComp.name}": non risulta montato nel PC (stato: ${oldStatus}).`;
+      const msg = tr('store_replace_old_not_in_use', { name: oldComp.name, status: oldStatus });
       setNotification({ type: 'error', message: msg });
       throw new Error(msg);
     }
@@ -638,14 +649,14 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const newCompEvents = data.events.filter((e) => e.componentId === newComponentId);
     const newStatus = computeComponentStatus(newCompEvents);
     if (newStatus !== 'IN_STORAGE') {
-      const msg = `Impossibile montare "${newComp.name}": non è disponibile in magazzino (stato: ${newStatus}).`;
+      const msg = tr('store_replace_new_not_in_storage', { name: newComp.name, status: newStatus });
       setNotification({ type: 'error', message: msg });
       throw new Error(msg);
     }
 
     // Validazione data obbligatoria
     if (!input.date) {
-      const msg = 'La data di sostituzione è obbligatoria.';
+      const msg = tr('store_replace_date_required');
       setNotification({ type: 'error', message: msg });
       throw new Error(msg);
     }
@@ -659,7 +670,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       type: 'UNINSTALL',
       date: input.date,
       reason: input.reason || 'upgrade',
-      notes: `Sostituito con ${newComp.name}`,
+      notes: tr('store_note_replaced_with', { name: newComp.name }),
       createdAt: now,
     };
 
@@ -670,7 +681,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       type: 'INSTALL',
       date: input.date,
       slotOrLocation: input.slotOrLocation,
-      notes: `Sostituto al posto di ${oldComp.name}`,
+      notes: tr('store_note_replacement_for', { name: oldComp.name }),
       createdAt: now,
     };
 
@@ -680,7 +691,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
     setNotification({
       type: 'success',
-      message: `Sostituzione completata: ${newComp.name} ha preso il posto di ${oldComp.name}.`,
+      message: tr('store_replace_done', { newName: newComp.name, oldName: oldComp.name }),
     });
   };
 
@@ -701,30 +712,30 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   const handleDeleteComponentEvent = async (eventId: string, componentId: string) => {
     const compEvents = data.events.filter((e) => e.componentId === componentId);
-    const check = canDeleteEvent(eventId, compEvents);
+    const check = canDeleteEvent(eventId, compEvents, lang);
     if (!check.canDelete) {
-      const msg = check.error || 'Impossibile eliminare questo evento: violerebbe la coerenza storica.';
+      const msg = check.error || tr('store_event_delete_denied');
       showNotification('error', msg);
       throw new Error(msg);
     }
 
     await dbDeleteEvent(eventId);
     await reloadFromDB();
-    showNotification('success', 'Evento eliminato con successo dallo storico.');
+    showNotification('success', tr('store_event_deleted'));
   };
 
   const handleUpdateComponentEvent = async (updatedEvent: ComponentEvent) => {
     const compEvents = data.events.filter((e) => e.componentId === updatedEvent.componentId);
-    const check = canUpdateEvent(updatedEvent, compEvents);
+    const check = canUpdateEvent(updatedEvent, compEvents, lang);
     if (!check.canUpdate) {
-      const msg = check.error || 'Modifica non consentita per questo evento.';
+      const msg = check.error || tr('store_event_update_denied');
       showNotification('error', msg);
       throw new Error(msg);
     }
 
     await saveEvent(updatedEvent);
     await reloadFromDB();
-    showNotification('success', 'Evento aggiornato con successo.');
+    showNotification('success', tr('store_event_updated'));
   };
 
   const getComponentComputed = (id: string): ComponentComputedState | undefined => {
@@ -798,7 +809,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const recordSale = async (componentId: string, input: SaleInput): Promise<void> => {
     const component = data.components.find((c) => c.id === componentId);
     if (!component) {
-      const msg = `Componente ${componentId} non trovato.`;
+      const msg = tr('store_component_not_found', { id: componentId });
       showNotification('error', msg);
       throw new Error(msg);
     }
@@ -810,7 +821,8 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const validation = validateSaleEvent(
       { ...input, componentId },
       currentStatus,
-      existingCompIds
+      existingCompIds,
+      lang
     );
 
     if (!validation.isValid) {
@@ -831,7 +843,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         type: 'UNINSTALL',
         date: input.date,
         reason: 'upgrade',
-        notes: 'Smontato dal PC per avvenuta vendita',
+        notes: tr('store_note_uninstalled_for_sale'),
         createdAt: now,
       };
       eventsToCommit.push(uninstallEvent);
@@ -858,7 +870,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const net = saleEvent.price - (saleEvent.shippingCost || 0) - (saleEvent.fees || 0);
     showNotification(
       'success',
-      `Vendita registrata per ${component.name}: incasso netto di €${net.toFixed(2)}.`
+      tr('store_sale_recorded', { name: component.name, net: net.toFixed(2) })
     );
   };
 
@@ -871,7 +883,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   ): Promise<void> => {
     const component = data.components.find((c) => c.id === componentId);
     if (!component) {
-      const msg = `Componente ${componentId} non trovato.`;
+      const msg = tr('store_component_not_found', { id: componentId });
       showNotification('error', msg);
       throw new Error(msg);
     }
@@ -879,7 +891,8 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const existingCompIds = new Set(data.components.map((c) => c.id));
     const validation = validateExtraExpenseEvent(
       { ...input, componentId },
-      existingCompIds
+      existingCompIds,
+      lang
     );
 
     if (!validation.isValid) {
@@ -905,7 +918,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
     showNotification(
       'success',
-      `Spesa extra di €${expenseEvent.amount.toFixed(2)} registrata per ${component.name}.`
+      tr('store_expense_recorded', { amount: expenseEvent.amount.toFixed(2), name: component.name })
     );
   };
 
@@ -915,7 +928,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const recordGift = async (componentId: string, input: GiftInput): Promise<void> => {
     const component = data.components.find((c) => c.id === componentId);
     if (!component) {
-      const msg = `Componente ${componentId} non trovato.`;
+      const msg = tr('store_component_not_found', { id: componentId });
       showNotification('error', msg);
       throw new Error(msg);
     }
@@ -927,7 +940,8 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const validation = validateGiftEvent(
       { ...input, componentId },
       currentStatus,
-      existingCompIds
+      existingCompIds,
+      lang
     );
 
     if (!validation.isValid) {
@@ -946,7 +960,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         type: 'UNINSTALL',
         date: input.date,
         reason: 'storage',
-        notes: 'Smontato dal PC per donazione/regalo',
+        notes: tr('store_note_uninstalled_for_gift'),
         createdAt: now,
       };
       eventsToCommit.push(uninstallEvent);
@@ -968,7 +982,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
     showNotification(
       'success',
-      `Componente ${component.name} registrato come donato/regalato.`
+      tr('store_gift_recorded', { name: component.name })
     );
   };
 
@@ -978,7 +992,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const recordDisposal = async (componentId: string, input: DisposalInput): Promise<void> => {
     const component = data.components.find((c) => c.id === componentId);
     if (!component) {
-      const msg = `Componente ${componentId} non trovato.`;
+      const msg = tr('store_component_not_found', { id: componentId });
       showNotification('error', msg);
       throw new Error(msg);
     }
@@ -990,7 +1004,8 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const validation = validateDisposalEvent(
       { ...input, componentId },
       currentStatus,
-      existingCompIds
+      existingCompIds,
+      lang
     );
 
     if (!validation.isValid) {
@@ -1009,7 +1024,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         type: 'UNINSTALL',
         date: input.date,
         reason: 'defect',
-        notes: 'Smontato dal PC per smaltimento',
+        notes: tr('store_note_uninstalled_for_disposal'),
         createdAt: now,
       };
       eventsToCommit.push(uninstallEvent);
@@ -1031,7 +1046,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
     showNotification(
       'success',
-      `Componente ${component.name} registrato come smaltito.`
+      tr('store_disposal_recorded', { name: component.name })
     );
   };
 
@@ -1047,7 +1062,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
    * Se un qualsiasi passaggio fallisce, IndexedDB effettua il rollback totale.
    */
   const executeUpgrade = async (input: UpgradeExecutionInput): Promise<Upgrade> => {
-    const validation = validateUpgrade(input, data.components, data.events);
+    const validation = validateUpgrade(input, data.components, data.events, lang);
     if (!validation.isValid) {
       const firstError = Object.values(validation.errors)[0];
       showNotification('error', firstError);
@@ -1110,8 +1125,8 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         date: input.date,
         reason: 'upgrade',
         notes: input.notes?.trim()
-          ? `Smontato per upgrade: ${input.notes.trim()}`
-          : `Smontato dal PC per passaggio a nuovo componente`,
+          ? tr('store_note_uninstalled_for_upgrade_with_notes', { notes: input.notes.trim() })
+          : tr('store_note_uninstalled_for_upgrade'),
         createdAt: now,
       };
       eventsToSave.push(uninstallEvent);
@@ -1142,7 +1157,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       type: 'INSTALL',
       date: input.date,
       slotOrLocation: input.slotOrLocation?.trim() || undefined,
-      notes: `Montato tramite upgrade in sostituzione di ${oldComp.name}`,
+      notes: tr('store_note_installed_via_upgrade', { name: oldComp.name }),
       createdAt: now,
     };
     eventsToSave.push(installEvent);
@@ -1167,10 +1182,10 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     // 7. Ricaricamento deterministico dello stato
     await reloadFromDB();
 
-    const targetName = newCompToSave ? newCompToSave.name : (data.components.find((c) => c.id === targetNewId)?.name || 'nuovo componente');
+    const targetName = newCompToSave ? newCompToSave.name : (data.components.find((c) => c.id === targetNewId)?.name || tr('store_upgrade_new_component_fallback'));
     showNotification(
       'success',
-      `Upgrade registrato: ${oldComp.name} ➔ ${targetName}.`
+      tr('store_upgrade_recorded', { oldName: oldComp.name, newName: targetName })
     );
 
     return upgradeRecord;
@@ -1199,7 +1214,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       settings: defaults,
       lastModified: new Date().toISOString(),
     }));
-    showNotification('success', 'Impostazioni predefinite ripristinate con successo.');
+    showNotification('success', tr('store_settings_reset'));
   };
 
   // Metriche finanziarie calcolate
@@ -1234,10 +1249,10 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         ...prev,
         checkpoints: [...(prev.checkpoints || []), newCheckpoint],
       }));
-      showNotification('success', `Checkpoint "${newCheckpoint.name}" salvato con successo!`);
+      showNotification('success', tr('store_checkpoint_saved', { name: newCheckpoint.name }));
       return newCheckpoint;
     } catch (err) {
-      const msg = `Errore salvataggio checkpoint: ${(err as Error).message}`;
+      const msg = tr('store_checkpoint_save_error', { error: (err as Error).message });
       showNotification('error', msg);
       throw err;
     }
@@ -1269,10 +1284,10 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         ...prev,
         checkpoints: [...(prev.checkpoints || []), newCheckpoint],
       }));
-      showNotification('success', `Checkpoint "${newCheckpoint.name}" salvato con successo!`);
+      showNotification('success', tr('store_checkpoint_saved', { name: newCheckpoint.name }));
       return newCheckpoint;
     } catch (err) {
-      const msg = `Errore salvataggio checkpoint: ${(err as Error).message}`;
+      const msg = tr('store_checkpoint_save_error', { error: (err as Error).message });
       showNotification('error', msg);
       throw err;
     }
@@ -1282,7 +1297,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       const target = (data.checkpoints || []).find((c) => c.id === id);
       if (!target) {
-        throw new Error(`Checkpoint non trovato (ID: ${id})`);
+        throw new Error(tr('store_checkpoint_not_found', { id }));
       }
       const updated = updateCheckpointMetadata(target, updates);
       await saveCheckpointAtomic(updated);
@@ -1290,9 +1305,9 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         ...prev,
         checkpoints: (prev.checkpoints || []).map((c) => (c.id === id ? updated : c)),
       }));
-      showNotification('success', 'Checkpoint aggiornato con successo.');
+      showNotification('success', tr('store_checkpoint_updated'));
     } catch (err) {
-      const msg = `Errore aggiornamento checkpoint: ${(err as Error).message}`;
+      const msg = tr('store_checkpoint_update_error', { error: (err as Error).message });
       showNotification('error', msg);
       throw err;
     }
@@ -1305,9 +1320,9 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         ...prev,
         checkpoints: (prev.checkpoints || []).filter((c) => c.id !== id),
       }));
-      showNotification('success', 'Checkpoint eliminato con successo.');
+      showNotification('success', tr('store_checkpoint_deleted'));
     } catch (err) {
-      const msg = `Errore eliminazione checkpoint: ${(err as Error).message}`;
+      const msg = tr('store_checkpoint_delete_error', { error: (err as Error).message });
       showNotification('error', msg);
       throw err;
     }
@@ -1324,7 +1339,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
       const newSettings: AppSettings = {
         ...data.settings,
-        rigName: input.rigName.trim() || 'Gaming PC',
+        rigName: input.rigName.trim() || tr('store_quick_setup_default_rig_name'),
         rigDescription: input.rigDescription?.trim() || '',
         buildYear: input.buildYear,
         quickSetupCompleted: true,
@@ -1333,23 +1348,23 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       const getDefaultSlot = (cat: ComponentCategory): string => {
         switch (cat) {
           case 'cpu':
-            return 'Socket CPU';
+            return tr('store_slot_cpu');
           case 'gpu':
-            return 'PCIe x16 Slot 1';
+            return tr('store_slot_gpu');
           case 'motherboard':
-            return 'Chassis';
+            return tr('store_slot_motherboard');
           case 'ram':
-            return 'Slot DIMM';
+            return tr('store_slot_ram');
           case 'storage':
-            return 'Slot M.2 NVMe';
+            return tr('store_slot_storage');
           case 'psu':
-            return 'Vano Alimentatore';
+            return tr('store_slot_psu');
           case 'case':
-            return 'Chassis Principale';
+            return tr('store_slot_case');
           case 'cooling':
-            return 'Socket / Case Mount';
+            return tr('store_slot_cooling');
           default:
-            return 'Postazione PC';
+            return tr('store_slot_default');
         }
       };
 
@@ -1362,7 +1377,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
           model: item.model.trim() || 'Hardware Component',
           category: item.category,
           serialNumber: item.serialNumber?.trim() || undefined,
-          notes: item.notes?.trim() || 'Configurazione iniziale Quick Setup',
+          notes: item.notes?.trim() || tr('store_note_quick_setup_component'),
           createdAt: now,
           updatedAt: now,
         };
@@ -1378,7 +1393,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             date: installDate,
             price: item.purchasePrice,
             condition: 'new',
-            notes: 'Prezzo inserito durante il Quick Setup',
+            notes: tr('store_note_quick_setup_price'),
             createdAt: now,
           };
           compEvents.push(purchaseEv);
@@ -1390,7 +1405,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
           type: 'INSTALL',
           date: installDate,
           slotOrLocation: item.slotOrLocation || getDefaultSlot(item.category),
-          notes: 'Installazione iniziale Quick Setup',
+          notes: tr('store_note_quick_setup_install'),
           createdAt: now,
         };
         compEvents.push(installEv);
@@ -1405,10 +1420,10 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       await reloadFromDB();
       showNotification(
         'success',
-        `Setup completato! ${input.components.length} componenti configurati nel tuo PC.`
+        tr('store_quick_setup_done', { count: input.components.length })
       );
     } catch (err) {
-      const msg = `Errore durante il Quick Setup: ${(err as Error).message}`;
+      const msg = tr('store_quick_setup_error', { error: (err as Error).message });
       showNotification('error', msg);
       throw err;
     }
@@ -1441,17 +1456,17 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   ): Promise<ComponentReceipt> => {
     const comp = data.components.find((c) => c.id === componentId);
     if (!comp) {
-      throw new Error(`Componente con ID ${componentId} non trovato.`);
+      throw new Error(tr('store_component_not_found_id', { id: componentId }));
     }
 
     if (fileData.fileSize > MAX_RECEIPT_FILE_SIZE_BYTES) {
-      const err = `Il file supera il limite massimo consentito di 10MB (${(fileData.fileSize / (1024 * 1024)).toFixed(1)}MB).`;
+      const err = tr('store_receipt_too_large', { size: (fileData.fileSize / (1024 * 1024)).toFixed(1) });
       showNotification('error', err);
       throw new Error(err);
     }
 
     if (!ALLOWED_RECEIPT_MIME_TYPES.includes(fileData.fileType as AllowedReceiptMimeType)) {
-      const err = `Tipo file non supportato (${fileData.fileType}). Formati supportati: PDF, PNG, JPG, WebP.`;
+      const err = tr('store_receipt_type_unsupported', { type: fileData.fileType });
       showNotification('error', err);
       throw new Error(err);
     }
@@ -1466,7 +1481,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       !fileData.dataUrl ||
       !allowedPrefixes.some((prefix) => fileData.dataUrl.toLowerCase().startsWith(prefix))
     ) {
-      const err = `Data URL non conforme o formato non sicuro per "${fileData.fileName}".`;
+      const err = tr('store_receipt_data_url_invalid', { name: fileData.fileName });
       showNotification('error', err);
       throw new Error(err);
     }
@@ -1484,7 +1499,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     };
 
     await saveReceiptAtomic(receipt);
-    showNotification('success', `Ricevuta "${receipt.fileName}" salvata nella cassaforte locale!`);
+    showNotification('success', tr('store_receipt_saved', { name: receipt.fileName }));
     return receipt;
   };
 
@@ -1493,7 +1508,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
    */
   const deleteReceipt = async (receiptId: string): Promise<void> => {
     await deleteReceiptAtomic(receiptId);
-    showNotification('success', 'Ricevuta rimossa dalla cassaforte.');
+    showNotification('success', tr('store_receipt_deleted'));
   };
 
   // --- AZIONI REGISTRO MANUTENZIONE (SESSIONE 4) ---
@@ -1501,7 +1516,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const addMaintenanceEntry = async (input: MaintenanceEntryInput): Promise<MaintenanceEntry> => {
     const validation = validateMaintenanceEntry(input);
     if (!validation.isValid) {
-      const firstError = Object.values(validation.errors)[0] || 'Dati manutenzione non validi.';
+      const firstError = Object.values(validation.errors)[0] || tr('store_maintenance_invalid');
       showNotification('error', firstError);
       throw new Error(firstError);
     }
@@ -1528,7 +1543,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       maintenance: [...(prev.maintenance || []), entry],
     }));
-    showNotification('success', `Intervento "${entry.title}" registrato con successo!`);
+    showNotification('success', tr('store_maintenance_added', { title: entry.title }));
     return entry;
   };
 
@@ -1538,13 +1553,13 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   ): Promise<void> => {
     const existing = (data.maintenance || []).find((m) => m.id === id);
     if (!existing) {
-      throw new Error(`Intervento di manutenzione con ID ${id} non trovato.`);
+      throw new Error(tr('store_maintenance_not_found', { id }));
     }
 
     const merged = { ...existing, ...updates };
     const validation = validateMaintenanceEntry(merged);
     if (!validation.isValid) {
-      const firstError = Object.values(validation.errors)[0] || 'Dati manutenzione non validi.';
+      const firstError = Object.values(validation.errors)[0] || tr('store_maintenance_invalid');
       showNotification('error', firstError);
       throw new Error(firstError);
     }
@@ -1564,7 +1579,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       maintenance: (prev.maintenance || []).map((m) => (m.id === id ? updatedEntry : m)),
     }));
-    showNotification('success', `Manutenzione "${updatedEntry.title}" aggiornata!`);
+    showNotification('success', tr('store_maintenance_updated', { title: updatedEntry.title }));
   };
 
   const deleteMaintenanceEntry = async (id: string): Promise<void> => {
@@ -1573,7 +1588,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       maintenance: (prev.maintenance || []).filter((m) => m.id !== id),
     }));
-    showNotification('success', 'Intervento di manutenzione rimosso dal registro.');
+    showNotification('success', tr('store_maintenance_deleted'));
   };
 
   const getMaintenanceForComponent = (componentId: string): MaintenanceEntry[] => {
@@ -1587,7 +1602,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const addTuningProfile = async (input: TuningProfileInput): Promise<TuningProfile> => {
     const validation = validateTuningProfile(input);
     if (!validation.isValid) {
-      const firstError = Object.values(validation.errors)[0] || 'Dati profilo di tuning non validi.';
+      const firstError = Object.values(validation.errors)[0] || tr('store_tuning_invalid');
       showNotification('error', firstError);
       throw new Error(firstError);
     }
@@ -1615,7 +1630,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       tuningProfiles: [...(prev.tuningProfiles || []), profile],
     }));
-    showNotification('success', `Profilo di tuning "${profile.name}" salvato nel registro!`);
+    showNotification('success', tr('store_tuning_added', { name: profile.name }));
     return profile;
   };
 
@@ -1625,13 +1640,13 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   ): Promise<void> => {
     const existing = (data.tuningProfiles || []).find((t) => t.id === id);
     if (!existing) {
-      throw new Error(`Profilo di tuning con ID ${id} non trovato.`);
+      throw new Error(tr('store_tuning_not_found', { id }));
     }
 
     const merged = { ...existing, ...updates };
     const validation = validateTuningProfile(merged);
     if (!validation.isValid) {
-      const firstError = Object.values(validation.errors)[0] || 'Dati profilo di tuning non validi.';
+      const firstError = Object.values(validation.errors)[0] || tr('store_tuning_invalid');
       showNotification('error', firstError);
       throw new Error(firstError);
     }
@@ -1649,7 +1664,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       tuningProfiles: (prev.tuningProfiles || []).map((t) => (t.id === id ? updatedProfile : t)),
     }));
-    showNotification('success', `Profilo "${updatedProfile.name}" aggiornato!`);
+    showNotification('success', tr('store_tuning_updated', { name: updatedProfile.name }));
   };
 
   const deleteTuningProfile = async (id: string): Promise<void> => {
@@ -1658,7 +1673,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       tuningProfiles: (prev.tuningProfiles || []).filter((t) => t.id !== id),
     }));
-    showNotification('success', 'Profilo di tuning rimosso dal registro.');
+    showNotification('success', tr('store_tuning_deleted'));
   };
 
   const getTuningProfilesForComponent = (componentId: string): TuningProfile[] => {
@@ -1671,7 +1686,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const record = createOptimizationExecutionRecord(input);
     const validation = validateOptimizationExecutionRecord(record);
     if (!validation.isValid) {
-      throw new Error(`Record ottimizzazione non valido: ${validation.error}`);
+      throw new Error(tr('store_optimization_record_invalid', { error: String(validation.error) }));
     }
 
     await saveOptimizationRecord(record);
@@ -1693,7 +1708,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       optimizationHistory: (prev.optimizationHistory || []).filter((r) => r.id !== id),
     }));
-    showNotification('success', 'Voce rimossa dallo storico ottimizzazioni.');
+    showNotification('success', tr('store_optimization_entry_deleted'));
   };
 
   const handleClearOptimizationHistory = async (): Promise<void> => {
@@ -1702,7 +1717,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       ...prev,
       optimizationHistory: [],
     }));
-    showNotification('success', 'Storico ottimizzazioni azzerato.');
+    showNotification('success', tr('store_optimization_history_cleared'));
   };
 
   // --- SMART MAINTENANCE SCHEDULER (TRANCHE 2) ---
@@ -1761,10 +1776,10 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   const setReminderSnooze = async (reminderId: string, snoozedUntil: string): Promise<void> => {
     if (!reminderId || typeof reminderId !== 'string') {
-      throw new Error('ID promemoria non valido.');
+      throw new Error(tr('store_reminder_id_invalid'));
     }
     if (!isValidISODateString(snoozedUntil)) {
-      throw new Error(`Data di snooze non valida: "${snoozedUntil}". Formato atteso: YYYY-MM-DD.`);
+      throw new Error(tr('store_snooze_date_invalid', { date: snoozedUntil }));
     }
 
     const currentInteractions = normalizeReminderInteractions(data.settings.reminderInteractions);
@@ -1816,7 +1831,7 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     cycleExecutionId?: string
   ): Promise<void> => {
     if (!reminderId || typeof reminderId !== 'string') {
-      throw new Error('ID promemoria non valido.');
+      throw new Error(tr('store_reminder_id_invalid'));
     }
     const dateToSet = notifiedDate && isValidISODateString(notifiedDate)
       ? notifiedDate

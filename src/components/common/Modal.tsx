@@ -1,5 +1,6 @@
 import React, { ReactNode, useEffect, useRef } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
+import { useOptionalTranslation } from '../../locales/i18nContext';
 
 interface ModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const Modal: React.FC<ModalProps> = ({
   onBack,
   backTitle,
 }) => {
+  const t = useOptionalTranslation();
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
 
@@ -171,8 +173,8 @@ export const Modal: React.FC<ModalProps> = ({
             onClick={onClose}
             className="modal-close-btn"
             style={styles.closeBtn}
-            title="Chiudi finestra (Esc)"
-            aria-label="Chiudi modale"
+            title={t('common_close_dialog_title')}
+            aria-label={t('common_close_dialog_aria')}
           >
             <X size={18} />
           </button>

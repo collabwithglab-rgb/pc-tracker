@@ -252,9 +252,9 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
         const priceNum = item.purchasePrice ? parseFloat(item.purchasePrice) : undefined;
         const slot =
           item.extraDetails?.interface === 'NVMe'
-            ? 'Slot M.2 NVMe'
+            ? t('quicksetup_slot_nvme')
             : item.extraDetails?.interface === 'SATA'
-            ? 'Porta SATA'
+            ? t('quicksetup_slot_sata')
             : undefined;
 
         itemsToImport.push({
@@ -264,7 +264,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
           serialNumber: item.serialNumber,
           purchasePrice: priceNum && !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
           slotOrLocation: slot,
-          notes: `Rilevato tramite ${item.source}`,
+          notes: t('quicksetup_note_detected_via', { source: item.source }),
         });
       }
 
@@ -277,13 +277,13 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
             brand: m.brand.trim() || 'Generic',
             model: m.model.trim() || m.label,
             purchasePrice: priceNum && !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
-            notes: 'Aggiunto manualmente durante il Quick Setup',
+            notes: t('quicksetup_note_manual'),
           });
         }
       }
 
       await importQuickSetupData({
-        rigName: rigName.trim() || 'Gaming PC',
+        rigName: rigName.trim() || t('store_quick_setup_default_rig_name'),
         rigDescription: rigDescription.trim(),
         buildYear,
         components: itemsToImport,

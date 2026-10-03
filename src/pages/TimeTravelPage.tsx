@@ -272,9 +272,9 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
       const ev = dayEvents[idx];
       const ord = idx !== -1 ? String(idx + 1).padStart(2, '0') : '';
       if (boundary === 'before_event') {
-        return `Subito prima dell'evento #${ord} (${ev ? getEventLabel(ev.type) : ''})`;
+        return t('timetravel_position_before_event', { ord, label: ev ? getEventLabel(ev.type) : '' });
       }
-      return `Subito dopo l'evento #${ord} (${ev ? getEventLabel(ev.type) : ''})`;
+      return t('timetravel_position_after_event', { ord, label: ev ? getEventLabel(ev.type) : '' });
     }
     return t('timetravel_boundary_eod');
   };
@@ -434,7 +434,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                     key={mDate}
                     onClick={() => handleSelectDate(mDate)}
                     className={`time-travel-milestone-chip ${isActive ? 'active' : ''} ${hasCp ? 'has-checkpoint' : ''}`}
-                    title={hasCp ? `Checkpoint salvato al ${formatDate(mDate)}: ${cps.map((c) => c.name).join(', ')}` : `Data: ${formatDate(mDate)}`}
+                    title={hasCp ? t('timetravel_milestone_checkpoint_title', { date: formatDate(mDate), names: cps.map((c) => c.name).join(', ') }) : t('timetravel_milestone_date_title', { date: formatDate(mDate) })}
                     role="tab"
                     aria-selected={isActive}
                   >
@@ -476,7 +476,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
             <div style={styles.contextDivider} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               <span style={styles.contextLabel}>
-                {checkpointsOnSelectedDate.length === 1 ? 'Checkpoint salvato:' : `Checkpoint salvati (${checkpointsOnSelectedDate.length}):`}
+                {t('timetravel_checkpoints_on_date', { count: checkpointsOnSelectedDate.length })}
               </span>
               {checkpointsOnSelectedDate.map((cp) => {
                 const isThisActive = activeCheckpoint?.id === cp.id;
@@ -511,10 +511,10 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Movimenti del Giorno ({formatDate(selectedDate)})
+                {t('timetravel_day_movements_title', { date: formatDate(selectedDate) })}
               </span>
               <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                — Sequenza ordinale deterministica
+                {t('timetravel_day_sequence_hint')}
               </span>
             </div>
 
@@ -523,17 +523,17 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                 onClick={handleSelectStartOfDay}
                 className={`btn btn-secondary ${boundary === 'start_of_day' ? 'active' : ''}`}
                 style={{ fontSize: '11.5px', padding: '4px 10px' }}
-                title="Visualizza lo stato della macchina prima che qualsiasi evento di questa giornata avesse inizio"
+                title={t('timetravel_bod_button_title')}
               >
-                Inizio giornata (Prima di tutti)
+                {t('timetravel_bod_button')}
               </button>
               <button
                 onClick={handleSelectEndOfDay}
                 className={`btn btn-secondary ${boundary === 'end_of_day' && !anchorEventId ? 'active' : ''}`}
                 style={{ fontSize: '11.5px', padding: '4px 10px' }}
-                title="Visualizza lo stato della macchina dopo che tutti gli eventi della giornata si sono conclusi"
+                title={t('timetravel_eod_button_title')}
               >
-                Fine giornata (Tutti inclusi)
+                {t('timetravel_eod_button')}
               </button>
             </div>
           </div>
@@ -665,7 +665,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
           <h3 style={styles.rigSectionHeading}>
-            {t('timetravel_config_heading', { date: selectedDate ? formatDate(selectedDate).toUpperCase() : 'STORICA' })}
+            {t('timetravel_config_heading', { date: selectedDate ? formatDate(selectedDate).toUpperCase() : t('timetravel_config_heading_fallback') })}
           </h3>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
             {t('stats_components_count', { count: displayedComponents.length })}
@@ -808,7 +808,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
         position={currentPosition}
-        initialName={`Configurazione al ${formatDate(selectedDate)}`}
+        initialName={t('timetravel_save_checkpoint_default_name', { date: formatDate(selectedDate) })}
         onSuccess={(created) => {
           setActiveCheckpoint(created);
           setViewMode('checkpoint_snapshot');

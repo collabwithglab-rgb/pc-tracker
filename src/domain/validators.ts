@@ -11,8 +11,10 @@ import {
   GiftEvent,
   DisposalEvent,
   UpgradeExecutionInput,
+  SupportedLocale,
 } from '../types';
 import { sortEventsChronologically, computeComponentStatus } from './lifecycleEngine';
+import { translate } from '../locales/translator';
 
 export const VALID_CATEGORIES: ComponentCategory[] = [
   'cpu',
@@ -32,6 +34,12 @@ export const VALID_CATEGORIES: ComponentCategory[] = [
 export interface ValidationErrors {
   [key: string]: string;
 }
+
+/**
+ * Nota i18n: ogni validatore accetta un parametro finale opzionale `locale`
+ * (default 'it'). I messaggi sono risolti dal traduttore puro, quindi il dominio
+ * resta privo di dipendenze React e i messaggi seguono la lingua dell'utente.
+ */
 
 /**
  * Verifica se una stringa rappresenta una data valida nel formato rigoroso ISO YYYY-MM-DD.
@@ -63,27 +71,28 @@ export function isValidISODateString(dateStr: string | undefined | null): boolea
  * Valida i campi di un componente.
  */
 export function validateComponent(
-  data: Partial<Component>
+  data: Partial<Component>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   // Nome obbligatorio e non vuoto
   if (!data.name || data.name.trim().length === 0) {
-    errors.name = 'Il nome del componente è obbligatorio.';
+    errors.name = translate(locale, 'val_component_name_required');
   } else if (data.name.trim().length < 2) {
-    errors.name = 'Il nome del componente deve contenere almeno 2 caratteri.';
+    errors.name = translate(locale, 'val_component_name_min');
   }
 
   // Categoria obbligatoria e valida
   if (!data.category) {
-    errors.category = 'La categoria è obbligatoria.';
+    errors.category = translate(locale, 'val_category_required');
   } else if (!VALID_CATEGORIES.includes(data.category)) {
-    errors.category = 'Categoria non valida.';
+    errors.category = translate(locale, 'val_category_invalid');
   }
 
   // Marca non vuota se specificata
   if (data.brand !== undefined && data.brand.trim().length === 0) {
-    errors.brand = 'La marca non può essere uno spazio vuoto.';
+    errors.brand = translate(locale, 'val_brand_blank');
   }
 
   return {
@@ -97,27 +106,28 @@ export function validateComponent(
  */
 export function validatePurchaseEvent(
   data: Partial<PurchaseEvent>,
-  existingComponentIds?: Set<string>
+  existingComponentIds?: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   // Integrità referenziale se gli ID dei componenti sono forniti
   if (data.componentId && existingComponentIds && !existingComponentIds.has(data.componentId)) {
-    errors.componentId = `Componente di riferimento inesistente (${data.componentId}).`;
+    errors.componentId = translate(locale, 'val_ref_component_missing', { id: data.componentId });
   }
 
   // Prezzo obbligatorio e non negativo
   if (data.price === undefined || data.price === null || isNaN(data.price)) {
-    errors.price = 'Il prezzo di acquisto è obbligatorio.';
+    errors.price = translate(locale, 'val_purchase_price_required');
   } else if (data.price < 0) {
-    errors.price = 'Il prezzo di acquisto non può essere negativo.';
+    errors.price = translate(locale, 'val_purchase_price_negative');
   }
 
   // Data evento obbligatoria e valida
   if (!data.date || data.date.trim().length === 0) {
-    errors.date = 'La data di acquisto è obbligatoria.';
+    errors.date = translate(locale, 'val_purchase_date_required');
   } else if (!isValidISODateString(data.date)) {
-    errors.date = 'La data inserita non è valida (formato atteso: YYYY-MM-DD).';
+    errors.date = translate(locale, 'val_date_invalid_format');
   }
 
   return {
@@ -132,35 +142,36 @@ export function validatePurchaseEvent(
 export function validateInstallEvent(
   data: Partial<InstallEvent>,
   currentStatus: ComponentStatus,
-  existingComponentIds?: Set<string>
+  existingComponentIds?: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   if (!data.componentId) {
-    errors.componentId = 'ID componente obbligatorio.';
+    errors.componentId = translate(locale, 'val_component_id_required');
   } else if (existingComponentIds && !existingComponentIds.has(data.componentId)) {
-    errors.componentId = `Componente ${data.componentId} inesistente.`;
+    errors.componentId = translate(locale, 'val_component_not_exists', { id: data.componentId });
   }
 
   // Regola di Lifecycle 1: Non si può installare un componente già IN_USE
   if (currentStatus === 'IN_USE') {
-    errors.status = 'Il componente è già attualmente montato nel PC. È necessario rimuoverlo prima di una nuova installazione.';
+    errors.status = translate(locale, 'val_install_already_mounted');
   }
 
   // Regola di Lifecycle 2: Non si può installare un componente terminale
   if (currentStatus === 'SOLD') {
-    errors.status = 'Impossibile installare un componente già venduto.';
+    errors.status = translate(locale, 'val_install_sold');
   } else if (currentStatus === 'GIFTED') {
-    errors.status = 'Impossibile installare un componente regalato.';
+    errors.status = translate(locale, 'val_install_gifted');
   } else if (currentStatus === 'DISPOSED') {
-    errors.status = 'Impossibile installare un componente smaltito.';
+    errors.status = translate(locale, 'val_install_disposed');
   }
 
   // Data obbligatoria e valida
   if (!data.date || data.date.trim().length === 0) {
-    errors.date = 'La data di installazione è obbligatoria.';
+    errors.date = translate(locale, 'val_install_date_required');
   } else if (!isValidISODateString(data.date)) {
-    errors.date = 'Data di installazione non valida.';
+    errors.date = translate(locale, 'val_install_date_invalid');
   }
 
   return {
@@ -175,26 +186,27 @@ export function validateInstallEvent(
 export function validateUninstallEvent(
   data: Partial<UninstallEvent>,
   currentStatus: ComponentStatus,
-  existingComponentIds?: Set<string>
+  existingComponentIds?: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   if (!data.componentId) {
-    errors.componentId = 'ID componente obbligatorio.';
+    errors.componentId = translate(locale, 'val_component_id_required');
   } else if (existingComponentIds && !existingComponentIds.has(data.componentId)) {
-    errors.componentId = `Componente ${data.componentId} inesistente.`;
+    errors.componentId = translate(locale, 'val_component_not_exists', { id: data.componentId });
   }
 
   // Regola di Lifecycle: Si può rimuovere solo un componente attualmente IN_USE
   if (currentStatus !== 'IN_USE') {
-    errors.status = 'Il componente non risulta montato nel PC; impossibile rimuoverlo.';
+    errors.status = translate(locale, 'val_uninstall_not_mounted');
   }
 
   // Data obbligatoria e valida
   if (!data.date || data.date.trim().length === 0) {
-    errors.date = 'La data di rimozione è obbligatoria.';
+    errors.date = translate(locale, 'val_uninstall_date_required');
   } else if (!isValidISODateString(data.date)) {
-    errors.date = 'Data di rimozione non valida.';
+    errors.date = translate(locale, 'val_uninstall_date_invalid');
   }
 
   return {
@@ -209,47 +221,48 @@ export function validateUninstallEvent(
 export function validateSaleEvent(
   data: Partial<SaleEvent>,
   currentStatus: ComponentStatus,
-  existingComponentIds?: Set<string>
+  existingComponentIds?: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   if (!data.componentId) {
-    errors.componentId = 'ID componente obbligatorio.';
+    errors.componentId = translate(locale, 'val_component_id_required');
   } else if (existingComponentIds && !existingComponentIds.has(data.componentId)) {
-    errors.componentId = `Componente ${data.componentId} inesistente.`;
+    errors.componentId = translate(locale, 'val_component_not_exists', { id: data.componentId });
   }
 
   // Regola di Lifecycle: non si può vendere un pezzo già venduto, regalato o smaltito
   if (currentStatus === 'SOLD') {
-    errors.status = 'Questo componente risulta già venduto.';
+    errors.status = translate(locale, 'val_sale_already_sold');
   } else if (currentStatus === 'GIFTED') {
-    errors.status = 'Impossibile vendere un componente già regalato.';
+    errors.status = translate(locale, 'val_sale_gifted');
   } else if (currentStatus === 'DISPOSED') {
-    errors.status = 'Impossibile vendere un componente già smaltito.';
+    errors.status = translate(locale, 'val_sale_disposed');
   }
 
   // Prezzo obbligatorio e non negativo
   if (data.price === undefined || data.price === null || isNaN(data.price)) {
-    errors.price = 'Il prezzo di vendita è obbligatorio.';
+    errors.price = translate(locale, 'val_sale_price_required');
   } else if (data.price < 0) {
-    errors.price = 'Il prezzo di vendita non può essere negativo.';
+    errors.price = translate(locale, 'val_sale_price_negative');
   }
 
   // Spese di spedizione non negative se inserite
   if (data.shippingCost !== undefined && (isNaN(data.shippingCost) || data.shippingCost < 0)) {
-    errors.shippingCost = 'Le spese di spedizione non possono essere negative.';
+    errors.shippingCost = translate(locale, 'val_shipping_negative');
   }
 
   // Commissioni non negative se inserite
   if (data.fees !== undefined && (isNaN(data.fees) || data.fees < 0)) {
-    errors.fees = 'Le commissioni non possono essere negative.';
+    errors.fees = translate(locale, 'val_fees_negative');
   }
 
   // Data obbligatoria e valida
   if (!data.date || data.date.trim().length === 0) {
-    errors.date = 'La data di vendita è obbligatoria.';
+    errors.date = translate(locale, 'val_sale_date_required');
   } else if (!isValidISODateString(data.date)) {
-    errors.date = 'Data di vendita non valida.';
+    errors.date = translate(locale, 'val_sale_date_invalid');
   }
 
   return {
@@ -263,33 +276,34 @@ export function validateSaleEvent(
  */
 export function validateExtraExpenseEvent(
   data: Partial<ExtraExpenseEvent>,
-  existingComponentIds?: Set<string>
+  existingComponentIds?: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   if (!data.componentId) {
-    errors.componentId = 'ID componente obbligatorio.';
+    errors.componentId = translate(locale, 'val_component_id_required');
   } else if (existingComponentIds && !existingComponentIds.has(data.componentId)) {
-    errors.componentId = `Componente ${data.componentId} inesistente.`;
+    errors.componentId = translate(locale, 'val_component_not_exists', { id: data.componentId });
   }
 
   // Importo obbligatorio e strettamente positivo
   if (data.amount === undefined || data.amount === null || isNaN(data.amount)) {
-    errors.amount = 'L’importo della spesa è obbligatorio.';
+    errors.amount = translate(locale, 'val_expense_amount_required');
   } else if (data.amount <= 0) {
-    errors.amount = 'L’importo della spesa deve essere maggiore di zero.';
+    errors.amount = translate(locale, 'val_expense_amount_positive');
   }
 
   // Descrizione obbligatoria
   if (!data.description || data.description.trim().length === 0) {
-    errors.description = 'La descrizione della spesa è obbligatoria.';
+    errors.description = translate(locale, 'val_expense_description_required');
   }
 
   // Data obbligatoria e valida
   if (!data.date || data.date.trim().length === 0) {
-    errors.date = 'La data della spesa è obbligatoria.';
+    errors.date = translate(locale, 'val_expense_date_required');
   } else if (!isValidISODateString(data.date)) {
-    errors.date = 'Data della spesa non valida.';
+    errors.date = translate(locale, 'val_expense_date_invalid');
   }
 
   return {
@@ -304,28 +318,29 @@ export function validateExtraExpenseEvent(
 export function validateGiftEvent(
   data: Partial<GiftEvent>,
   currentStatus: ComponentStatus,
-  existingComponentIds?: Set<string>
+  existingComponentIds?: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   if (!data.componentId) {
-    errors.componentId = 'ID componente obbligatorio.';
+    errors.componentId = translate(locale, 'val_component_id_required');
   } else if (existingComponentIds && !existingComponentIds.has(data.componentId)) {
-    errors.componentId = `Componente ${data.componentId} inesistente.`;
+    errors.componentId = translate(locale, 'val_component_not_exists', { id: data.componentId });
   }
 
   if (currentStatus === 'SOLD') {
-    errors.status = 'Impossibile regalare un componente già venduto.';
+    errors.status = translate(locale, 'val_gift_sold');
   } else if (currentStatus === 'GIFTED') {
-    errors.status = 'Questo componente risulta già regalato.';
+    errors.status = translate(locale, 'val_gift_already_gifted');
   } else if (currentStatus === 'DISPOSED') {
-    errors.status = 'Impossibile regalare un componente già smaltito.';
+    errors.status = translate(locale, 'val_gift_disposed');
   }
 
   if (!data.date || data.date.trim().length === 0) {
-    errors.date = 'La data di donazione è obbligatoria.';
+    errors.date = translate(locale, 'val_gift_date_required');
   } else if (!isValidISODateString(data.date)) {
-    errors.date = 'Data di donazione non valida.';
+    errors.date = translate(locale, 'val_gift_date_invalid');
   }
 
   return {
@@ -340,33 +355,34 @@ export function validateGiftEvent(
 export function validateDisposalEvent(
   data: Partial<DisposalEvent>,
   currentStatus: ComponentStatus,
-  existingComponentIds?: Set<string>
+  existingComponentIds?: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   if (!data.componentId) {
-    errors.componentId = 'ID componente obbligatorio.';
+    errors.componentId = translate(locale, 'val_component_id_required');
   } else if (existingComponentIds && !existingComponentIds.has(data.componentId)) {
-    errors.componentId = `Componente ${data.componentId} inesistente.`;
+    errors.componentId = translate(locale, 'val_component_not_exists', { id: data.componentId });
   }
 
   if (currentStatus === 'SOLD') {
-    errors.status = 'Impossibile smaltire un componente già venduto.';
+    errors.status = translate(locale, 'val_disposal_sold');
   } else if (currentStatus === 'GIFTED') {
-    errors.status = 'Impossibile smaltire un componente già regalato.';
+    errors.status = translate(locale, 'val_disposal_gifted');
   } else if (currentStatus === 'DISPOSED') {
-    errors.status = 'Questo componente risulta già smaltito.';
+    errors.status = translate(locale, 'val_disposal_already_disposed');
   }
 
   const validMethods = ['recycled', 'broken_discarded', 'eco_center'];
   if (!data.disposalMethod || !validMethods.includes(data.disposalMethod)) {
-    errors.disposalMethod = 'Metodo di smaltimento non valido.';
+    errors.disposalMethod = translate(locale, 'val_disposal_method_invalid');
   }
 
   if (!data.date || data.date.trim().length === 0) {
-    errors.date = 'La data di smaltimento è obbligatoria.';
+    errors.date = translate(locale, 'val_disposal_date_required');
   } else if (!isValidISODateString(data.date)) {
-    errors.date = 'Data di smaltimento non valida.';
+    errors.date = translate(locale, 'val_disposal_date_invalid');
   }
 
   return {
@@ -380,24 +396,25 @@ export function validateDisposalEvent(
  */
 export function validateEvent(
   event: Partial<ComponentEvent>,
-  existingComponentIds: Set<string>
+  existingComponentIds: Set<string>,
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   if (!event.componentId) {
-    errors.componentId = 'ID componente mancante per questo evento.';
+    errors.componentId = translate(locale, 'val_event_component_missing');
   } else if (!existingComponentIds.has(event.componentId)) {
-    errors.componentId = `Integrità referenziale violata: componente ${event.componentId} non trovato.`;
+    errors.componentId = translate(locale, 'val_event_ref_violation', { id: event.componentId });
   }
 
   if (!event.date || event.date.trim().length === 0) {
-    errors.date = 'Data evento obbligatoria.';
+    errors.date = translate(locale, 'val_event_date_required');
   } else if (!isValidISODateString(event.date)) {
-    errors.date = 'Data evento non valida.';
+    errors.date = translate(locale, 'val_event_date_invalid');
   }
 
   if (!event.type) {
-    errors.type = 'Tipo evento non specificato.';
+    errors.type = translate(locale, 'val_event_type_missing');
   }
 
   return {
@@ -413,7 +430,10 @@ export function validateEvent(
  * 2. Non si può smontare (UNINSTALL) un componente che non risulta precedentemente montato.
  * 3. Nessun evento può verificarsi cronologicamente dopo uno stato terminale (SALE, GIFT, DISPOSAL).
  */
-export function validateLifecycleSequence(events: ComponentEvent[]): {
+export function validateLifecycleSequence(
+  events: ComponentEvent[],
+  locale: SupportedLocale = 'it'
+): {
   isValid: boolean;
   error?: string;
 } {
@@ -425,7 +445,12 @@ export function validateLifecycleSequence(events: ComponentEvent[]): {
     if (terminalEvent) {
       return {
         isValid: false,
-        error: `L'evento ${ev.type} del ${ev.date} non può avvenire dopo che il componente è stato dismesso (${terminalEvent.type} del ${terminalEvent.date}).`,
+        error: translate(locale, 'val_seq_after_terminal', {
+          type: ev.type,
+          date: ev.date,
+          terminalType: terminalEvent.type,
+          terminalDate: terminalEvent.date,
+        }),
       };
     }
 
@@ -433,7 +458,7 @@ export function validateLifecycleSequence(events: ComponentEvent[]): {
       if (isMounted) {
         return {
           isValid: false,
-          error: `Evento di montaggio del ${ev.date} non valido: il componente risulta già montato nel PC.`,
+          error: translate(locale, 'val_seq_double_install', { date: ev.date }),
         };
       }
       isMounted = true;
@@ -441,7 +466,7 @@ export function validateLifecycleSequence(events: ComponentEvent[]): {
       if (!isMounted) {
         return {
           isValid: false,
-          error: `Evento di rimozione del ${ev.date} non valido: il componente non risulta montato nel PC alla data indicata.`,
+          error: translate(locale, 'val_seq_uninstall_not_mounted', { date: ev.date }),
         };
       }
       isMounted = false;
@@ -461,19 +486,20 @@ export function validateLifecycleSequence(events: ComponentEvent[]): {
  */
 export function canDeleteEvent(
   eventIdToDelete: string,
-  componentEvents: ComponentEvent[]
+  componentEvents: ComponentEvent[],
+  locale: SupportedLocale = 'it'
 ): { canDelete: boolean; error?: string } {
   const target = componentEvents.find((e) => e.id === eventIdToDelete);
   if (!target) {
-    return { canDelete: false, error: 'Evento non trovato nel componente.' };
+    return { canDelete: false, error: translate(locale, 'val_event_not_found') };
   }
 
   const remaining = componentEvents.filter((e) => e.id !== eventIdToDelete);
-  const result = validateLifecycleSequence(remaining);
+  const result = validateLifecycleSequence(remaining, locale);
   if (!result.isValid) {
     return {
       canDelete: false,
-      error: `Impossibile eliminare l'evento: ${result.error}`,
+      error: translate(locale, 'val_delete_blocked', { reason: result.error ?? '' }),
     };
   }
 
@@ -485,16 +511,17 @@ export function canDeleteEvent(
  */
 export function canUpdateEvent(
   updatedEvent: ComponentEvent,
-  componentEvents: ComponentEvent[]
+  componentEvents: ComponentEvent[],
+  locale: SupportedLocale = 'it'
 ): { canUpdate: boolean; error?: string } {
   const updatedList = componentEvents.map((e) =>
     e.id === updatedEvent.id ? updatedEvent : e
   );
-  const result = validateLifecycleSequence(updatedList);
+  const result = validateLifecycleSequence(updatedList, locale);
   if (!result.isValid) {
     return {
       canUpdate: false,
-      error: `Modifica non consentita: ${result.error}`,
+      error: translate(locale, 'val_update_blocked', { reason: result.error ?? '' }),
     };
   }
 
@@ -510,27 +537,28 @@ export function canUpdateEvent(
 export function validateUpgrade(
   input: UpgradeExecutionInput,
   components: Component[],
-  events: ComponentEvent[]
+  events: ComponentEvent[],
+  locale: SupportedLocale = 'it'
 ): { isValid: boolean; errors: ValidationErrors } {
   const errors: ValidationErrors = {};
 
   // 1. Validazione vecchio componente
   if (!input.oldComponentId) {
-    errors.oldComponentId = 'Seleziona il componente da sostituire.';
+    errors.oldComponentId = translate(locale, 'val_upgrade_select_old');
   } else {
     const oldComp = components.find((c) => c.id === input.oldComponentId);
     if (!oldComp) {
-      errors.oldComponentId = 'Il componente da sostituire non esiste nel database.';
+      errors.oldComponentId = translate(locale, 'val_upgrade_old_missing');
     } else {
       const oldEvents = events.filter((e) => e.componentId === input.oldComponentId);
       const oldStatus = computeComponentStatus(oldEvents);
 
       if (oldStatus === 'SOLD') {
-        errors.oldComponentId = 'Impossibile sostituire un componente già venduto.';
+        errors.oldComponentId = translate(locale, 'val_upgrade_old_sold');
       } else if (oldStatus === 'GIFTED') {
-        errors.oldComponentId = 'Impossibile sostituire un componente già regalato.';
+        errors.oldComponentId = translate(locale, 'val_upgrade_old_gifted');
       } else if (oldStatus === 'DISPOSED') {
-        errors.oldComponentId = 'Impossibile sostituire un componente già smaltito.';
+        errors.oldComponentId = translate(locale, 'val_upgrade_old_disposed');
       }
 
       // Controllo temporale: data upgrade >= data primo acquisto vecchio componente
@@ -538,7 +566,10 @@ export function validateUpgrade(
       if (oldPurchases.length > 0) {
         const sortedPurchases = sortEventsChronologically(oldPurchases);
         if (input.date && input.date < sortedPurchases[0].date) {
-          errors.date = `La data dell'upgrade (${input.date}) non può precedere l'acquisto del vecchio componente (${sortedPurchases[0].date}).`;
+          errors.date = translate(locale, 'val_upgrade_date_before_old', {
+            date: input.date,
+            purchaseDate: sortedPurchases[0].date,
+          });
         }
       }
     }
@@ -547,25 +578,25 @@ export function validateUpgrade(
   // 2. Validazione modalità e nuovo componente
   if (input.mode === 'existing') {
     if (!input.newComponentId) {
-      errors.newComponentId = 'Seleziona il nuovo componente dal magazzino.';
+      errors.newComponentId = translate(locale, 'val_upgrade_select_new');
     } else if (input.oldComponentId && input.newComponentId === input.oldComponentId) {
-      errors.newComponentId = 'Il nuovo componente non può coincidere con il componente da sostituire.';
+      errors.newComponentId = translate(locale, 'val_upgrade_same_component');
     } else {
       const newComp = components.find((c) => c.id === input.newComponentId);
       if (!newComp) {
-        errors.newComponentId = 'Il componente subentrante selezionato non esiste.';
+        errors.newComponentId = translate(locale, 'val_upgrade_new_missing');
       } else {
         const newEvents = events.filter((e) => e.componentId === input.newComponentId);
         const newStatus = computeComponentStatus(newEvents);
 
         if (newStatus === 'SOLD') {
-          errors.newComponentId = 'Il componente selezionato risulta già venduto.';
+          errors.newComponentId = translate(locale, 'val_upgrade_new_sold');
         } else if (newStatus === 'GIFTED') {
-          errors.newComponentId = 'Il componente selezionato risulta già regalato.';
+          errors.newComponentId = translate(locale, 'val_upgrade_new_gifted');
         } else if (newStatus === 'DISPOSED') {
-          errors.newComponentId = 'Il componente selezionato risulta già smaltito.';
+          errors.newComponentId = translate(locale, 'val_upgrade_new_disposed');
         } else if (newStatus === 'IN_USE') {
-          errors.newComponentId = 'Il componente selezionato è già attualmente montato nel PC.';
+          errors.newComponentId = translate(locale, 'val_upgrade_new_in_use');
         }
 
         // Controllo temporale: data upgrade >= data acquisto nuovo componente
@@ -573,47 +604,50 @@ export function validateUpgrade(
         if (newPurchases.length > 0) {
           const sortedPurchases = sortEventsChronologically(newPurchases);
           if (input.date && input.date < sortedPurchases[0].date) {
-            errors.date = `La data dell'upgrade (${input.date}) non può precedere l'acquisto del nuovo componente (${sortedPurchases[0].date}).`;
+            errors.date = translate(locale, 'val_upgrade_date_before_new', {
+              date: input.date,
+              purchaseDate: sortedPurchases[0].date,
+            });
           }
         }
       }
     }
   } else if (input.mode === 'new') {
     if (!input.newComponentData) {
-      errors.newComponentData = 'I dati del nuovo componente sono obbligatori.';
+      errors.newComponentData = translate(locale, 'val_upgrade_new_data_required');
     } else {
       const data = input.newComponentData;
       if (!data.name || data.name.trim().length < 2) {
-        errors.newComponentName = 'Il nome del nuovo componente deve contenere almeno 2 caratteri.';
+        errors.newComponentName = translate(locale, 'val_upgrade_new_name_min');
       }
       if (!data.category || !VALID_CATEGORIES.includes(data.category)) {
-        errors.newComponentCategory = 'Categoria del nuovo componente non valida.';
+        errors.newComponentCategory = translate(locale, 'val_upgrade_new_category_invalid');
       }
       if (data.purchasePrice !== undefined && (isNaN(data.purchasePrice) || data.purchasePrice < 0)) {
-        errors.newComponentPrice = 'Il prezzo di acquisto del nuovo pezzo non può essere negativo.';
+        errors.newComponentPrice = translate(locale, 'val_upgrade_new_price_negative');
       }
     }
   } else {
-    errors.mode = 'Modalità di upgrade non valida.';
+    errors.mode = translate(locale, 'val_upgrade_mode_invalid');
   }
 
   // 3. Validazione Data
   if (!input.date || input.date.trim().length === 0) {
-    errors.date = 'La data dell’upgrade è obbligatoria.';
+    errors.date = translate(locale, 'val_upgrade_date_required');
   } else if (!isValidISODateString(input.date)) {
-    errors.date = 'Data dell’upgrade non valida (formato atteso: YYYY-MM-DD).';
+    errors.date = translate(locale, 'val_upgrade_date_invalid');
   }
 
   // 4. Validazione Vendita Contestuale (se richiesta)
   if (input.saleOldComponent) {
     if (input.salePrice === undefined || input.salePrice === null || isNaN(input.salePrice) || input.salePrice < 0) {
-      errors.salePrice = 'Il prezzo di vendita del vecchio pezzo deve essere un valore numerico non negativo.';
+      errors.salePrice = translate(locale, 'val_upgrade_sale_price_invalid');
     }
     if (input.shippingCost !== undefined && (isNaN(input.shippingCost) || input.shippingCost < 0)) {
-      errors.shippingCost = 'Le spese di spedizione non possono essere negative.';
+      errors.shippingCost = translate(locale, 'val_shipping_negative');
     }
     if (input.fees !== undefined && (isNaN(input.fees) || input.fees < 0)) {
-      errors.fees = 'Le commissioni non possono essere negative.';
+      errors.fees = translate(locale, 'val_fees_negative');
     }
   }
 
@@ -622,4 +656,3 @@ export function validateUpgrade(
     errors,
   };
 }
-

@@ -1,9 +1,11 @@
 import React from 'react';
 import { usePCStore } from '../../store';
+import { useOptionalTranslation } from '../../locales/i18nContext';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 export const Toast: React.FC = () => {
   const { notification, dismissNotification } = usePCStore();
+  const t = useOptionalTranslation();
   const [isExiting, setIsExiting] = React.useState(false);
   const exitTimerRef = React.useRef<number | null>(null);
 
@@ -56,8 +58,8 @@ export const Toast: React.FC = () => {
         <button
           onClick={triggerExit}
           style={styles.closeBtn}
-          title="Chiudi notifica"
-          aria-label="Chiudi notifica"
+          title={t('common_close_notification')}
+          aria-label={t('common_close_notification')}
         >
           <X size={14} />
         </button>

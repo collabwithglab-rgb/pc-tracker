@@ -1,5 +1,17 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
+import { translate, type TranslationKey } from '../../locales/translator';
+import { detectSystemLocale, isSupportedLocale } from '../../locales/registry';
+
+/**
+ * L'ErrorBoundary avvolge i provider e non può dipendere dal contesto React (potrebbe essere
+ * proprio la causa del crash): legge la lingua da <html lang> (sincronizzato da I18nProvider)
+ * con fallback alla lingua di sistema.
+ */
+function boundaryText(key: TranslationKey): string {
+  const htmlLang = typeof document !== 'undefined' ? document.documentElement.lang : '';
+  return translate(isSupportedLocale(htmlLang) ? htmlLang : detectSystemLocale(), key);
+}
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -60,8 +72,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   render(): ReactNode {
     if (this.state.hasError) {
-      const title = this.props.fallbackTitle || 'Si è verificato un errore imprevisto';
-      const errorMessage = this.state.error?.message || 'Errore sconosciuto';
+      const title = this.props.fallbackTitle || boundaryText('error_boundary_title');
+      const errorMessage = this.state.error?.message || boundaryText('common_unknown_error');
 
       return (
         <div
@@ -111,7 +123,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   {title}
                 </h1>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                  I tuoi dati su IndexedDB sono integri e protetti.
+                  {boundaryText('error_boundary_data_safe')}
                 </p>
               </div>
             </div>
@@ -143,7 +155,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 style={{ fontSize: '13.5px', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <RotateCcw size={15} />
-                <span>Riprova operazione</span>
+                <span>{boundaryText('error_boundary_retry')}</span>
               </button>
               <button
                 type="button"
@@ -152,7 +164,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 style={{ fontSize: '13.5px', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <RefreshCw size={15} />
-                <span>Ricarica applicazione</span>
+                <span>{boundaryText('error_boundary_reload')}</span>
               </button>
             </div>
 
@@ -172,7 +184,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     textDecoration: 'underline',
                   }}
                 >
-                  {this.state.showDetails ? 'Nascondi dettagli tecnici' : 'Mostra dettagli tecnici (stack trace)'}
+                  {this.state.showDetails ? boundaryText('error_boundary_hide_details') : boundaryText('error_boundary_show_details')}
                 </button>
                 {this.state.showDetails && (
                   <pre

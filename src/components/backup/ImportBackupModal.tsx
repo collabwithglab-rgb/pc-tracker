@@ -2,7 +2,7 @@ import React from 'react';
 import { Upload, AlertTriangle, Package, CheckCircle2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { ImportPreview } from '../../types/database';
-import { useTranslation } from '../../locales';
+import { useTranslation, getBcp47 } from '../../locales';
 
 interface ImportBackupModalProps {
   isOpen: boolean;
@@ -28,7 +28,7 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
   currentCounts,
   isImporting = false,
 }) => {
-  const { t } = useTranslation();
+  const { t, currentLocale } = useTranslation();
   if (!previewData) return null;
 
   return (
@@ -43,20 +43,20 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
         {/* Metadati Backup */}
         <div style={styles.metadataCard}>
           <div style={styles.metaRow}>
-            <span style={styles.metaLabel}>Versione Schema:</span>
+            <span style={styles.metaLabel}>{t('import_backup_meta_schema')}</span>
             <strong style={styles.metaValue}>v{previewData.schemaVersion}</strong>
           </div>
           {previewData.appVersion && (
             <div style={styles.metaRow}>
-              <span style={styles.metaLabel}>Generato con App:</span>
+              <span style={styles.metaLabel}>{t('import_backup_meta_app')}</span>
               <strong style={styles.metaValue}>v{previewData.appVersion}</strong>
             </div>
           )}
           {previewData.exportedAt && (
             <div style={styles.metaRow}>
-              <span style={styles.metaLabel}>Data Esportazione:</span>
+              <span style={styles.metaLabel}>{t('import_backup_meta_exported')}</span>
               <strong style={styles.metaValue}>
-                {new Date(previewData.exportedAt).toLocaleString('it-IT', {
+                {new Date(previewData.exportedAt).toLocaleString(getBcp47(currentLocale), {
                   dateStyle: 'medium',
                   timeStyle: 'short',
                 })}
@@ -65,7 +65,7 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
           )}
           {previewData.settingsSummary?.rigName && (
             <div style={styles.metaRow}>
-              <span style={styles.metaLabel}>Nome Rig nel Backup:</span>
+              <span style={styles.metaLabel}>{t('import_backup_meta_rig')}</span>
               <strong style={styles.metaValue}>{previewData.settingsSummary.rigName}</strong>
             </div>
           )}
@@ -78,22 +78,22 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
             <div style={styles.incomingHeader}>
               <Package size={15} color="var(--accent-primary)" />
               <span style={{ fontWeight: 600, color: 'var(--accent-primary)', fontSize: '12.5px' }}>
-                Dati nel Backup (in arrivo)
+                {t('import_backup_incoming_title')}
               </span>
             </div>
             <ul style={styles.countList}>
               <li>
-                <strong>{previewData.counts.components}</strong> Componenti
+                <strong>{previewData.counts.components}</strong> {t('import_backup_count_components')}
               </li>
               <li>
-                <strong>{previewData.counts.events}</strong> Eventi Storici
+                <strong>{previewData.counts.events}</strong> {t('import_backup_count_events')}
               </li>
               <li>
-                <strong>{previewData.counts.upgrades}</strong> Upgrade Generazionali
+                <strong>{previewData.counts.upgrades}</strong> {t('import_backup_count_upgrades')}
               </li>
               {previewData.counts.checkpoints !== undefined && (
                 <li>
-                  <strong>{previewData.counts.checkpoints}</strong> Checkpoint Storici
+                  <strong>{previewData.counts.checkpoints}</strong> {t('import_backup_count_checkpoints')}
                 </li>
               )}
             </ul>
@@ -104,22 +104,22 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
             <div style={styles.currentHeader}>
               <AlertTriangle size={15} color="var(--accent-ruby)" />
               <span style={{ fontWeight: 600, color: 'var(--accent-ruby)', fontSize: '12.5px' }}>
-                Dati Attuali Locali (da sostituire)
+                {t('import_backup_current_title')}
               </span>
             </div>
             <ul style={styles.countList}>
               <li>
-                <strong>{currentCounts.components}</strong> Componenti
+                <strong>{currentCounts.components}</strong> {t('import_backup_count_components')}
               </li>
               <li>
-                <strong>{currentCounts.events}</strong> Eventi Storici
+                <strong>{currentCounts.events}</strong> {t('import_backup_count_events')}
               </li>
               <li>
-                <strong>{currentCounts.upgrades}</strong> Upgrade Generazionali
+                <strong>{currentCounts.upgrades}</strong> {t('import_backup_count_upgrades')}
               </li>
               {currentCounts.checkpoints !== undefined && (
                 <li>
-                  <strong>{currentCounts.checkpoints}</strong> Checkpoint Storici
+                  <strong>{currentCounts.checkpoints}</strong> {t('import_backup_count_checkpoints')}
                 </li>
               )}
             </ul>
@@ -130,7 +130,7 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
         <div style={styles.noticeBox}>
           <CheckCircle2 size={16} color="var(--accent-emerald)" style={{ flexShrink: 0, marginTop: '2px' }} />
           <span>
-            L'operazione è <strong>completamente atomica</strong>: se confermi, il database locale IndexedDB verrà aggiornato con i dati del file di backup.
+            {t('import_backup_atomic_prefix')} <strong>{t('import_backup_atomic_strong')}</strong>{t('import_backup_atomic_suffix')}
           </span>
         </div>
 
@@ -152,7 +152,7 @@ export const ImportBackupModal: React.FC<ImportBackupModalProps> = ({
             id="btn-confirm-import-backup"
           >
             <Upload size={15} />
-            <span>{isImporting ? 'Ripristino in corso...' : t('import_backup_btn')}</span>
+            <span>{isImporting ? t('import_backup_restoring') : t('import_backup_btn')}</span>
           </button>
         </div>
       </div>

@@ -392,7 +392,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
             id="input-wiki-search"
           />
           {searchQuery.trim().length === 0 ? (
-            <span className="wiki-search-kbd-hint" title="Premi '/' per cercare rapidamente">/</span>
+            <span className="wiki-search-kbd-hint" title={t('wiki_search_kbd_hint')}>/</span>
           ) : (
             <button
               type="button"

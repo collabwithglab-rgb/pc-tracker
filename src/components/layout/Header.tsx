@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
       const filename = `pc-tracker-backup-${today}.json`;
       await saveBackupFileWithDialog(filename, jsonString);
     } catch (err) {
-      alert(`Errore durante il backup: ${(err as Error).message}`);
+      alert(t('backup_save_error', { error: (err as Error).message }));
     }
   };
 
