@@ -837,7 +837,8 @@ export function exportComponentsToCSV(
  */
 export function exportEventsToCSV(
   events: ComponentEvent[],
-  components: Component[]
+  components: Component[],
+  currencySymbol: string = '€'
 ): string {
   const compMap = new Map<string, Component>();
   for (const c of components) {
@@ -851,7 +852,7 @@ export function exportEventsToCSV(
     'Categoria',
     'Tipo Evento',
     'Data',
-    'Prezzo (€)',
+    `Prezzo (${currencySymbol})`,
     'Negozio',
     'Numero Ordine',
     'Link',
@@ -861,9 +862,9 @@ export function exportEventsToCSV(
     'Motivo Smontaggio',
     'Piattaforma Vendita',
     'Acquirente',
-    'Spese Spedizione (€)',
-    'Commissioni (€)',
-    'Importo Spesa Extra (€)',
+    `Spese Spedizione (${currencySymbol})`,
+    `Commissioni (${currencySymbol})`,
+    `Importo Spesa Extra (${currencySymbol})`,
     'Descrizione Spesa',
     'Destinatario Regalo',
     'Metodo Smaltimento',

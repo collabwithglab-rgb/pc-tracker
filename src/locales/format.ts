@@ -1,6 +1,6 @@
 import { DateFormatPreference, SupportedLocale } from '../types';
 import { getBcp47, MASTER_LOCALE } from './registry';
-import { getCurrencyFractionDigits, DEFAULT_CURRENCY } from './currencyRegistry';
+import { getCurrencyFractionDigits, DEFAULT_CURRENCY, isSupportedCurrency } from './currencyRegistry';
 
 /**
  * FORMATTAZIONE LOCALE — valute e date secondo il tag BCP-47 della lingua.
@@ -16,16 +16,26 @@ const numberFormatCache = new Map<string, Intl.NumberFormat>();
 const dateFormatCache = new Map<string, Intl.DateTimeFormat>();
 
 function getCurrencyFormatter(bcp47: string, currency: string): Intl.NumberFormat {
-  const fractionDigits = getCurrencyFractionDigits(currency);
-  const cacheKey = `${bcp47}|${currency}|${fractionDigits}`;
+  const safeCurrency = isSupportedCurrency(currency) ? currency : DEFAULT_CURRENCY;
+  const fractionDigits = getCurrencyFractionDigits(safeCurrency);
+  const cacheKey = `${bcp47}|${safeCurrency}|${fractionDigits}`;
   let formatter = numberFormatCache.get(cacheKey);
   if (!formatter) {
-    formatter = new Intl.NumberFormat(bcp47, {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: fractionDigits,
-      maximumFractionDigits: fractionDigits,
-    });
+    try {
+      formatter = new Intl.NumberFormat(bcp47, {
+        style: 'currency',
+        currency: safeCurrency,
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+      });
+    } catch {
+      formatter = new Intl.NumberFormat(bcp47, {
+        style: 'currency',
+        currency: DEFAULT_CURRENCY,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
     numberFormatCache.set(cacheKey, formatter);
   }
   return formatter;

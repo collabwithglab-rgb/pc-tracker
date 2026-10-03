@@ -152,5 +152,11 @@ describe('Currency Registry & Multi-Currency Engine', () => {
       expect(formatCurrency(undefined as unknown as number, 'it', 'EUR')).toContain('0,00');
       expect(formatCurrency(null as unknown as number, 'it', 'EUR')).toContain('0,00');
     });
+
+    it('gestisce con sicurezza codici valuta invalidi o non supportati ricadendo su EUR senza crash', () => {
+      const res = formatCurrency(100, 'it', 'INVALID_CURRENCY_XYZ');
+      expect(res).toContain('100,00');
+      expect(res).toContain('€');
+    });
   });
 });

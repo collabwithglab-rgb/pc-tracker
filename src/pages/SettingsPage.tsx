@@ -564,7 +564,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   // Handler esportazione CSV Eventi
   const handleExportEventsCSV = async () => {
     try {
-      const csv = exportEventsToCSV(events, components);
+      const csv = exportEventsToCSV(events, components, currentCurrencySymbol);
       const today = new Date().toISOString().split('T')[0];
       const filename = `pc-tracker-events-${today}.csv`;
       await saveBackupFileWithDialog(filename, csv);

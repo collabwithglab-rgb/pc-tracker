@@ -612,5 +612,19 @@ describe('Roadmap 9: Backup / Export Definitivo', () => {
       expect(csv).toContain('Amazon IT');
       expect(csv).toContain('"Nota con ""virgolette"" e\nnewline"');
     });
+
+    it('exportEventsToCSV adotta il currencySymbol dinamico specificato nelle intestazioni', () => {
+      const comp = createMockComponent({ id: 'c1', name: 'GPU', category: 'gpu' });
+      const ev = createMockPurchase({ id: 'e1', componentId: 'c1', date: '2024-01-01', price: 999 });
+
+      const csvUsd = exportEventsToCSV([ev], [comp], '$');
+      expect(csvUsd).toContain('ID Evento,ID Componente,Nome Componente,Categoria,Tipo Evento,Data,Prezzo ($)');
+      expect(csvUsd).toContain('Spese Spedizione ($)');
+      expect(csvUsd).toContain('Commissioni ($)');
+      expect(csvUsd).toContain('Importo Spesa Extra ($)');
+
+      const csvChf = exportEventsToCSV([ev], [comp], 'CHF');
+      expect(csvChf).toContain('Prezzo (CHF)');
+    });
   });
 });
