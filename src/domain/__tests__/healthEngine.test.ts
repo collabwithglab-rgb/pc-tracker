@@ -340,6 +340,99 @@ describe('healthEngine', () => {
       expect(report.areaBreakdown.thermal.status).toBe('critical');
     });
 
+    it('rileva surriscaldamento critico Hotspot (TJunction >= 110°C) su GPU AMD Radeon via ADL', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 20.0, availability: 'available', source: 'GetSystemTimes' },
+            logicalProcessorCount: 16,
+            baseFrequencyMhz: { value: 3800, availability: 'available', source: 'WMI' },
+            packageTemperatureCelsius: { value: 50.0, availability: 'available', source: 'WMI' },
+            packagePowerWatts: { value: 65.0, availability: 'available', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50.0 },
+          gpus: [
+            {
+              id: 'gpu-amd-rdna',
+              name: 'AMD Radeon RX 7900 XTX',
+              vendor: 'AMD',
+              isDiscrete: true,
+              utilizationPercent: { value: 98.0, availability: 'available', source: 'ADL' },
+              vramTotalBytes: { value: 24000000000, availability: 'available', source: 'ADL' },
+              vramUsedBytes: { value: 12000000000, availability: 'available', source: 'ADL' },
+              vramUtilizationPercent: { value: 50.0, availability: 'available', source: 'ADL' },
+              coreTemperatureCelsius: { value: 75.0, availability: 'available', unit: '°C', source: 'ADL' },
+              hotspotTemperatureCelsius: { value: 112.0, availability: 'available', unit: '°C', source: 'ADL' },
+              coreClockMhz: { value: 2500, availability: 'available', source: 'ADL' },
+              memoryClockMhz: { value: 2500, availability: 'available', source: 'ADL' },
+              powerWatts: { value: 350.0, availability: 'available', source: 'ADL' },
+              fanSpeedPercent: { value: 95.0, availability: 'available', source: 'ADL' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Win', osBuild: '1', uptimeSeconds: 100 },
+        },
+      };
+
+      const report = evaluateSystemHealth(facts);
+      const critHotspot = report.findings.find((f) => f.id === 'gpu-hotspot-critical-gpu-amd-rdna');
+      expect(critHotspot).toBeDefined();
+      expect(critHotspot?.severity).toBe('CRITICAL');
+      expect(critHotspot?.evidence).toContain('112°C');
+
+      // Verifica canale diagnostico con sorgente ADL
+      const tempChannel = report.diagnosticCoverage?.channels.find((c) => c.id === 'gpu_temp');
+      expect(tempChannel?.status).toBe('available');
+      expect(tempChannel?.source).toBe('ADL');
+    });
+
+    it('rileva avviso termico Hotspot (TJunction tra 100°C e 109°C) su GPU AMD Radeon', () => {
+      const facts: SystemFactsInput = {
+        referenceDate: REF_DATE,
+        monitoring: {
+          timestamp: REF_DATE,
+          status: 'success',
+          cpu: {
+            utilizationPercent: { value: 15.0, availability: 'available', source: 'GetSystemTimes' },
+            logicalProcessorCount: 8,
+            baseFrequencyMhz: { value: 3600, availability: 'available', source: 'WMI' },
+            packageTemperatureCelsius: { value: 45.0, availability: 'available', source: 'WMI' },
+            packagePowerWatts: { value: 45.0, availability: 'available', source: 'RAPL' },
+          },
+          memory: { totalBytes: 16000000000, usedBytes: 8000000000, availableBytes: 8000000000, utilizationPercent: 50.0 },
+          gpus: [
+            {
+              id: 'gpu-amd-6800xt',
+              name: 'AMD Radeon RX 6800 XT',
+              vendor: 'AMD',
+              isDiscrete: true,
+              utilizationPercent: { value: 85.0, availability: 'available', source: 'ADL' },
+              vramTotalBytes: { value: 16000000000, availability: 'available', source: 'ADL' },
+              vramUsedBytes: { value: 8000000000, availability: 'available', source: 'ADL' },
+              vramUtilizationPercent: { value: 50.0, availability: 'available', source: 'ADL' },
+              coreTemperatureCelsius: { value: 72.0, availability: 'available', unit: '°C', source: 'ADL' },
+              hotspotTemperatureCelsius: { value: 104.0, availability: 'available', unit: '°C', source: 'ADL' },
+              coreClockMhz: { value: 2200, availability: 'available', source: 'ADL' },
+              memoryClockMhz: { value: 2000, availability: 'available', source: 'ADL' },
+              powerWatts: { value: 280.0, availability: 'available', source: 'ADL' },
+              fanSpeedPercent: { value: 75.0, availability: 'available', source: 'ADL' },
+            },
+          ],
+          storage: [],
+          system: { osVersion: 'Win', osBuild: '1', uptimeSeconds: 100 },
+        },
+      };
+
+      const report = evaluateSystemHealth(facts);
+      const warnHotspot = report.findings.find((f) => f.id === 'gpu-hotspot-warning-gpu-amd-6800xt');
+      expect(warnHotspot).toBeDefined();
+      expect(warnHotspot?.severity).toBe('WARNING');
+      expect(warnHotspot?.evidence).toContain('104°C');
+    });
+
     it('rileva deviazione da Personal Baseline quando la GPU opera 8°C più calda del profilo Daily', () => {
       const facts: SystemFactsInput = {
         referenceDate: REF_DATE,

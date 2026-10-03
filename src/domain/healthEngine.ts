@@ -617,6 +617,34 @@ function evaluateGpuAndThermalHealth(facts: SystemFactsInput, findings: HealthFi
       }
     }
 
+    // Monitoraggio Hotspot / Giunzione GPU (specifico AMD RDNA o schede con sensore Hotspot)
+    if (isMetricAvailable(gpu.hotspotTemperatureCelsius)) {
+      const hotspot = gpu.hotspotTemperatureCelsius.value;
+      if (hotspot >= 110) {
+        findings.push({
+          id: `gpu-hotspot-critical-${gpu.id}`,
+          severity: 'CRITICAL',
+          area: 'thermal',
+          title: `Surriscaldamento Critico Hotspot GPU: ${gpu.name}`,
+          evidence: `Hotspot TJunction: ${hotspot}°C`,
+          explanation: 'Sensore Hotspot TJunction oltre soglia limite 110°C: thermal throttling hardware in corso.',
+          confidence: 'HIGH',
+          recommendedActionId: 'inspect-cooling',
+        });
+      } else if (hotspot >= 100) {
+        findings.push({
+          id: `gpu-hotspot-warning-${gpu.id}`,
+          severity: 'WARNING',
+          area: 'thermal',
+          title: `Temperatura Hotspot GPU Elevata: ${gpu.name}`,
+          evidence: `Hotspot TJunction: ${hotspot}°C`,
+          explanation: 'Sensore Hotspot TJunction prossimo a soglia 110°C: consigliata verifica ventilazione airflow case.',
+          confidence: 'HIGH',
+          recommendedActionId: 'inspect-cooling',
+        });
+      }
+    }
+
     // Monitoraggio VRAM Saturation
     if (isMetricAvailable(gpu.vramUtilizationPercent) && gpu.vramUtilizationPercent.value >= 95) {
       findings.push({

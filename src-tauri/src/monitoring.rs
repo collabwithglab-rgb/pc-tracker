@@ -188,6 +188,9 @@ mod windows_impl {
         fn LoadLibraryA(lp_lib_file_name: *const i8) -> *mut c_void;
         fn GetProcAddress(h_module: *mut c_void, lp_proc_name: *const i8) -> *mut c_void;
         fn FreeLibrary(h_lib_module: *mut c_void) -> i32;
+        fn GetProcessHeap() -> *mut c_void;
+        fn HeapAlloc(h_heap: *mut c_void, dw_flags: u32, dw_bytes: usize) -> *mut c_void;
+        fn HeapFree(h_heap: *mut c_void, dw_flags: u32, lp_mem: *mut c_void) -> i32;
     }
 
     const DRIVE_FIXED: u32 = 3;
@@ -508,11 +511,355 @@ mod windows_impl {
         res
     }
 
+    // -----------------------------------------------------------------------
+    // AMD ADL (AMD Display Library) Dynamic Telemetry Support
+    // -----------------------------------------------------------------------
+
+    const ADL_MAX_PATH: usize = 256;
+    const ADL_OK: i32 = 0;
+
+    #[repr(C)]
+    struct AdapterInfo {
+        i_size: i32,
+        i_adapter_index: i32,
+        str_udid: [i8; ADL_MAX_PATH],
+        i_bus_number: i32,
+        i_device_number: i32,
+        i_function_number: i32,
+        i_vendor_id: i32,
+        str_adapter_name: [i8; ADL_MAX_PATH],
+        str_display_name: [i8; ADL_MAX_PATH],
+        i_present: i32,
+        i_exist: i32,
+        str_driver_path: [i8; ADL_MAX_PATH],
+        str_driver_path_ext: [i8; ADL_MAX_PATH],
+        str_pnp_string: [i8; ADL_MAX_PATH],
+        i_os_display_index: i32,
+    }
+
+    #[repr(C)]
+    struct AdlPmActivity {
+        i_size: i32,
+        i_engine_clock: i32,
+        i_memory_clock: i32,
+        i_vddc: i32,
+        i_activity_percent: i32,
+        i_current_performance_level: i32,
+        i_current_bus_speed: i32,
+        i_current_bus_lanes: i32,
+        i_maximum_bus_lanes: i32,
+        i_reserved: i32,
+    }
+
+    #[repr(C)]
+    struct AdlTemperature {
+        i_size: i32,
+        i_temperature: i32,
+    }
+
+    #[repr(C)]
+    struct AdlFanSpeedValue {
+        i_size: i32,
+        i_speed_type: i32,
+        i_fan_speed: i32,
+        i_flags: i32,
+    }
+
+    #[repr(C)]
+    struct AdlMemoryInfo {
+        i_memory_size: i64,
+        str_memory_type: [i8; ADL_MAX_PATH],
+        i_memory_bandwidth: i64,
+    }
+
+    type AdlMainMallocCallback = unsafe extern "C" fn(i32) -> *mut c_void;
+
+    unsafe extern "C" fn adl_malloc(size: i32) -> *mut c_void {
+        if size <= 0 {
+            return null_mut();
+        }
+        let heap = GetProcessHeap();
+        if heap.is_null() {
+            return null_mut();
+        }
+        HeapAlloc(heap, 0x00000008, size as usize) // HEAP_ZERO_MEMORY = 0x8
+    }
+
+    type FnAdlMainControlCreate = unsafe extern "C" fn(AdlMainMallocCallback, i32) -> i32;
+    type FnAdlMainControlDestroy = unsafe extern "C" fn() -> i32;
+    type FnAdlAdapterNumberOfAdaptersGet = unsafe extern "C" fn(*mut i32) -> i32;
+    type FnAdlAdapterAdapterInfoGet = unsafe extern "C" fn(*mut AdapterInfo, i32) -> i32;
+    type FnAdlAdapterActiveGet = unsafe extern "C" fn(i32, *mut i32) -> i32;
+    type FnAdlOverdrive5CurrentActivityGet = unsafe extern "C" fn(i32, *mut AdlPmActivity) -> i32;
+    type FnAdlOverdrive5TemperatureGet = unsafe extern "C" fn(i32, i32, *mut AdlTemperature) -> i32;
+    type FnAdlOverdrive5FanSpeedGet = unsafe extern "C" fn(i32, i32, *mut AdlFanSpeedValue) -> i32;
+    type FnAdlOverdrive6CurrentPowerGet = unsafe extern "C" fn(i32, i32, *mut i32) -> i32;
+    type FnAdlAdapterMemoryInfoGet = unsafe extern "C" fn(i32, *mut AdlMemoryInfo) -> i32;
+
+    #[derive(Debug, Clone)]
+    #[allow(dead_code)]
+    struct AdlTelemetry {
+        adapter_index: i32,
+        name: String,
+        bus_number: i32,
+        utilization: Option<f64>,
+        vram_total: Option<u64>,
+        vram_used: Option<u64>,
+        temperature: Option<f64>,
+        hotspot_temperature: Option<f64>,
+        core_clock_mhz: Option<u32>,
+        memory_clock_mhz: Option<u32>,
+        power_watts: Option<f64>,
+        fan_speed_pct: Option<f64>,
+    }
+
+    fn query_adl_gpus() -> Result<Vec<AdlTelemetry>, String> {
+        let adl_lib_names = [
+            "atiadlxx.dll\0",
+            "C:\\Windows\\System32\\atiadlxx.dll\0",
+            "atiadlxy.dll\0",
+            "C:\\Windows\\System32\\atiadlxy.dll\0",
+        ];
+        let mut handle: *mut c_void = null_mut();
+
+        for name in adl_lib_names {
+            handle = unsafe { LoadLibraryA(name.as_ptr() as *const i8) };
+            if !handle.is_null() {
+                break;
+            }
+        }
+
+        if handle.is_null() {
+            return Err("adl_dll_not_found".to_string());
+        }
+
+        let res = (|| unsafe {
+            let p_create = GetProcAddress(handle, b"ADL_Main_Control_Create\0".as_ptr() as *const i8);
+            let p_destroy = GetProcAddress(handle, b"ADL_Main_Control_Destroy\0".as_ptr() as *const i8);
+            let p_num_adapters = GetProcAddress(handle, b"ADL_Adapter_NumberOfAdapters_Get\0".as_ptr() as *const i8);
+            let p_adapter_info = GetProcAddress(handle, b"ADL_Adapter_AdapterInfo_Get\0".as_ptr() as *const i8);
+
+            if p_create.is_null() || p_destroy.is_null() || p_num_adapters.is_null() || p_adapter_info.is_null() {
+                return Err("adl_entrypoints_missing".to_string());
+            }
+
+            let fn_create: FnAdlMainControlCreate = std::mem::transmute(p_create);
+            let fn_destroy: FnAdlMainControlDestroy = std::mem::transmute(p_destroy);
+            let fn_num_adapters: FnAdlAdapterNumberOfAdaptersGet = std::mem::transmute(p_num_adapters);
+            let fn_adapter_info: FnAdlAdapterAdapterInfoGet = std::mem::transmute(p_adapter_info);
+
+            let fn_adapter_active: Option<FnAdlAdapterActiveGet> = {
+                let p = GetProcAddress(handle, b"ADL_Adapter_Active_Get\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_activity: Option<FnAdlOverdrive5CurrentActivityGet> = {
+                let p = GetProcAddress(handle, b"ADL_Overdrive5_CurrentActivity_Get\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_temp: Option<FnAdlOverdrive5TemperatureGet> = {
+                let p = GetProcAddress(handle, b"ADL_Overdrive5_Temperature_Get\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_fan: Option<FnAdlOverdrive5FanSpeedGet> = {
+                let p = GetProcAddress(handle, b"ADL_Overdrive5_FanSpeed_Get\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_power: Option<FnAdlOverdrive6CurrentPowerGet> = {
+                let p = GetProcAddress(handle, b"ADL_Overdrive6_CurrentPower_Get\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_mem: Option<FnAdlAdapterMemoryInfoGet> = {
+                let p = GetProcAddress(handle, b"ADL_Adapter_MemoryInfo_Get\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+
+            if fn_create(adl_malloc, 1) != ADL_OK {
+                return Err("ADL_Main_Control_Create_failed".to_string());
+            }
+
+            let mut num_adapters = 0i32;
+            if fn_num_adapters(&mut num_adapters) != ADL_OK || num_adapters <= 0 {
+                let _ = fn_destroy();
+                return Err("no_adl_adapters".to_string());
+            }
+
+            let buffer_size = (num_adapters as usize) * std::mem::size_of::<AdapterInfo>();
+            let heap = GetProcessHeap();
+            let info_ptr = if !heap.is_null() {
+                HeapAlloc(heap, 0x00000008, buffer_size) as *mut AdapterInfo
+            } else {
+                null_mut()
+            };
+
+            if info_ptr.is_null() {
+                let _ = fn_destroy();
+                return Err("heap_alloc_failed".to_string());
+            }
+
+            if fn_adapter_info(info_ptr, buffer_size as i32) != ADL_OK {
+                if !heap.is_null() {
+                    HeapFree(heap, 0, info_ptr as *mut c_void);
+                }
+                let _ = fn_destroy();
+                return Err("ADL_Adapter_AdapterInfo_Get_failed".to_string());
+            }
+
+            let mut telemetries = Vec::new();
+            let mut seen_bus_numbers = Vec::new();
+
+            for i in 0..num_adapters {
+                let item = &*info_ptr.offset(i as isize);
+                if item.i_present == 0 {
+                    continue;
+                }
+
+                if let Some(fn_act) = fn_adapter_active {
+                    let mut active = 0i32;
+                    let _ = fn_act(item.i_adapter_index, &mut active);
+                }
+
+                if item.i_bus_number >= 0 && seen_bus_numbers.contains(&item.i_bus_number) {
+                    continue;
+                }
+
+                let cstr_name = std::ffi::CStr::from_ptr(item.str_adapter_name.as_ptr());
+                let adapter_name = cstr_name.to_string_lossy().trim().to_string();
+                if adapter_name.is_empty() {
+                    continue;
+                }
+
+                let mut util_pct = None;
+                let mut core_clk = None;
+                let mut mem_clk = None;
+                if let Some(fn_activity) = fn_activity {
+                    let mut act = AdlPmActivity {
+                        i_size: std::mem::size_of::<AdlPmActivity>() as i32,
+                        i_engine_clock: 0,
+                        i_memory_clock: 0,
+                        i_vddc: 0,
+                        i_activity_percent: 0,
+                        i_current_performance_level: 0,
+                        i_current_bus_speed: 0,
+                        i_current_bus_lanes: 0,
+                        i_maximum_bus_lanes: 0,
+                        i_reserved: 0,
+                    };
+                    if fn_activity(item.i_adapter_index, &mut act) == ADL_OK {
+                        if act.i_activity_percent >= 0 && act.i_activity_percent <= 100 {
+                            util_pct = Some(act.i_activity_percent as f64);
+                        }
+                        if act.i_engine_clock > 0 {
+                            core_clk = Some((act.i_engine_clock / 100) as u32);
+                        }
+                        if act.i_memory_clock > 0 {
+                            mem_clk = Some((act.i_memory_clock / 100) as u32);
+                        }
+                    }
+                }
+
+                let mut temp_val = None;
+                let mut hotspot_val = None;
+                if let Some(fn_temp) = fn_temp {
+                    let mut temp0 = AdlTemperature {
+                        i_size: std::mem::size_of::<AdlTemperature>() as i32,
+                        i_temperature: 0,
+                    };
+                    if fn_temp(item.i_adapter_index, 0, &mut temp0) == ADL_OK {
+                        let c = temp0.i_temperature as f64 / 1000.0;
+                        if c > 0.0 && c < 135.0 {
+                            temp_val = Some(round_1(c));
+                        }
+                    }
+
+                    let mut temp1 = AdlTemperature {
+                        i_size: std::mem::size_of::<AdlTemperature>() as i32,
+                        i_temperature: 0,
+                    };
+                    if fn_temp(item.i_adapter_index, 1, &mut temp1) == ADL_OK {
+                        let c = temp1.i_temperature as f64 / 1000.0;
+                        if c > 0.0 && c < 135.0 {
+                            hotspot_val = Some(round_1(c));
+                        }
+                    }
+                }
+
+                let mut fan_val = None;
+                if let Some(fn_fan) = fn_fan {
+                    let mut fan_data = AdlFanSpeedValue {
+                        i_size: std::mem::size_of::<AdlFanSpeedValue>() as i32,
+                        i_speed_type: 1,
+                        i_fan_speed: 0,
+                        i_flags: 0,
+                    };
+                    if fn_fan(item.i_adapter_index, 0, &mut fan_data) == ADL_OK {
+                        if fan_data.i_fan_speed >= 0 && fan_data.i_fan_speed <= 100 {
+                            fan_val = Some(fan_data.i_fan_speed as f64);
+                        }
+                    }
+                }
+
+                let mut pwr_watts = None;
+                if let Some(fn_power) = fn_power {
+                    let mut pwr = 0i32;
+                    if fn_power(item.i_adapter_index, 0, &mut pwr) == ADL_OK && pwr > 0 {
+                        let w = if pwr > 1000 {
+                            pwr as f64 / 1000.0
+                        } else {
+                            pwr as f64
+                        };
+                        pwr_watts = Some(round_1(w));
+                    }
+                }
+
+                let mut vram_bytes = None;
+                if let Some(fn_mem) = fn_mem {
+                    let mut mem_info = AdlMemoryInfo {
+                        i_memory_size: 0,
+                        str_memory_type: [0; ADL_MAX_PATH],
+                        i_memory_bandwidth: 0,
+                    };
+                    if fn_mem(item.i_adapter_index, &mut mem_info) == ADL_OK && mem_info.i_memory_size > 0 {
+                        vram_bytes = Some(mem_info.i_memory_size as u64);
+                    }
+                }
+
+                if item.i_bus_number >= 0 {
+                    seen_bus_numbers.push(item.i_bus_number);
+                }
+
+                telemetries.push(AdlTelemetry {
+                    adapter_index: item.i_adapter_index,
+                    name: adapter_name,
+                    bus_number: item.i_bus_number,
+                    utilization: util_pct,
+                    vram_total: vram_bytes,
+                    vram_used: None,
+                    temperature: temp_val,
+                    hotspot_temperature: hotspot_val,
+                    core_clock_mhz: core_clk,
+                    memory_clock_mhz: mem_clk,
+                    power_watts: pwr_watts,
+                    fan_speed_pct: fan_val,
+                });
+            }
+
+            if !heap.is_null() {
+                HeapFree(heap, 0, info_ptr as *mut c_void);
+            }
+            let _ = fn_destroy();
+            Ok(telemetries)
+        })();
+
+        unsafe { FreeLibrary(handle) };
+        res
+    }
+
     pub fn get_gpus_monitoring() -> Vec<GpuMonitoringData> {
         let mut list = Vec::new();
 
-        // 1. Tenta telemetria profonda NVML per schede NVIDIA
+        // 1. Tenta telemetria profonda NVML (NVIDIA) e ADL (AMD Radeon)
         let nvml_results = query_nvml_gpus().ok().unwrap_or_default();
+        let adl_results = query_adl_gpus().ok().unwrap_or_default();
 
         // 2. Enumerazione standard Display Adapter da Registro Windows (copre NVIDIA, AMD e Intel)
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
@@ -552,15 +899,27 @@ mod windows_impl {
                                 vram_bytes = dw as u64;
                             }
 
-                            // Match con eventuale telemetria NVML
-                            let nvml_match = nvml_results.iter().find(|n| {
-                                n.name.to_uppercase().contains(&upper) || upper.contains(&n.name.to_uppercase())
-                            });
+                            // Match con eventuale telemetria NVML (NVIDIA) o ADL (AMD)
+                            let nvml_match = if vendor == "NVIDIA" {
+                                nvml_results.iter().find(|n| {
+                                    n.name.to_uppercase().contains(&upper) || upper.contains(&n.name.to_uppercase())
+                                })
+                            } else {
+                                None
+                            };
+
+                            let adl_match = if vendor == "AMD" {
+                                adl_results.iter().find(|a| {
+                                    a.name.to_uppercase().contains(&upper) || upper.contains(&a.name.to_uppercase())
+                                })
+                            } else {
+                                None
+                            };
 
                             let id = format!("gpu-{}", gpu_idx);
                             gpu_idx += 1;
 
-                            let (util_pct, vram_tot, vram_usd, vram_pct, temp_c, core_clk, mem_clk, pwr_w, fan_pct) = if let Some(nv) = nvml_match {
+                            let (util_pct, vram_tot, vram_usd, vram_pct, temp_c, hotspot_c, core_clk, mem_clk, pwr_w, fan_pct) = if let Some(nv) = nvml_match {
                                 let total = nv.vram_total.unwrap_or(vram_bytes);
                                 let used = nv.vram_used;
                                 let pct = match (used, total) {
@@ -574,10 +933,36 @@ mod windows_impl {
                                     used.map(|u| MetricValue::available(u, Some("bytes"), "NVML")),
                                     pct.map(|p| MetricValue::available(p, Some("%"), "NVML")),
                                     nv.temperature.map(|t| MetricValue::available(t, Some("°C"), "NVML")),
+                                    MetricValue::unsupported("NVML", "hotspot_sensor_requires_elevated_api"),
                                     nv.core_clock_mhz.map(|c| MetricValue::available(c, Some("MHz"), "NVML")),
                                     nv.memory_clock_mhz.map(|m| MetricValue::available(m, Some("MHz"), "NVML")),
                                     nv.power_watts.map(|w| MetricValue::available(w, Some("W"), "NVML")),
                                     nv.fan_speed_pct.map(|f| MetricValue::available(f, Some("%"), "NVML")),
+                                )
+                            } else if let Some(adl) = adl_match {
+                                let total = adl.vram_total.unwrap_or(vram_bytes);
+                                let used = adl.vram_used;
+                                let pct = match (used, total) {
+                                    (Some(u), t) if t > 0 => Some(round_1((u as f64 / t as f64) * 100.0)),
+                                    _ => None,
+                                };
+
+                                let hotspot_metric = match adl.hotspot_temperature {
+                                    Some(h) => MetricValue::available(h, Some("°C"), "ADL"),
+                                    None => MetricValue::unsupported("ADL", "hotspot_sensor_not_supported_on_device"),
+                                };
+
+                                (
+                                    adl.utilization.map(|u| MetricValue::available(u, Some("%"), "ADL")),
+                                    if total > 0 { Some(MetricValue::available(total, Some("bytes"), "ADL")) } else { None },
+                                    used.map(|u| MetricValue::available(u, Some("bytes"), "ADL")),
+                                    pct.map(|p| MetricValue::available(p, Some("%"), "ADL")),
+                                    adl.temperature.map(|t| MetricValue::available(t, Some("°C"), "ADL")),
+                                    hotspot_metric,
+                                    adl.core_clock_mhz.map(|c| MetricValue::available(c, Some("MHz"), "ADL")),
+                                    adl.memory_clock_mhz.map(|m| MetricValue::available(m, Some("MHz"), "ADL")),
+                                    adl.power_watts.map(|w| MetricValue::available(w, Some("W"), "ADL")),
+                                    adl.fan_speed_pct.map(|f| MetricValue::available(f, Some("%"), "ADL")),
                                 )
                             } else {
                                 (
@@ -586,6 +971,7 @@ mod windows_impl {
                                     None,
                                     None,
                                     None,
+                                    MetricValue::unsupported("Vendor_API", "hotspot_sensor_unavailable"),
                                     None,
                                     None,
                                     None,
@@ -605,15 +991,15 @@ mod windows_impl {
                                     MetricValue::unavailable("Windows_Registry", "vram_size_not_reported")
                                 }),
                                 vram_used_bytes: vram_usd.unwrap_or_else(|| {
-                                    MetricValue::unavailable("NVML/D3DKMT", "vram_usage_requires_vendor_telemetry")
+                                    MetricValue::unavailable("NVML/ADL/D3DKMT", "vram_usage_requires_vendor_telemetry")
                                 }),
                                 vram_utilization_percent: vram_pct.unwrap_or_else(|| {
-                                    MetricValue::unavailable("NVML/D3DKMT", "vram_utilization_requires_vendor_telemetry")
+                                    MetricValue::unavailable("NVML/ADL/D3DKMT", "vram_utilization_requires_vendor_telemetry")
                                 }),
                                 core_temperature_celsius: temp_c.unwrap_or_else(|| {
                                     MetricValue::unavailable("NVML/ADL", "vendor_thermal_sensor_unavailable")
                                 }),
-                                hotspot_temperature_celsius: MetricValue::unsupported("NVML", "hotspot_sensor_requires_elevated_api"),
+                                hotspot_temperature_celsius: hotspot_c,
                                 core_clock_mhz: core_clk.unwrap_or_else(|| {
                                     MetricValue::unavailable("NVML/ADL", "core_clock_sensor_unavailable")
                                 }),
@@ -660,6 +1046,38 @@ mod windows_impl {
                     memory_clock_mhz: nv.memory_clock_mhz.map(|m| MetricValue::available(m, Some("MHz"), "NVML")).unwrap_or_else(|| MetricValue::unavailable("NVML", "no_mem_clock")),
                     power_watts: nv.power_watts.map(|w| MetricValue::available(w, Some("W"), "NVML")).unwrap_or_else(|| MetricValue::unavailable("NVML", "no_power")),
                     fan_speed_percent: nv.fan_speed_pct.map(|f| MetricValue::available(f, Some("%"), "NVML")).unwrap_or_else(|| MetricValue::unavailable("NVML", "no_fan")),
+                });
+            }
+        }
+
+        // Se ADL ha trovato una GPU AMD che non era ancora nell'elenco display, aggiungila
+        for adl in &adl_results {
+            if !list.iter().any(|g| g.name.to_uppercase().contains(&adl.name.to_uppercase())) {
+                let total = adl.vram_total.unwrap_or(0);
+                let used = adl.vram_used;
+                let pct = match (used, total) {
+                    (Some(u), t) if t > 0 => Some(round_1((u as f64 / t as f64) * 100.0)),
+                    _ => None,
+                };
+
+                list.push(GpuMonitoringData {
+                    id: format!("gpu-adl-{}", list.len()),
+                    name: adl.name.clone(),
+                    vendor: "AMD".to_string(),
+                    is_discrete: true,
+                    utilization_percent: adl.utilization.map(|u| MetricValue::available(u, Some("%"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_util")),
+                    vram_total_bytes: if total > 0 { MetricValue::available(total, Some("bytes"), "ADL") } else { MetricValue::unavailable("ADL", "no_vram_total") },
+                    vram_used_bytes: used.map(|u| MetricValue::available(u, Some("bytes"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_vram_used")),
+                    vram_utilization_percent: pct.map(|p| MetricValue::available(p, Some("%"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_vram_pct")),
+                    core_temperature_celsius: adl.temperature.map(|t| MetricValue::available(t, Some("°C"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_temp")),
+                    hotspot_temperature_celsius: match adl.hotspot_temperature {
+                        Some(h) => MetricValue::available(h, Some("°C"), "ADL"),
+                        None => MetricValue::unsupported("ADL", "hotspot_sensor_not_supported_on_device"),
+                    },
+                    core_clock_mhz: adl.core_clock_mhz.map(|c| MetricValue::available(c, Some("MHz"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_clock")),
+                    memory_clock_mhz: adl.memory_clock_mhz.map(|m| MetricValue::available(m, Some("MHz"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_mem_clock")),
+                    power_watts: adl.power_watts.map(|w| MetricValue::available(w, Some("W"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_power")),
+                    fan_speed_percent: adl.fan_speed_pct.map(|f| MetricValue::available(f, Some("%"), "ADL")).unwrap_or_else(|| MetricValue::unavailable("ADL", "no_fan")),
                 });
             }
         }

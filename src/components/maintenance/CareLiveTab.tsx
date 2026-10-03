@@ -175,6 +175,13 @@ export const CareLiveTab: React.FC = () => {
     return 'temp-good';
   };
 
+  const getHotspotThermalClass = (temp?: number | null): string => {
+    if (temp === null || temp === undefined) return '';
+    if (temp >= 110) return 'temp-critical';
+    if (temp >= 100) return 'temp-warning';
+    return 'temp-good';
+  };
+
   if (!isSupported && !showDemoLive && liveSnapshot?.status === 'unsupported') {
     return (
       <div className="card" style={{ padding: 'var(--space-xl)', textAlign: 'center' }}>
@@ -389,20 +396,44 @@ export const CareLiveTab: React.FC = () => {
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{gpu.vendor}</span>
                     </div>
                     {gpu.isDiscrete ? (
-                      <span className="badge badge-emerald">Dedicata (NVML)</span>
+                      <span className="badge badge-emerald">
+                        Dedicata ({gpu.coreTemperatureCelsius.source || (gpu.vendor === 'AMD' ? 'ADL' : 'NVML')})
+                      </span>
                     ) : (
                       <span className="badge badge-subtle">Integrata (iGPU)</span>
                     )}
                   </div>
 
-                  {/* Core Temp & Load */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', margin: 'var(--space-md) 0' }}>
+                  {/* Core Temp, Hotspot (se presente) & Load */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMetricAvailable(gpu.hotspotTemperatureCelsius)
+                        ? 'repeat(auto-fit, minmax(130px, 1fr))'
+                        : '1fr 1fr',
+                      gap: 'var(--space-md)',
+                      margin: 'var(--space-md) 0',
+                    }}
+                  >
                     <div className="care-metric-box">
                       <span className="care-meta-label">Temperatura Core</span>
                       <div className={`care-metric-val ${getThermalClass(coreTemp)}`}>
                         {coreTemp !== null ? `${coreTemp.toFixed(0)}°C` : 'N/D'}
                       </div>
                     </div>
+
+                    {isMetricAvailable(gpu.hotspotTemperatureCelsius) && (
+                      <div className="care-metric-box">
+                        <span className="care-meta-label">Hotspot Giunzione</span>
+                        <div
+                          className={`care-metric-val ${getHotspotThermalClass(
+                            gpu.hotspotTemperatureCelsius.value
+                          )}`}
+                        >
+                          {gpu.hotspotTemperatureCelsius.value.toFixed(0)}°C
+                        </div>
+                      </div>
+                    )}
 
                     <div className="care-metric-box">
                       <span className="care-meta-label">Carico Core GPU</span>
