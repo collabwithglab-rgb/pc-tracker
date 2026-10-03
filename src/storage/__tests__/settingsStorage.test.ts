@@ -85,6 +85,7 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
     expect(DEFAULT_SETTINGS.rigName).toBe('');
     expect(DEFAULT_SETTINGS.rigDescription).toBe('');
     expect(DEFAULT_SETTINGS.buildYear).toBeUndefined();
+    expect(DEFAULT_SETTINGS.currency).toBe('EUR');
     expect(DEFAULT_SETTINGS.currencySymbol).toBe('€');
     expect(DEFAULT_SETTINGS.language).toBe('it');
     expect(DEFAULT_SETTINGS.dateFormat).toBe('DD/MM/YYYY');
@@ -110,6 +111,7 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
 
     const normalized = normalizeSettings(legacyPayload);
 
+    expect(normalized.currency).toBe('EUR');
     expect(normalized.currencySymbol).toBe('€');
     expect(normalized.language).toBe('it');
     expect(normalized.dateFormat).toBe('DD/MM/YYYY');
@@ -121,6 +123,34 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
     expect(normalized.typographyPreset).toBe('default');
     expect(normalized.dashboardRecentCount).toBe(7);
     expect(normalized.showRigSynthesis).toBe(true);
+  });
+
+  it('2b. valida e normalizza la valuta (currency) sincronizzando currencySymbol in modo deterministico', () => {
+    const usdSettings = normalizeSettings({ currency: 'USD' });
+    expect(usdSettings.currency).toBe('USD');
+    expect(usdSettings.currencySymbol).toBe('$');
+
+    const jpySettings = normalizeSettings({ currency: 'JPY' });
+    expect(jpySettings.currency).toBe('JPY');
+    expect(jpySettings.currencySymbol).toBe('¥');
+
+    const gbpSettings = normalizeSettings({ currency: 'GBP' });
+    expect(gbpSettings.currency).toBe('GBP');
+    expect(gbpSettings.currencySymbol).toBe('£');
+
+    const chfSettings = normalizeSettings({ currency: 'CHF' });
+    expect(chfSettings.currency).toBe('CHF');
+    expect(chfSettings.currencySymbol).toBe('CHF');
+
+    // Inferenza da simbolo legacy se currency è assente
+    const inferred = normalizeSettings({ currencySymbol: '$' });
+    expect(inferred.currency).toBe('USD');
+    expect(inferred.currencySymbol).toBe('$');
+
+    // Fallback sicuro se valore invalido o corrotto
+    const fallback = normalizeSettings({ currency: 'INVALID_CURRENCY' as any });
+    expect(fallback.currency).toBe('EUR');
+    expect(fallback.currencySymbol).toBe('€');
   });
 
   it('3. gestisce payload nulli, indefiniti o corrotti con fallback sicuro sui default', () => {

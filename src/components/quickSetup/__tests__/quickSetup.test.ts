@@ -62,6 +62,15 @@ describe('Quick Setup & Hardware Detection Engine', () => {
       const normalizedTrue = normalizeSettings({ quickSetupCompleted: true });
       expect(normalizedTrue.quickSetupCompleted).toBe(true);
     });
+
+    it('supporta la selezione della valuta (default EUR) durante il quick setup', () => {
+      expect(DEFAULT_SETTINGS.currency).toBe('EUR');
+      expect(DEFAULT_SETTINGS.currencySymbol).toBe('€');
+
+      const normalizedUSD = normalizeSettings({ currency: 'USD' });
+      expect(normalizedUSD.currency).toBe('USD');
+      expect(normalizedUSD.currencySymbol).toBe('$');
+    });
   });
 
   describe('Ciclo di Vita & Integrità Finanziaria dopo Quick Setup', () => {
