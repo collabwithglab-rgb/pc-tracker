@@ -77,6 +77,12 @@ L'architettura separa rigorosamente la presentazione visiva dalla logica pura di
 ### 4. Livello Presentazione (`src/components/`, `src/pages/`)
 - Componenti UI visuali e reattivi a tema "Dark Hardware Enthusiast".
 
+### 5. Livello Internazionalizzazione (`src/locales/`)
+- **Single Source of Truth**: `registry.ts` governa codici lingua, metadati, fallback chain (`L -> fallback -> IT`) e proiezioni (`AVAILABLE_LOCALES`, `SUPPORTED_LOCALES`).
+- **Traduzione Pura & Pluralizzazione CLDR**: `translator.ts` supporta plurali `_one` / base con `Intl.PluralRules` e interpolazione `{count}`.
+- **Formattazione TZ-Safe**: `format.ts` calcola date pure in UTC e valute in cache per zero regressioni temporali.
+- **Guardia Anti-Regressione**: Test a cricchetto (`hardcodedStringsRatchet.test.ts`) per garantire zero stringhe hardcoded nei nuovi sviluppi.
+
 ---
 
 ## 4. Ricostruzione Storica della Configurazione (Time-Travel Capabilities)

@@ -294,3 +294,56 @@ L'utente finale non deve eseguire comandi Git o preoccuparsi della gestione di r
      4. GitHub Actions compila l'installer NSIS x64, applica la firma Minisign Ed25519 e pubblica la release con `latest.json`.
      5. Tutte le installazioni attive di PC Tracker su Windows rilevano e applicano l'aggiornamento in totale trasparenza e sicurezza dei dati.
 
+---
+
+## 11. Architettura di Internazionalizzazione (i18n) e Multilingua Scalabile
+
+Il sistema multilingua di PC Tracker è progettato con rigore architetturale, zero regressioni e scalabilità trasparente per $N$ lingue senza alcuna frammentazione logica.
+
+### 11.1 Registro Unificato come Single Source of Truth (`src/locales/registry.ts`)
+1. **`LOCALE_REGISTRY`**: Mappa centralizzata dei metadati di ciascuna lingua (`code`, `nativeName`, `flag`, `bcp47`, `fallback`). È l'unica fonte di verità per le lingue supportate.
+2. **Lingua Master e Fallback Internazionale**:
+   - `MASTER_LOCALE = 'it'` (lingua primaria di sviluppo).
+   - `INTERNATIONAL_FALLBACK_LOCALE = 'en'` (lingua di fallback internazionale per utenti con locale di sistema non supportato).
+3. **Catena di Risoluzione Deterministica (`resolveFallbackChain`)**:
+   - Per una lingua richiesta $L$, la catena è: $[L] \rightarrow [\text{fallback dichiarati}] \rightarrow [\text{MASTER\_LOCALE}]$, deduplicata in modo immutabile.
+   - Nessuna chiave mancante causa crash o chiavi grezze finché esiste una traduzione in un antenato della catena.
+4. **Zero Liste Duplicate**: `SUPPORTED_LOCALES` e `AVAILABLE_LOCALES` sono derivati per proiezione dal registro. Vietato dichiarare array hardcoded alternativi di codici lingua.
+
+### 11.2 Regole per Aggiungere una Nuova Lingua (Scalabilità $N$ Lingue)
+Aggiungere una nuova lingua (es. Francese `fr` o Tedesco `de`) richiede esclusivamente:
+1. Registrare la lingua in `LOCALE_REGISTRY` (`src/locales/registry.ts`) con codice, nome nativo, flag, tag BCP-47 e catena fallback (es. `['en']`).
+2. Creare il file dizionario `src/locales/xx.json`.
+3. Aggiungere l'import del dizionario in `src/locales/translator.ts` in `DICTIONARIES`.
+Nessun'altra modifica al codice React o alle viste è necessaria: la UI, i selettori, i formati e i test di parità recepiscono la lingua automaticamente.
+
+### 11.3 Pluralizzazione Deterministica CLDR (`Intl.PluralRules`)
+1. **Convenzione delle Chiavi**:
+   - Chiave base (categoria `other`, es. `count_components`): utilizzata per la forma plurale/generale.
+   - Chiave `_one` (categoria `one`, es. `count_components_one`): utilizzata per il singolare.
+2. **Segnaposto Obbligatorio**: Sia la chiave base che la chiave `_one` **devono contenere il segnaposto `{count}`**.
+3. **Vietate Coppie Arbitrarie**: Vietato introdurre suffissi come `_singular` / `_plural`. La selezione avviene automaticamente tramite `Intl.PluralRules(locale).select(count)`.
+
+### 11.4 Date e Valuta Indipendenti dal Fuso Orario
+1. **Date Pure (`YYYY-MM-DD`)**:
+   - Le date storiche senza orario (acquisti, installazioni, scadenze garanzia) sono formattate **in UTC a partire dai componenti numerici anno/mese/giorno**.
+   - Questa regola azzera il bug di "scivolamento di un giorno" (off-by-one) per gli utenti situati a fusi orari a ovest di UTC (es. Americhe).
+2. **Timestamp Completi e Valute**:
+   - I timestamp completi (es. data di esportazione backup, log interventi) usano il tag BCP-47 della lingua attiva (`getBcp47(currentLocale)`).
+   - Le valute usano `formatCurrency(amount, locale)` con istanze `Intl.NumberFormat` memorizzate in cache per massime prestazioni.
+
+### 11.5 Resilienza Primitivi e ErrorBoundary
+1. **`ErrorBoundary` Non Bloccante**: L'ErrorBoundary di sistema intercetta crash dell'albero React prima o al di fuori del contesto `I18nProvider`. Legge la lingua dall'attributo `<html lang>` (sincronizzato dinamicamente) con fallback a `detectSystemLocale()`.
+2. **`useOptionalTranslation()`**: Fornisce la funzione di traduzione anche a componenti primitivi riutilizzabili (es. `Modal`, `Toast`) quando renderizzati in test isolati senza provider avvolgente.
+
+### 11.6 Guardia Anti-Regressione (Ratchet Guard Test)
+1. **Test `hardcodedStringsRatchet.test.ts`**:
+   - Scansiona deterministicamente l'albero `src/` e confronta le righe con stringhe italiane hardcoded contro la baseline congelata `hardcodedStringsBaseline.json`.
+   - **Regola Tassativa**: Nessun nuovo file può introdurre stringhe hardcoded e nessun file esistente può aumentarne il conteggio.
+   - La baseline funziona a "cricchetto" (ratchet): può solo ridursi man mano che il codice viene progressivamente ripulito.
+
+### 11.7 Backlog Motori di Dominio (Localizzazione Pulita per il Futuro)
+I motori di calcolo puri (`src/domain/`) contengono messaggi di diagnostica e raccomandazione (Health, Optimization, Diagnostics, Listing, PowerBudget). Per preservarne la purezza architetturale (GEMINI.md §5: zero dipendenza da stato grafico globale):
+- **Pattern Raccomandato**: I motori restituiscono descrittori immutabili `{ key: TranslationKey, params?: TranslationParams }` che la UI o i componenti renderizzano tramite `t(desc.key, desc.params)`.
+- **Pattern Alternativo**: Accettare un parametro trailing esplicito `locale: SupportedLocale = 'it'` come già implementato con successo in `src/domain/validators.ts`.
+
