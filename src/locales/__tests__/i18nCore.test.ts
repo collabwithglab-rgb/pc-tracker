@@ -3,6 +3,8 @@ import itLocale from '../it.json';
 import enLocale from '../en.json';
 import esLocale from '../es.json';
 import frLocale from '../fr.json';
+import deLocale from '../de.json';
+import zhLocale from '../zh.json';
 import {
   LOCALE_REGISTRY,
   SUPPORTED_LOCALES,
@@ -23,9 +25,11 @@ const IT = itLocale as Record<string, string>;
 const EN = enLocale as Record<string, string>;
 const ES = esLocale as Record<string, string>;
 const FR = frLocale as Record<string, string>;
+const DE = deLocale as Record<string, string>;
+const ZH = zhLocale as Record<string, string>;
 
-describe('i18n Core â€” Registro, Fallback, Plurali, Date e Contenuti', () => {
-  describe('1. Registro lingue (unica fonte di veritÃ )', () => {
+describe('i18n Core — Registro, Fallback, Plurali, Date e Contenuti', () => {
+  describe('1. Registro lingue (unica fonte di verità)', () => {
     it('ogni lingua registrata ha BCP-47, nome nativo e descrizione nel selettore', () => {
       expect(SUPPORTED_LOCALES).toEqual(Object.keys(LOCALE_REGISTRY));
       for (const code of SUPPORTED_LOCALES) {
@@ -48,7 +52,9 @@ describe('i18n Core â€” Registro, Fallback, Plurali, Date e Contenuti', () 
       expect(isSupportedLocale('en')).toBe(true);
       expect(isSupportedLocale('es')).toBe(true);
       expect(isSupportedLocale('fr')).toBe(true);
-      for (const phantom of ['de', 'zh', 'ja', 'pt', 'ru', '', null, 42]) {
+      expect(isSupportedLocale('de')).toBe(true);
+      expect(isSupportedLocale('zh')).toBe(true);
+      for (const phantom of ['ja', 'pt', 'ru', '', null, 42]) {
         expect(isSupportedLocale(phantom)).toBe(false);
       }
     });
@@ -115,7 +121,7 @@ describe('i18n Core â€” Registro, Fallback, Plurali, Date e Contenuti', () 
       expect(oneKeys.length).toBeGreaterThan(10);
       for (const oneKey of oneKeys) {
         const base = oneKey.slice(0, -'_one'.length);
-        for (const dict of [IT, EN, ES, FR]) {
+        for (const dict of [IT, EN, ES, FR, DE, ZH]) {
           expect(dict[base], `Chiave base mancante per ${oneKey}`).toBeTruthy();
           expect(dict[oneKey]).toContain('{count}');
           expect(dict[base]).toContain('{count}');

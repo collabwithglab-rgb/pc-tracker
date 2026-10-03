@@ -255,8 +255,10 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
     expect(normalizeSettings({ language: 'it' }).language).toBe('it');
     expect(normalizeSettings({ language: 'es' }).language).toBe('es');
     expect(normalizeSettings({ language: 'fr' }).language).toBe('fr');
+    expect(normalizeSettings({ language: 'de' }).language).toBe('de');
+    expect(normalizeSettings({ language: 'zh' }).language).toBe('zh');
     // Lingue senza dizionario reale non sono accettate (niente "lingue fantasma")
-    for (const unsupported of ['de', 'zh', 'ja', 'pt', 'ru']) {
+    for (const unsupported of ['ja', 'pt', 'ru']) {
       expect(normalizeSettings({ language: unsupported as any }).language).toBe('it');
     }
     expect(normalizeSettings({ language: 'invalid' as any }).language).toBe('it');

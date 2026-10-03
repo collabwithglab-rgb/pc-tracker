@@ -1608,5 +1608,7 @@
   "import_backup_atomic_suffix": ": si confirma, la base de datos local IndexedDB se actualizará con los datos del archivo de respaldo.",
   "import_backup_restoring": "Restaurando...",
   "settings_language_es_desc": "Español",
-  "settings_language_fr_desc": "Francés (Français)"
+  "settings_language_fr_desc": "Francés (Français)",
+  "settings_language_de_desc": "Alemán (Deutsch)",
+  "settings_language_zh_desc": "Chino Simplificado (简体中文)"
 }

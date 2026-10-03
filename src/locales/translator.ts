@@ -2,6 +2,8 @@ import itLocale from './it.json';
 import enLocale from './en.json';
 import esLocale from './es.json';
 import frLocale from './fr.json';
+import deLocale from './de.json';
+import zhLocale from './zh.json';
 import { SupportedLocale } from '../types';
 import { getBcp47, resolveFallbackChain } from './registry';
 
@@ -23,6 +25,8 @@ const DICTIONARIES: Record<SupportedLocale, Dictionary> = {
   en: enLocale,
   es: esLocale,
   fr: frLocale,
+  de: deLocale,
+  zh: zhLocale,
 };
 
 /**

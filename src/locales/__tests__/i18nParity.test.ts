@@ -3,6 +3,8 @@ import itLocale from '../it.json';
 import enLocale from '../en.json';
 import esLocale from '../es.json';
 import frLocale from '../fr.json';
+import deLocale from '../de.json';
+import zhLocale from '../zh.json';
 import { interpolate, formatCurrency, formatDate, detectSystemLocale } from '../i18nContext';
 
 describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
@@ -10,13 +12,17 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
   const enKeys = Object.keys(enLocale).sort();
   const esKeys = Object.keys(esLocale).sort();
   const frKeys = Object.keys(frLocale).sort();
+  const deKeys = Object.keys(deLocale).sort();
+  const zhKeys = Object.keys(zhLocale).sort();
 
-  it('1. garantisce la parità 1:1 delle chiavi tra tutti i dizionari (it, en, es, fr al 100%)', () => {
-    // Tutte le chiavi in it.json devono esistere in en, es, fr
+  it('1. garantisce la parità 1:1 delle chiavi tra tutti i dizionari (it, en, es, fr, de, zh al 100%)', () => {
+    // Tutte le chiavi in it.json devono esistere in en, es, fr, de, zh
     for (const [code, dict, keys] of [
       ['en', enLocale, enKeys],
       ['es', esLocale, esKeys],
       ['fr', frLocale, frKeys],
+      ['de', deLocale, deKeys],
+      ['zh', zhLocale, zhKeys],
     ] as const) {
       const missing = itKeys.filter((key) => !(key in dict));
       expect(missing, `Chiavi mancanti in ${code}.json: ${missing.join(', ')}`).toEqual([]);
@@ -34,6 +40,8 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
       ['en', enLocale],
       ['es', esLocale],
       ['fr', frLocale],
+      ['de', deLocale],
+      ['zh', zhLocale],
     ] as const;
 
     for (const [code, dict] of allDicts) {
@@ -54,6 +62,8 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
       ['en', enLocale],
       ['es', esLocale],
       ['fr', frLocale],
+      ['de', deLocale],
+      ['zh', zhLocale],
     ] as const;
 
     for (const key of itKeys) {
@@ -102,6 +112,14 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
     expect(formattedFr).toContain('12');
     expect(formattedFr).toContain('500,50');
     expect(formattedFr).toContain('€');
+
+    const formattedDe = formatCurrency(12500.5, 'de');
+    expect(formattedDe).toContain('12.500,50');
+    expect(formattedDe).toContain('€');
+
+    const formattedZh = formatCurrency(12500.5, 'zh');
+    expect(formattedZh).toContain('12,500.50');
+    expect(formattedZh).toContain('€');
   });
 
   it('6. formatta date storiche ISO preservando affidabilità locale', () => {
@@ -109,6 +127,8 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
     expect(formatDate('2026-10-02', 'en')).toBe('10/02/2026');
     expect(formatDate('2026-10-02', 'es')).toBe('02/10/2026');
     expect(formatDate('2026-10-02', 'fr')).toBe('02/10/2026');
+    expect(formatDate('2026-10-02', 'de')).toBe('02.10.2026');
+    expect(formatDate('2026-10-02', 'zh')).toBe('2026/10/02');
 
     expect(formatDate('')).toBe('-');
     expect(formatDate('invalid-date')).toBe('invalid-date');
@@ -135,14 +155,20 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
       mockNavigator('fr-FR');
       expect(detectSystemLocale()).toBe('fr');
 
-      // Lingua senza dizionario (tedesco, polacco) → fallback internazionale EN
       mockNavigator('de-DE');
-      expect(detectSystemLocale()).toBe('en');
+      expect(detectSystemLocale()).toBe('de');
+
+      mockNavigator('zh-CN');
+      expect(detectSystemLocale()).toBe('zh');
+
+      // Lingua senza dizionario (polacco, giapponese) → fallback internazionale EN
       mockNavigator('pl-PL');
       expect(detectSystemLocale()).toBe('en');
+      mockNavigator('ja-JP');
+      expect(detectSystemLocale()).toBe('en');
 
-      // Scorre le preferenze in ordine: tedesco non supportato, poi spagnolo → ES
-      mockNavigator('de-DE', ['de-DE', 'es-ES', 'it-IT']);
+      // Scorre le preferenze in ordine: giapponese non supportato, poi spagnolo → ES
+      mockNavigator('ja-JP', ['ja-JP', 'es-ES', 'it-IT']);
       expect(detectSystemLocale()).toBe('es');
     } finally {
       Object.defineProperty(globalThis, 'navigator', {

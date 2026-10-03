@@ -39,6 +39,8 @@ export const LOCALE_REGISTRY: Record<SupportedLocale, LocaleDefinition> = {
   en: { code: 'en', nativeName: 'English', flag: '🇬🇧', bcp47: 'en-US', fallback: [] },
   es: { code: 'es', nativeName: 'Español', flag: '🇪🇸', bcp47: 'es-ES', fallback: ['en'] },
   fr: { code: 'fr', nativeName: 'Français', flag: '🇫🇷', bcp47: 'fr-FR', fallback: ['en'] },
+  de: { code: 'de', nativeName: 'Deutsch', flag: '🇩🇪', bcp47: 'de-DE', fallback: ['en'] },
+  zh: { code: 'zh', nativeName: '简体中文', flag: '🇨🇳', bcp47: 'zh-CN', fallback: ['en'] },
 };
 
 export const SUPPORTED_LOCALES = Object.keys(LOCALE_REGISTRY) as SupportedLocale[];
