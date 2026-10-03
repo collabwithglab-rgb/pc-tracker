@@ -25,7 +25,7 @@ import {
   Wrench,
   Globe,
 } from 'lucide-react';
-import { useTranslation, detectSystemLocale, SupportedLocale } from '../locales';
+import { useTranslation, detectSystemLocale, SupportedLocale, TranslationKey, getBcp47, translate, LOCALE_REGISTRY } from '../locales';
 import { Modal } from '../components/common/Modal';
 import {
   exportDatabaseToJSON,
@@ -227,18 +227,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     schedulerSettings,
     updateSchedulerSettings,
   } = usePCStore();
-  const { currentLocale, setLocale, t } = useTranslation();
+  const { currentLocale, setLocale, t, availableLocales } = useTranslation();
 
   const handleSelectLanguage = async (code: SupportedLocale) => {
     try {
       await setLocale(code);
-      const confirmMsg =
-        code === 'en'
-          ? 'Language updated to English 🇬🇧'
-          : 'Lingua aggiornata in Italiano 🇮🇹';
-      showNotification('success', confirmMsg);
+      // Conferma mostrata direttamente nella lingua appena scelta
+      const { nativeName, flag } = LOCALE_REGISTRY[code];
+      showNotification('success', translate(code, 'settings_language_changed_toast', { language: nativeName, flag }));
     } catch (err) {
-      showNotification('error', `Errore cambio lingua: ${(err as Error).message}`);
+      showNotification('error', t('settings_language_change_error', { error: (err as Error).message }));
     }
   };
 
@@ -773,7 +771,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     min={1990}
                     max={currentYear + 1}
                     className="form-input"
-                    placeholder={currentLocale === 'en' ? `e.g. ${currentYear - 1}` : `es. ${currentYear - 1}`}
+                    placeholder={t('settings_build_year_placeholder', { year: currentYear - 1 })}
                     value={formBuildYear}
                     onChange={(e) => setFormBuildYear(e.target.value)}
                   />
@@ -870,22 +868,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               role="radiogroup"
               aria-label={t('settings_language_title')}
             >
-              {[
-                {
-                  code: 'it' as const,
-                  name: 'Italiano',
-                  flag: '🇮🇹',
-                  desc: t('settings_language_it_desc'),
-                  bcp47: 'it-IT',
-                },
-                {
-                  code: 'en' as const,
-                  name: 'English',
-                  flag: '🇬🇧',
-                  desc: t('settings_language_en_desc'),
-                  bcp47: 'en-US',
-                },
-              ].map((lang) => {
+              {availableLocales.map((locale) => ({
+                code: locale.code,
+                name: locale.nativeName,
+                flag: locale.flag,
+                desc: t(`settings_language_${locale.code}_desc` as TranslationKey),
+                bcp47: locale.bcp47,
+              })).map((lang) => {
                 const isActive = (settings.language || currentLocale) === lang.code;
                 return (
                   <button
@@ -1628,7 +1617,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   </span>
                   <strong style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                     {lastExportedAtState
-                      ? new Date(lastExportedAtState).toLocaleString(currentLocale === 'en' ? 'en-US' : 'it-IT', { dateStyle: 'short', timeStyle: 'short' })
+                      ? new Date(lastExportedAtState).toLocaleString(getBcp47(currentLocale), { dateStyle: 'short', timeStyle: 'short' })
                       : t('settings_backup_last_export_none')}
                   </strong>
                 </div>
@@ -2058,7 +2047,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>{t('settings_modal_preview_export_date')}</span>
                 <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                   {importPreviewData.exportedAt
-                    ? new Date(importPreviewData.exportedAt).toLocaleDateString(currentLocale === 'en' ? 'en-US' : 'it-IT')
+                    ? new Date(importPreviewData.exportedAt).toLocaleDateString(getBcp47(currentLocale))
                     : t('settings_modal_preview_unspecified')}
                 </span>
               </div>

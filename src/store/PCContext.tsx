@@ -336,7 +336,9 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     schemaVersion: 1,
     appVersion: APP_VERSION,
     lastModified: new Date().toISOString(),
-    settings: DEFAULT_SETTINGS,
+    // Lingua non impostata finché IndexedDB non è caricato: l'I18nProvider usa
+    // cache UI / lingua di sistema, evitando un flash in italiano al primo avvio.
+    settings: { ...DEFAULT_SETTINGS, language: undefined },
     components: [],
     events: [],
     upgrades: [],

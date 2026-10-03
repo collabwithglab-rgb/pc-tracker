@@ -267,9 +267,7 @@ export const CurrentRigPage: React.FC<CurrentRigPageProps> = ({
               <div style={styles.groupHeaderLeft}>
                 <h3 style={styles.groupTitle}>{groupTitle}</h3>
                 <span style={styles.groupCountBadge}>
-                  {groupInstalled.length === 1
-                    ? t('current_rig_parts_count_singular', { count: 1 })
-                    : t('current_rig_parts_count_plural', { count: groupInstalled.length })}
+                  {t('current_rig_parts_count', { count: groupInstalled.length })}
                 </span>
                 <span style={styles.groupDescription}>• {groupDesc}</span>
               </div>

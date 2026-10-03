@@ -35,6 +35,7 @@ import {
   normalizeSchedulerSettings,
   normalizeReminderInteractions,
 } from '../domain';
+import { isSupportedLocale, detectSystemLocale } from '../locales/registry';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   rigName: '',
@@ -105,11 +106,9 @@ export function normalizeSettings(rawSettings: unknown): AppSettings {
       ? (s.typographyPreset as TypographyPresetPreference)
       : DEFAULT_SETTINGS.typographyPreset;
 
-  const validLocales: SupportedLocale[] = ['it', 'en', 'de', 'fr', 'es', 'zh', 'ja'];
-  const language: SupportedLocale =
-    typeof s.language === 'string' && validLocales.includes(s.language as SupportedLocale)
-      ? (s.language as SupportedLocale)
-      : (DEFAULT_SETTINGS.language || 'it');
+  const language: SupportedLocale = isSupportedLocale(s.language)
+    ? s.language
+    : (DEFAULT_SETTINGS.language || 'it');
 
   return {
     rigName: typeof s.rigName === 'string' ? s.rigName.trim() : DEFAULT_SETTINGS.rigName,
@@ -167,7 +166,7 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
  * senza toccare componenti, eventi, upgrade o flag di inizializzazione.
  */
 export async function resetSettings(): Promise<AppSettings> {
-  const defaults = { ...DEFAULT_SETTINGS };
+  const defaults: AppSettings = { ...DEFAULT_SETTINGS, language: detectSystemLocale() };
   await putItem(STORES.METADATA, { key: 'settings', value: defaults });
   return defaults;
 }
@@ -212,7 +211,11 @@ export async function loadFullDatabase(): Promise<DatabaseSchema> {
   }
 
   const settingsEntry = metadataList.find((m) => m.key === 'settings');
-  const settings = normalizeSettings(settingsEntry?.value);
+  // Prima installazione (nessun record impostazioni): adotta la lingua di sistema.
+  // Gli utenti esistenti mantengono la lingua salvata (o l'italiano legacy pre-i18n).
+  const settings = settingsEntry
+    ? normalizeSettings(settingsEntry.value)
+    : normalizeSettings({ language: detectSystemLocale() });
 
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,

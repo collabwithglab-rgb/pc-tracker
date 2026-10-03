@@ -252,11 +252,11 @@ describe('Settings Storage & Normalization Engine (Tranche 1 & 2)', () => {
 
   it('8b. valida, normalizza e persiste la preferenza language', async () => {
     expect(normalizeSettings({ language: 'en' }).language).toBe('en');
-    expect(normalizeSettings({ language: 'de' }).language).toBe('de');
-    expect(normalizeSettings({ language: 'fr' }).language).toBe('fr');
-    expect(normalizeSettings({ language: 'es' }).language).toBe('es');
-    expect(normalizeSettings({ language: 'zh' }).language).toBe('zh');
-    expect(normalizeSettings({ language: 'ja' }).language).toBe('ja');
+    expect(normalizeSettings({ language: 'it' }).language).toBe('it');
+    // Lingue senza dizionario reale non sono accettate (niente "lingue fantasma")
+    for (const unsupported of ['de', 'fr', 'es', 'zh', 'ja']) {
+      expect(normalizeSettings({ language: unsupported as any }).language).toBe('it');
+    }
     expect(normalizeSettings({ language: 'invalid' as any }).language).toBe('it');
     expect(normalizeSettings({ language: 123 as any }).language).toBe('it');
 

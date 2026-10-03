@@ -17,7 +17,11 @@ export type TypographyPresetPreference = 'default' | 'minimal' | 'system';
 export type DefaultSectionPreference = 'dashboard' | 'current-rig' | 'archive';
 export type ArchiveSortPreference = 'purchase_date_desc' | 'name_asc' | 'cost_desc';
 export type ArchiveViewPreference = 'cards' | 'table';
-export type SupportedLocale = 'it' | 'en' | 'de' | 'fr' | 'es' | 'zh' | 'ja';
+/**
+ * Lingue con dizionario reale. Aggiungere un codice qui obbliga TypeScript a richiedere
+ * la voce corrispondente in `src/locales/registry.ts` e `src/locales/translator.ts`.
+ */
+export type SupportedLocale = 'it' | 'en';
 
 export interface AppSettings {
   // Identità del Setup

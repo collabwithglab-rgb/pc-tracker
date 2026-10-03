@@ -165,7 +165,7 @@ export const WikiPage: React.FC<WikiPageProps> = ({
   const handleCopyArticle = async (article: WikiArticle, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const formatted = formatArticleForClipboard(article);
+      const formatted = formatArticleForClipboard(article, currentLocale);
       await navigator.clipboard.writeText(formatted);
       setCopiedId(article.id);
       setTimeout(() => setCopiedId(null), 2000);

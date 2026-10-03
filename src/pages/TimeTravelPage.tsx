@@ -668,7 +668,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
             {t('timetravel_config_heading', { date: selectedDate ? formatDate(selectedDate).toUpperCase() : 'STORICA' })}
           </h3>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            {displayedComponents.length} {t('stats_components_count', { count: displayedComponents.length })}
+            {t('stats_components_count', { count: displayedComponents.length })}
             {viewMode === 'checkpoint_snapshot' ? ` ${t('timetravel_from_snapshot')}` : ` ${t('timetravel_from_reconstruction')}`}
           </span>
         </div>
@@ -764,7 +764,7 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                       </span>
                     )}
                     <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', gap: '10px' }}>
-                      <span>{cp.summary.componentCount} {t('stats_components_count', { count: cp.summary.componentCount })}</span>
+                      <span>{t('stats_components_count', { count: cp.summary.componentCount })}</span>
                       <span>•</span>
                       <span className="font-mono">{formatCurrency(cp.summary.rigPurchaseCost)}</span>
                     </div>

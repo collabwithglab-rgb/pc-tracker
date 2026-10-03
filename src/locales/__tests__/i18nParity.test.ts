@@ -86,35 +86,28 @@ describe('i18n Quality Gate — Parità, Integrità e Formattazione', () => {
 
   it('7. detectSystemLocale rileva le lingue primarie e fallback internazionale', () => {
     const originalNavigator = globalThis.navigator;
+    const mockNavigator = (language: string, languages?: string[]) =>
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { language, languages: languages ?? [language] },
+        configurable: true,
+      });
 
     try {
-      // Mock IT
-      Object.defineProperty(globalThis, 'navigator', {
-        value: { language: 'it-IT' },
-        configurable: true,
-      });
+      mockNavigator('it-IT');
       expect(detectSystemLocale()).toBe('it');
 
-      // Mock EN
-      Object.defineProperty(globalThis, 'navigator', {
-        value: { language: 'en-US' },
-        configurable: true,
-      });
+      mockNavigator('en-US');
       expect(detectSystemLocale()).toBe('en');
 
-      // Mock DE
-      Object.defineProperty(globalThis, 'navigator', {
-        value: { language: 'de-DE' },
-        configurable: true,
-      });
-      expect(detectSystemLocale()).toBe('de');
-
-      // Mock Lingua non direttamente supportata (fallback su EN)
-      Object.defineProperty(globalThis, 'navigator', {
-        value: { language: 'pl-PL' },
-        configurable: true,
-      });
+      // Lingua senza dizionario (tedesco, polacco) → fallback internazionale EN
+      mockNavigator('de-DE');
       expect(detectSystemLocale()).toBe('en');
+      mockNavigator('pl-PL');
+      expect(detectSystemLocale()).toBe('en');
+
+      // Scorre le preferenze in ordine: tedesco non supportato, poi italiano → IT
+      mockNavigator('de-DE', ['de-DE', 'it-IT', 'en-US']);
+      expect(detectSystemLocale()).toBe('it');
     } finally {
       Object.defineProperty(globalThis, 'navigator', {
         value: originalNavigator,

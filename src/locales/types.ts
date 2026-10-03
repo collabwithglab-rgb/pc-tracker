@@ -1,25 +1,21 @@
-import itLocale from './it.json';
 import { SupportedLocale } from '../types';
+import type { TranslationKey, TranslationParams } from './translator';
+import type { LocaleDefinition } from './registry';
 
-export type { SupportedLocale };
+export type { SupportedLocale, TranslationKey, TranslationParams };
 
-export type TranslationKey = keyof typeof itLocale;
-
-export interface LocaleMetadata {
-  code: SupportedLocale;
-  label: string;
-  nativeName: string;
-  flag: string;
-  bcp47: string;
-}
+/** @deprecated Usare `LocaleDefinition` da `./registry`. Alias mantenuto per compatibilità. */
+export type LocaleMetadata = LocaleDefinition;
+export type { LocaleDefinition };
 
 export interface I18nContextValue {
   currentLocale: SupportedLocale;
   setLocale: (locale: SupportedLocale) => Promise<void> | void;
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
-  formatCurrency: (amount: number, customLocale?: string, currency?: string) => string;
-  formatDate: (dateIso: string, customLocale?: string) => string;
-  availableLocales: LocaleMetadata[];
+  t: (key: TranslationKey, params?: TranslationParams) => string;
+  formatCurrency: (amount: number, customLocale?: SupportedLocale, currency?: string) => string;
+  /** Rispetta lingua attiva e preferenza formato data dell'utente; sicura rispetto al fuso orario. */
+  formatDate: (dateIso: string | undefined | null, customLocale?: SupportedLocale) => string;
+  availableLocales: LocaleDefinition[];
   isLocaleLoaded: boolean;
 }
 

@@ -252,7 +252,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     const storagePulse = inStorage.length > 0
       ? {
           status: 'emerald' as const,
-          title: inStorage.length === 1 ? t('pulse_storage_singular', { count: 1 }) : t('pulse_storage_plural', { count: inStorage.length }),
+          title: t('pulse_storage', { count: inStorage.length }),
           subtitle: t('pulse_storage_sub', { amount: inStorageTotalPurchase.toFixed(0) }),
           targetSection: 'marketplace' as NavSection,
         }
@@ -283,7 +283,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     const warrantyPulse = expiringWarranties.length > 0
       ? {
           status: 'amber' as const,
-          title: expiringWarranties.length === 1 ? t('pulse_warranty_expiring_singular', { count: 1 }) : t('pulse_warranty_expiring_plural', { count: expiringWarranties.length }),
+          title: t('pulse_warranty_expiring', { count: expiringWarranties.length }),
           subtitle: `${expiringWarranties[0].name} (${expiringWarranties[0].humanLabel})`,
           targetSection: 'archive' as NavSection,
         }
@@ -291,7 +291,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       ? {
           status: 'primary' as const,
           title: t('pulse_warranty_coverage_title'),
-          subtitle: activeWarrantiesCount === 1 ? t('pulse_warranty_coverage_singular', { count: 1 }) : t('pulse_warranty_coverage_plural', { count: activeWarrantiesCount }),
+          subtitle: t('pulse_warranty_coverage', { count: activeWarrantiesCount }),
           targetSection: 'archive' as NavSection,
         }
       : {
@@ -313,14 +313,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       const lastCp = checkpoints[checkpoints.length - 1];
       lifecyclePulse = {
         status: 'primary',
-        title: checkpoints.length === 1 ? t('pulse_lifecycle_snapshot_singular', { count: 1 }) : t('pulse_lifecycle_snapshot_plural', { count: checkpoints.length }),
+        title: t('pulse_lifecycle_snapshot', { count: checkpoints.length }),
         subtitle: t('pulse_lifecycle_snapshot_sub', { name: lastCp.name }),
         targetSection: 'time-travel',
       };
     } else if (upgrades.length > 0) {
       lifecyclePulse = {
         status: 'emerald',
-        title: upgrades.length === 1 ? t('pulse_lifecycle_upgrades_singular', { count: 1 }) : t('pulse_lifecycle_upgrades_plural', { count: upgrades.length }),
+        title: t('pulse_lifecycle_upgrades', { count: upgrades.length }),
         subtitle: t('pulse_lifecycle_upgrades_sub'),
         targetSection: 'upgrades',
       };

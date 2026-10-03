@@ -341,9 +341,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             </span>
           </div>
           <div style={styles.footerCount}>
-            {filteredResults.length === 1
-              ? t('cmd_palette_result_count_single', { count: filteredResults.length })
-              : t('cmd_palette_results_count', { count: filteredResults.length })}
+            {t('cmd_palette_results_count', { count: filteredResults.length })}
           </div>
         </div>
       </div>

@@ -3,6 +3,23 @@ import { ReleaseChangelog, APP_CHANGELOG } from '../constants/changelog';
 import { WIKI_CATEGORIES, WIKI_ARTICLES } from '../constants/wikiData';
 import { WIKI_CATEGORIES_EN, WIKI_ARTICLES_EN } from '../constants/wikiDataEn';
 import { SupportedLocale } from '../types';
+import { resolveContentLocale } from '../locales/registry';
+
+/**
+ * Contenuti Wiki disponibili per lingua. Una lingua senza voce qui usa il primo
+ * contenuto compatibile della sua catena di fallback (es. futuro de → en → it).
+ */
+const WIKI_CONTENT: Partial<Record<SupportedLocale, { categories: WikiCategoryMeta[]; articles: WikiArticle[] }>> = {
+  it: { categories: WIKI_CATEGORIES, articles: WIKI_ARTICLES },
+  en: { categories: WIKI_CATEGORIES_EN, articles: WIKI_ARTICLES_EN },
+};
+
+const WIKI_CONTENT_LOCALES = Object.keys(WIKI_CONTENT) as SupportedLocale[];
+
+function getWikiContent(locale: SupportedLocale) {
+  const contentLocale = resolveContentLocale(locale, WIKI_CONTENT_LOCALES);
+  return { contentLocale, ...WIKI_CONTENT[contentLocale]! };
+}
 
 /**
  * Normalizza una stringa per ricerca case-insensitive senza accenti/spazi superflui
@@ -19,7 +36,7 @@ export function normalizeSearchTerm(term: string): string {
  * Restituisce le categorie della Wiki localizzate in base alla lingua attiva
  */
 export function getWikiCategories(locale: SupportedLocale = 'it'): WikiCategoryMeta[] {
-  return locale === 'en' ? WIKI_CATEGORIES_EN : WIKI_CATEGORIES;
+  return getWikiContent(locale).categories;
 }
 
 /**
@@ -32,7 +49,7 @@ export function generateWikiArticlesFromChangelog(
   changelogs: ReleaseChangelog[],
   locale: SupportedLocale = 'it'
 ): WikiArticle[] {
-  const isEn = locale === 'en';
+  const isEn = resolveContentLocale(locale, WIKI_CONTENT_LOCALES) === 'en';
 
   return changelogs.map((rel) => {
     const articleId = rel.wikiArticleId || `release-v${rel.version}`;
@@ -195,7 +212,7 @@ export function generateWikiArticlesFromChangelog(
  */
 export function getAllWikiArticles(locale: SupportedLocale = 'it'): WikiArticle[] {
   const generated = generateWikiArticlesFromChangelog(APP_CHANGELOG, locale);
-  const baseArticles = locale === 'en' ? WIKI_ARTICLES_EN : WIKI_ARTICLES;
+  const baseArticles = getWikiContent(locale).articles;
   const existingIds = new Set(baseArticles.map((a) => a.id));
   const uniqueGenerated = generated.filter((a) => !existingIds.has(a.id));
   return [...uniqueGenerated, ...baseArticles];
@@ -303,13 +320,19 @@ export function getWikiStats(articles: WikiArticle[]) {
   };
 }
 
+const CLIPBOARD_LABELS = {
+  it: { category: 'Categoria', readTime: 'Tempo di lettura', steps: 'Procedura Passo-Passo', formula: 'Formula', tips: 'Consigli Pro' },
+  en: { category: 'Category', readTime: 'Reading time', steps: 'Step-by-Step Procedure', formula: 'Formula', tips: 'Pro Tips' },
+} as const;
+
 /**
  * Formatta un articolo della Wiki in Markdown pulito per la copia negli appunti
  */
-export function formatArticleForClipboard(article: WikiArticle): string {
+export function formatArticleForClipboard(article: WikiArticle, locale: SupportedLocale = 'it'): string {
+  const labels = CLIPBOARD_LABELS[resolveContentLocale(locale, ['it', 'en'])];
   const sections: string[] = [
     `# ${article.title}`,
-    `*${article.badge} · Categoria: ${article.category} · Tempo di lettura: ${article.readTime}*`,
+    `*${article.badge} · ${labels.category}: ${article.category} · ${labels.readTime}: ${article.readTime}*`,
     '',
     `> ${article.summary}`,
     '',
@@ -317,20 +340,20 @@ export function formatArticleForClipboard(article: WikiArticle): string {
   ];
 
   if (article.steps && article.steps.length > 0) {
-    sections.push('', '### Procedura Passo-Passo:');
+    sections.push('', `### ${labels.steps}:`);
     article.steps.forEach((step, idx) => {
       sections.push(`${idx + 1}. ${step}`);
     });
   }
 
   if (article.formula) {
-    sections.push('', `### Formula: ${article.formula.title}`);
+    sections.push('', `### ${labels.formula}: ${article.formula.title}`);
     sections.push('```', article.formula.equation, '```');
     sections.push(article.formula.explanation);
   }
 
   if (article.tips && article.tips.length > 0) {
-    sections.push('', '### Consigli Pro:');
+    sections.push('', `### ${labels.tips}:`);
     article.tips.forEach((tip) => {
       sections.push(`💡 ${tip}`);
     });
