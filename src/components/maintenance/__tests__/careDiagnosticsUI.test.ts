@@ -321,4 +321,33 @@ describe('Tranche 8E — Care Diagnostics UI Presentation & Verification', () =>
       expect(findingWithTruncation.metadata?.capLimit).toBe(50);
     });
   });
+
+  describe('Tranche 9 — AMD Radeon GPU Telemetry & Hotspot UI Presentation', () => {
+    it('genera il badge dedicato dinamico per GPU AMD ADL o NVIDIA NVML', () => {
+      const getGpuBadgeText = (gpu: { isDiscrete: boolean; vendor: string; coreTemperatureCelsius: { source?: string } }) => {
+        if (!gpu.isDiscrete) return 'Integrata (iGPU)';
+        return `Dedicata (${gpu.coreTemperatureCelsius.source || (gpu.vendor === 'AMD' ? 'ADL' : 'NVML')})`;
+      };
+
+      expect(getGpuBadgeText({ isDiscrete: true, vendor: 'AMD', coreTemperatureCelsius: { source: 'ADL' } })).toBe('Dedicata (ADL)');
+      expect(getGpuBadgeText({ isDiscrete: true, vendor: 'NVIDIA', coreTemperatureCelsius: { source: 'NVML' } })).toBe('Dedicata (NVML)');
+      expect(getGpuBadgeText({ isDiscrete: false, vendor: 'Intel', coreTemperatureCelsius: {} })).toBe('Integrata (iGPU)');
+    });
+
+    it('calcola correttamente le classi termiche Hotspot su architettura AMD RDNA', () => {
+      const getHotspotThermalClass = (temp?: number | null): string => {
+        if (temp === null || temp === undefined) return '';
+        if (temp >= 110) return 'temp-critical';
+        if (temp >= 100) return 'temp-warning';
+        return 'temp-good';
+      };
+
+      expect(getHotspotThermalClass(112)).toBe('temp-critical');
+      expect(getHotspotThermalClass(110)).toBe('temp-critical');
+      expect(getHotspotThermalClass(105)).toBe('temp-warning');
+      expect(getHotspotThermalClass(100)).toBe('temp-warning');
+      expect(getHotspotThermalClass(85)).toBe('temp-good');
+      expect(getHotspotThermalClass(null)).toBe('');
+    });
+  });
 });

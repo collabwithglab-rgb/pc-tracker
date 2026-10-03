@@ -722,8 +722,9 @@ mod windows_impl {
                     continue;
                 }
 
-                let cstr_name = std::ffi::CStr::from_ptr(item.str_adapter_name.as_ptr());
-                let adapter_name = cstr_name.to_string_lossy().trim().to_string();
+                let name_len = item.str_adapter_name.iter().position(|&c| c == 0).unwrap_or(item.str_adapter_name.len());
+                let name_bytes: Vec<u8> = item.str_adapter_name[..name_len].iter().map(|&c| c as u8).collect();
+                let adapter_name = String::from_utf8_lossy(&name_bytes).trim().to_string();
                 if adapter_name.is_empty() {
                     continue;
                 }
