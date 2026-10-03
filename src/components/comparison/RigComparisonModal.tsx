@@ -38,7 +38,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
   initialSourceB,
   onOpenComponentDetail,
 }) => {
-  const { t } = useTranslation();
+  const { t, formatCurrency } = useTranslation();
   const { components, events, checkpoints, getInstalledComponents, getComponentComputed } = usePCStore();
 
   // Opzioni disponibili per la selezione
@@ -305,11 +305,11 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
             </div>
             <div style={styles.kpiValues}>
               <span className="font-mono" style={{ fontSize: '16px', color: 'var(--text-muted)' }}>
-                €{comparison.summary.costA.toFixed(2)}
+                {formatCurrency(comparison.summary.costA)}
               </span>
               <ArrowRight size={14} color="var(--text-tertiary)" />
               <span className="font-mono" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                €{comparison.summary.costB.toFixed(2)}
+                {formatCurrency(comparison.summary.costB)}
               </span>
             </div>
             <div style={styles.kpiDelta}>
@@ -325,7 +325,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
                       : 'var(--text-muted)',
                 }}
               >
-                {comparison.summary.deltaCost > 0 ? `+€${comparison.summary.deltaCost.toFixed(2)}` : comparison.summary.deltaCost < 0 ? `-€${Math.abs(comparison.summary.deltaCost).toFixed(2)}` : '€0.00'}
+                {comparison.summary.deltaCost > 0 ? `+${formatCurrency(comparison.summary.deltaCost)}` : comparison.summary.deltaCost < 0 ? `-${formatCurrency(Math.abs(comparison.summary.deltaCost))}` : formatCurrency(0)}
                 {comparison.summary.deltaCostPercent !== null && ` (${comparison.summary.deltaCostPercent > 0 ? `+${comparison.summary.deltaCostPercent}%` : `${comparison.summary.deltaCostPercent}%`})`}
               </span>
             </div>
@@ -480,7 +480,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
                             <div style={styles.itemMetaRow}>
                               {entry.oldComponent.purchasePrice !== undefined && (
                                 <span className="font-mono" style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                                  €{entry.oldComponent.purchasePrice.toFixed(2)}
+                                  {formatCurrency(entry.oldComponent.purchasePrice)}
                                 </span>
                               )}
                               {entry.oldComponent.slotOrLocation && (
@@ -526,7 +526,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
                             <div style={styles.itemMetaRow}>
                               {entry.newComponent.purchasePrice !== undefined && (
                                 <span className="font-mono" style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                                  €{entry.newComponent.purchasePrice.toFixed(2)}
+                                  {formatCurrency(entry.newComponent.purchasePrice)}
                                 </span>
                               )}
                               {entry.newComponent.slotOrLocation && (
@@ -554,7 +554,7 @@ export const RigComparisonModal: React.FC<RigComparisonModalProps> = ({
                               color: entry.priceDifference > 0 ? 'var(--accent-ruby)' : 'var(--accent-emerald)',
                             }}
                           >
-                            {entry.priceDifference > 0 ? `+€${entry.priceDifference.toFixed(2)}` : `-€${Math.abs(entry.priceDifference).toFixed(2)}`}
+                            {entry.priceDifference > 0 ? `+${formatCurrency(entry.priceDifference)}` : `-${formatCurrency(Math.abs(entry.priceDifference))}`}
                           </span>
                         )}
                         {entry.wattsDifference !== null && entry.wattsDifference !== undefined && entry.wattsDifference !== 0 && (

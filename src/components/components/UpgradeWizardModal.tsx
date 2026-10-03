@@ -44,7 +44,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
     executeUpgrade,
     settings,
   } = usePCStore();
-  const { t, formatCurrency } = useTranslation();
+  const { t, formatCurrency, currentCurrencySymbol } = useTranslation();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const stepContainerRef = useRef<HTMLDivElement>(null);
@@ -632,7 +632,22 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div className="form-group">
-                    <label className="form-label">{t('upgrade_field_price')}</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <label className="form-label" style={{ marginBottom: 0 }}>{t('upgrade_field_price')}</label>
+                      <span
+                        className="font-mono"
+                        style={{
+                          fontSize: '11px',
+                          padding: '1px 6px',
+                          borderRadius: 'var(--radius-xs)',
+                          backgroundColor: 'var(--bg-surface-elevated)',
+                          color: 'var(--accent-primary)',
+                          border: '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        {currentCurrencySymbol}
+                      </span>
+                    </div>
                     <input
                       type="number"
                       step="0.01"
@@ -727,7 +742,22 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                     <div className="form-group">
-                      <label className="form-label">{t('upgrade_sale_price')} *</label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label className="form-label" style={{ marginBottom: 0 }}>{t('upgrade_sale_price')} *</label>
+                        <span
+                          className="font-mono"
+                          style={{
+                            fontSize: '11px',
+                            padding: '1px 6px',
+                            borderRadius: 'var(--radius-xs)',
+                            backgroundColor: 'var(--bg-surface-elevated)',
+                            color: 'var(--accent-primary)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          {currentCurrencySymbol}
+                        </span>
+                      </div>
                       <input
                         type="number"
                         step="0.01"
@@ -741,7 +771,22 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">{t('upgrade_sale_shipping')}</label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label className="form-label" style={{ marginBottom: 0 }}>{t('upgrade_sale_shipping')}</label>
+                        <span
+                          className="font-mono"
+                          style={{
+                            fontSize: '11px',
+                            padding: '1px 6px',
+                            borderRadius: 'var(--radius-xs)',
+                            backgroundColor: 'var(--bg-surface-elevated)',
+                            color: 'var(--text-muted)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          {currentCurrencySymbol}
+                        </span>
+                      </div>
                       <input
                         type="number"
                         step="0.01"
@@ -754,7 +799,22 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">{t('upgrade_sale_fees')}</label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label className="form-label" style={{ marginBottom: 0 }}>{t('upgrade_sale_fees')}</label>
+                        <span
+                          className="font-mono"
+                          style={{
+                            fontSize: '11px',
+                            padding: '1px 6px',
+                            borderRadius: 'var(--radius-xs)',
+                            backgroundColor: 'var(--bg-surface-elevated)',
+                            color: 'var(--text-muted)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          {currentCurrencySymbol}
+                        </span>
+                      </div>
                       <input
                         type="number"
                         step="0.01"
@@ -888,9 +948,9 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 </div>
                 <div style={{ fontSize: '11.5px', marginTop: '4px', color: 'var(--text-secondary)' }}>
                   {saleOldComponent ? (
-                    <span>{t('upgrade_summary_recovery')} <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ € {calculatedOldRecovered.toFixed(2)}</strong></span>
+                    <span>{t('upgrade_summary_recovery')} <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ {formatCurrency(calculatedOldRecovered)}</strong></span>
                   ) : (
-                    <span>{t('upgrade_summary_historical_cost')} <span className="font-mono">€ {(oldCompComputed?.totalPurchaseCost || 0).toFixed(2)}</span></span>
+                    <span>{t('upgrade_summary_historical_cost')} <span className="font-mono">{formatCurrency(oldCompComputed?.totalPurchaseCost || 0)}</span></span>
                   )}
                 </div>
                 <div style={{ fontSize: '11px', color: saleOldComponent ? 'var(--accent-emerald)' : 'var(--accent-amber)', marginTop: '2px', fontWeight: 500 }}>
@@ -920,7 +980,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   {newMode === 'new' ? `${newBrand} • ${newModel}` : `${selectedNewExistingComp?.brand} • ${selectedNewExistingComp?.model}`}
                 </div>
                 <div style={{ fontSize: '11.5px', marginTop: '4px', color: 'var(--text-secondary)' }}>
-                  {t('upgrade_summary_purchase_label')} <strong className="font-mono" style={{ color: 'var(--accent-ruby)' }}>€ {calculatedNewCost.toFixed(2)}</strong>
+                  {t('upgrade_summary_purchase_label')} <strong className="font-mono" style={{ color: 'var(--accent-ruby)' }}>{formatCurrency(calculatedNewCost)}</strong>
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--accent-primary)', marginTop: '2px', fontWeight: 500 }}>
                   {t('upgrade_summary_dest_label')} <strong>{t('upgrade_dest_installed')}</strong>
@@ -983,15 +1043,15 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                     {t('upgrade_summary_sale_title')}
                   </span>
                   <div>
-                    {t('upgrade_summary_gross_label')} <strong className="font-mono">€ {parseFloat(salePrice || '0').toFixed(2)}</strong>
+                    {t('upgrade_summary_gross_label')} <strong className="font-mono">{formatCurrency(parseFloat(salePrice || '0'))}</strong>
                     {(parseFloat(shippingCost || '0') > 0 || parseFloat(fees || '0') > 0) && (
                       <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>
-                        ({t('upgrade_summary_shipping_abbr')} € {parseFloat(shippingCost || '0').toFixed(2)} | {t('upgrade_summary_fees_abbr')} € {parseFloat(fees || '0').toFixed(2)})
+                        ({t('upgrade_summary_shipping_abbr')} {formatCurrency(parseFloat(shippingCost || '0'))} | {t('upgrade_summary_fees_abbr')} {formatCurrency(parseFloat(fees || '0'))})
                       </span>
                     )}
                   </div>
                   <div>
-                    {t('upgrade_summary_net_recovery')} <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ € {calculatedOldRecovered.toFixed(2)}</strong>
+                    {t('upgrade_summary_net_recovery')} <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+ {formatCurrency(calculatedOldRecovered)}</strong>
                   </div>
                   {(salePlatform || saleBuyer) && (
                     <div style={{ color: 'var(--text-secondary)' }}>
@@ -1020,8 +1080,8 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                   {t('upgrade_summary_net_formula', {
-                    newCost: calculatedNewCost.toFixed(2),
-                    oldRecovered: calculatedOldRecovered.toFixed(2)
+                    newCost: formatCurrency(calculatedNewCost),
+                    oldRecovered: formatCurrency(calculatedOldRecovered)
                   })}
                 </div>
               </div>
@@ -1033,7 +1093,7 @@ export const UpgradeWizardModal: React.FC<UpgradeWizardModalProps> = ({
                   color: calculatedNetUpgradeCost <= 0 ? 'var(--accent-emerald)' : 'var(--text-primary)',
                 }}
               >
-                € {calculatedNetUpgradeCost.toFixed(2)}
+                {formatCurrency(calculatedNetUpgradeCost)}
               </div>
             </div>
 

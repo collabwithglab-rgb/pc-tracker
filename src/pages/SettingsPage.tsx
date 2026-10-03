@@ -24,8 +24,20 @@ import {
   BookOpen,
   Wrench,
   Globe,
+  Coins,
 } from 'lucide-react';
-import { useTranslation, detectSystemLocale, SupportedLocale, TranslationKey, getBcp47, translate, LOCALE_REGISTRY } from '../locales';
+import {
+  useTranslation,
+  detectSystemLocale,
+  SupportedLocale,
+  SupportedCurrency,
+  TranslationKey,
+  getBcp47,
+  translate,
+  LOCALE_REGISTRY,
+  CURRENCY_REGISTRY,
+  getCurrencyDefinition,
+} from '../locales';
 import { Modal } from '../components/common/Modal';
 import {
   exportDatabaseToJSON,
@@ -227,7 +239,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     schedulerSettings,
     updateSchedulerSettings,
   } = usePCStore();
-  const { currentLocale, setLocale, t, availableLocales } = useTranslation();
+  const {
+    currentLocale,
+    setLocale,
+    t,
+    availableLocales,
+    currentCurrency,
+    currentCurrencySymbol,
+    setCurrency,
+    availableCurrencies,
+    formatCurrency,
+  } = useTranslation();
 
   const handleSelectLanguage = async (code: SupportedLocale) => {
     try {
@@ -237,6 +259,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       showNotification('success', translate(code, 'settings_language_changed_toast', { language: nativeName, flag }));
     } catch (err) {
       showNotification('error', t('settings_language_change_error', { error: (err as Error).message }));
+    }
+  };
+
+  const handleSelectCurrency = async (code: SupportedCurrency) => {
+    try {
+      await setCurrency(code);
+      const def = CURRENCY_REGISTRY[code];
+      showNotification(
+        'success',
+        t('settings_currency_changed_toast', { currency: def.nativeName, symbol: def.symbol })
+      );
+    } catch (err) {
+      showNotification('error', (err as Error).message);
     }
   };
 
@@ -914,6 +949,123 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Gruppo: Valuta di Riferimento (Reference Currency) */}
+          <div className="settings-group" id="settings-group-currency">
+            <div className="settings-group-header">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <h2 className="settings-group-title">
+                  <Coins size={18} color="var(--accent-primary)" />
+                  <span>{t('settings_currency_title')}</span>
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      fontSize: '11.5px',
+                      color: 'var(--accent-primary)',
+                      backgroundColor: 'var(--bg-surface-elevated)',
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--border-subtle)',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {currentCurrency} ({currentCurrencySymbol})
+                  </span>
+                </div>
+              </div>
+              <p className="settings-group-desc">
+                {t('settings_currency_desc')}
+              </p>
+            </div>
+
+            <div
+              className="settings-option-grid"
+              role="radiogroup"
+              aria-label={t('settings_currency_title')}
+            >
+              {availableCurrencies.map((curr) => {
+                const isActive = (settings.currency || currentCurrency) === curr.code;
+                return (
+                  <button
+                    key={curr.code}
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => handleSelectCurrency(curr.code)}
+                    className={`settings-option-btn ${isActive ? 'is-active' : ''}`}
+                    id={`btn-curr-${curr.code}`}
+                  >
+                    <div className="settings-option-top">
+                      <span
+                        className="settings-option-title"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <span style={{ fontSize: '18px', lineHeight: 1 }}>{curr.flag}</span>
+                        <span>{curr.code} ({curr.symbol})</span>
+                      </span>
+                      {isActive && (
+                        <span className="settings-option-badge">
+                          {t('settings_language_active')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="settings-option-desc">{curr.nativeName}</p>
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        fontSize: '11px',
+                        fontFamily: 'var(--font-mono)',
+                        color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {t('settings_currency_decimals_label')}: {curr.fractionDigits}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Box Anteprima Dinamica Formattata */}
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '12px 16px',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                  {t('settings_currency_preview_label')}:
+                </span>
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: 'var(--accent-emerald)',
+                    backgroundColor: 'var(--bg-canvas)',
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {formatCurrency(1249.99)}
+                </span>
+              </div>
+              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                {currentCurrency} • {getCurrencyDefinition(currentCurrency).symbol}
+              </span>
             </div>
           </div>
 

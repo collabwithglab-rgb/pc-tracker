@@ -15,10 +15,10 @@ import {
   Upload,
   BookOpen,
 } from 'lucide-react';
-import { ComponentCategory, Component } from '../../types';
+import { ComponentCategory, Component, SupportedCurrency } from '../../types';
 import { usePCStore, QuickSetupImportItem } from '../../store';
 import { detectHardware, DetectedComponent } from '../../services';
-import { useTranslation, TranslationKey } from '../../locales';
+import { useTranslation, TranslationKey, AVAILABLE_CURRENCIES, getCurrencySymbol } from '../../locales';
 
 interface QuickSetupModalProps {
   isOpen: boolean;
@@ -108,6 +108,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
   const [rigName, setRigName] = useState(settings.rigName || 'Gaming PC');
   const [rigDescription, setRigDescription] = useState(settings.rigDescription || 'PC principale');
   const [buildYear, setBuildYear] = useState<number>(settings.buildYear || currentYear);
+  const [currency, setCurrency] = useState<SupportedCurrency>(settings.currency || 'EUR');
 
   // Scansione & Candidati
   const [scanStepIndex, setScanStepIndex] = useState<number>(0);
@@ -130,6 +131,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
       setRigName(settings.rigName || 'Gaming PC');
       setRigDescription(settings.rigDescription || 'PC principale');
       setBuildYear(settings.buildYear || currentYear);
+      setCurrency(settings.currency || 'EUR');
       setScanStepIndex(0);
       setDetectedItems([]);
       setImportedCount(0);
@@ -286,6 +288,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
         rigName: rigName.trim() || t('store_quick_setup_default_rig_name'),
         rigDescription: rigDescription.trim(),
         buildYear,
+        currency,
         components: itemsToImport,
       });
 
@@ -518,6 +521,28 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
               />
               <span style={styles.hint}>
                 {t('quicksetup_build_year_hint')}
+              </span>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label} htmlFor="qs-currency">
+                {t('quicksetup_currency_label')}
+              </label>
+              <select
+                id="qs-currency"
+                className="form-select"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
+                style={{ ...styles.input, maxWidth: '280px' }}
+              >
+                {AVAILABLE_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.code} ({c.symbol}) — {c.nativeName}
+                  </option>
+                ))}
+              </select>
+              <span style={styles.hint}>
+                {t('quicksetup_currency_desc')}
               </span>
             </div>
 
@@ -779,7 +804,7 @@ export const QuickSetupModal: React.FC<QuickSetupModalProps> = ({
                               <span style={styles.sourceText}>
                                 {t('quicksetup_source_label')} {item.source}
                                 {item.capacity && item.category !== 'gpu' ? ` • ${item.capacity}` : ''}
-                                {item.purchasePrice ? ` • ${t('quicksetup_price_label')} €${item.purchasePrice}` : ''}
+                                {item.purchasePrice ? ` • ${t('quicksetup_price_label')} ${getCurrencySymbol(currency)}${item.purchasePrice}` : ''}
                               </span>
                             </div>
                           </label>

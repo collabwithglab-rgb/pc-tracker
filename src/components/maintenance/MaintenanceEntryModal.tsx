@@ -9,6 +9,7 @@ import {
 } from '../../types';
 import { getLocalDateISO } from '../../domain';
 import { Wrench, Calendar, Tag, DollarSign, Sparkles, Cpu, Clock, FileText } from 'lucide-react';
+import { useTranslation } from '../../locales';
 
 interface MaintenanceEntryModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export const MaintenanceEntryModal: React.FC<MaintenanceEntryModalProps> = ({
   initialValues,
 }) => {
   const { components, addMaintenanceEntry, updateMaintenanceEntry } = usePCStore();
+  const { currentCurrencySymbol } = useTranslation();
 
   const [date, setDate] = useState<string>(getLocalDateISO());
   const [type, setType] = useState<MaintenanceType>('cleaning');
@@ -276,7 +278,7 @@ export const MaintenanceEntryModal: React.FC<MaintenanceEntryModalProps> = ({
           <div className="form-group">
             <label className="form-label" htmlFor="maint-cost">
               <DollarSign size={14} style={{ marginRight: '6px' }} />
-              Spesa Sostenuta (€ opzionale)
+              Spesa Sostenuta ({currentCurrencySymbol} opzionale)
             </label>
             <input
               id="maint-cost"

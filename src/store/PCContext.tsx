@@ -35,7 +35,12 @@ import {
   MaintenanceReminder,
   OptimizationRecommendation,
   SystemFactsInput,
+  SupportedCurrency,
 } from '../types';
+import {
+  isSupportedCurrency,
+  getCurrencySymbol,
+} from '../locales/currencyRegistry';
 import { APP_VERSION } from '../constants/version';
 import {
   loadFullDatabase,
@@ -190,6 +195,7 @@ export interface QuickSetupImportInput {
   rigName: string;
   rigDescription?: string;
   buildYear: number;
+  currency?: SupportedCurrency;
   components: QuickSetupImportItem[];
 }
 
@@ -1337,12 +1343,18 @@ export const PCProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       const installDate =
         input.buildYear === currentYear ? currentDate : `${input.buildYear}-01-01`;
 
+      const selectedCurrency = input.currency && isSupportedCurrency(input.currency)
+        ? input.currency
+        : (data.settings.currency || 'EUR');
+
       const newSettings: AppSettings = {
         ...data.settings,
         rigName: input.rigName.trim() || tr('store_quick_setup_default_rig_name'),
         rigDescription: input.rigDescription?.trim() || '',
         buildYear: input.buildYear,
         quickSetupCompleted: true,
+        currency: selectedCurrency,
+        currencySymbol: getCurrencySymbol(selectedCurrency),
       };
 
       const getDefaultSlot = (cat: ComponentCategory): string => {

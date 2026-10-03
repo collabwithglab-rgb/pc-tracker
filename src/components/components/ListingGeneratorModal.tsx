@@ -45,7 +45,7 @@ export const ListingGeneratorModal: React.FC<ListingGeneratorModalProps> = ({
   warranty,
   receiptCount = 0,
 }) => {
-  const { t } = useTranslation();
+  const { t, currentCurrencySymbol } = useTranslation();
   const [activeTab, setActiveTab] = useState<MarketplacePlatform>('subito');
 
   // Opzioni configurabili dell'annuncio
@@ -280,7 +280,7 @@ export const ListingGeneratorModal: React.FC<ListingGeneratorModalProps> = ({
           {/* Prezzo Richiesto (opzionale) */}
           <div className="form-group">
             <label className="form-label" style={{ fontSize: '12px' }}>
-              Prezzo Richiesto (€, opzionale)
+              Prezzo Richiesto ({currentCurrencySymbol}, opzionale)
             </label>
             <input
               type="number"

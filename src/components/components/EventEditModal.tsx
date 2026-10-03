@@ -30,7 +30,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
   event,
   componentName,
 }) => {
-  const { t } = useTranslation();
+  const { t, currentCurrencySymbol } = useTranslation();
   const { updateComponentEvent } = usePCStore();
 
   const [date, setDate] = useState('');
@@ -259,7 +259,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div className="form-group">
                 <label className="form-label" htmlFor="edit-purchase-price">
-                  Prezzo (€) *
+                  Prezzo ({currentCurrencySymbol}) *
                 </label>
                 <input
                   id="edit-purchase-price"
@@ -403,7 +403,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div className="form-group">
                 <label className="form-label" htmlFor="edit-sale-price">
-                  Prezzo Vendita Lordo (€) *
+                  Prezzo Vendita Lordo ({currentCurrencySymbol}) *
                 </label>
                 <input
                   id="edit-sale-price"
@@ -433,7 +433,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div className="form-group">
                 <label className="form-label" htmlFor="edit-sale-shipping">
-                  Spedizione a carico tuo (€)
+                  Spedizione a carico tuo ({currentCurrencySymbol})
                 </label>
                 <input
                   id="edit-sale-shipping"
@@ -447,7 +447,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="edit-sale-fees">
-                  Commissioni (€)
+                  Commissioni ({currentCurrencySymbol})
                 </label>
                 <input
                   id="edit-sale-fees"
@@ -468,7 +468,7 @@ export const EventEditModal: React.FC<EventEditModalProps> = ({
           <>
             <div className="form-group">
               <label className="form-label" htmlFor="edit-expense-amount">
-                Importo Spesa (€) *
+                Importo Spesa ({currentCurrencySymbol}) *
               </label>
               <input
                 id="edit-expense-amount"

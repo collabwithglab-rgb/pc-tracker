@@ -27,7 +27,7 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
   onBack,
 }) => {
   const { createComponentWithOptionalPurchase, updateComponent } = usePCStore();
-  const { t } = useI18n();
+  const { t, currentCurrencySymbol } = useI18n();
   const isEditing = Boolean(componentToEdit);
 
   // Campi Anagrafici
@@ -287,9 +287,24 @@ export const ComponentForm: React.FC<ComponentFormProps> = ({
             <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="form-group">
-                  <label className="form-label">
-                    {t('modal_comp_price_label')} <span className="form-required">*</span>
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>
+                      {t('modal_comp_price_label')} <span className="form-required">*</span>
+                    </label>
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: '11px',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-xs)',
+                        backgroundColor: 'var(--bg-surface-elevated)',
+                        color: 'var(--accent-primary)',
+                        border: '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      {currentCurrencySymbol}
+                    </span>
+                  </div>
                   <input
                     type="number"
                     step="0.01"

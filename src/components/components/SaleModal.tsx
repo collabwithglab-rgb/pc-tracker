@@ -19,7 +19,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({
   onBack,
 }) => {
   const { getSellableComponents, getComponentComputed, recordSale } = usePCStore();
-  const { t, formatCurrency } = useI18n();
+  const { t, formatCurrency, currentCurrencySymbol } = useI18n();
 
   const [selectedComponentId, setSelectedComponentId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -230,9 +230,24 @@ export const SaleForm: React.FC<SaleFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label className="form-label">
-            {t('modal_sale_price_label')} <span className="form-required">*</span>
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <label className="form-label" style={{ marginBottom: 0 }}>
+              {t('modal_sale_price_label')} <span className="form-required">*</span>
+            </label>
+            <span
+              className="font-mono"
+              style={{
+                fontSize: '11px',
+                padding: '1px 6px',
+                borderRadius: 'var(--radius-xs)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                color: 'var(--accent-primary)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              {currentCurrencySymbol}
+            </span>
+          </div>
           <input
             type="number"
             step="0.01"
@@ -250,9 +265,24 @@ export const SaleForm: React.FC<SaleFormProps> = ({
       {/* Rigo 2: Spese di Spedizione e Commissioni */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div className="form-group">
-          <label className="form-label">
-            {t('modal_sale_shipping_label')}
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <label className="form-label" style={{ marginBottom: 0 }}>
+              {t('modal_sale_shipping_label')}
+            </label>
+            <span
+              className="font-mono"
+              style={{
+                fontSize: '11px',
+                padding: '1px 6px',
+                borderRadius: 'var(--radius-xs)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                color: 'var(--text-muted)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              {currentCurrencySymbol}
+            </span>
+          </div>
           <input
             type="number"
             step="0.01"
@@ -266,9 +296,24 @@ export const SaleForm: React.FC<SaleFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label className="form-label">
-            {t('modal_sale_fees_label')}
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <label className="form-label" style={{ marginBottom: 0 }}>
+              {t('modal_sale_fees_label')}
+            </label>
+            <span
+              className="font-mono"
+              style={{
+                fontSize: '11px',
+                padding: '1px 6px',
+                borderRadius: 'var(--radius-xs)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                color: 'var(--text-muted)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              {currentCurrencySymbol}
+            </span>
+          </div>
           <input
             type="number"
             step="0.01"

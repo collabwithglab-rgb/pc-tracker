@@ -562,12 +562,12 @@ export const TimeTravelPage: React.FC<TimeTravelPageProps> = ({ onOpenWikiArticl
                     </span>
                     {'price' in ev && ev.price !== undefined && (
                       <span className="font-mono" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        (€{ev.price.toFixed(2)})
+                        ({formatCurrency(ev.price)})
                       </span>
                     )}
                     {'amount' in ev && ev.amount !== undefined && (
                       <span className="font-mono" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        (€{ev.amount.toFixed(2)})
+                        ({formatCurrency(ev.amount)})
                       </span>
                     )}
                   </div>
