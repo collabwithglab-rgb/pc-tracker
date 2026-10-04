@@ -93,7 +93,7 @@ export function generateWikiArticlesFromChangelog(
 
     // Passaggi operativi personalizzati per release note
     const steps: string[] = [];
-    if (rel.version === '3.1.0') {
+    if (rel.version === '3.2.0' || rel.version === '3.1.0') {
       if (isEn) {
         steps.push('Open the new "PC Care & Health" section from the sidebar to view the Overview with Health Score (0-100) and actionable recommendations.');
         steps.push('Open the "Live Monitoring" tab to observe real-time CPU, RAM, disk usage, NVIDIA GPU temperatures and clock frequencies.');
@@ -168,7 +168,7 @@ export function generateWikiArticlesFromChangelog(
     ];
 
     // Action links
-    const actionLinks = rel.version === '3.1.0'
+    const actionLinks = (rel.version === '3.2.0' || rel.version === '3.1.0')
       ? [
           { label: isEn ? 'PC Care & Health' : 'Cura del PC & Salute', targetSection: 'maintenance', iconName: 'Wrench' as const },
           { label: isEn ? 'My Current Rig' : 'Il Mio PC Attuale', targetSection: 'current-rig', iconName: 'Cpu' as const },

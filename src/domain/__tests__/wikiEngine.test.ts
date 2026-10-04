@@ -150,6 +150,15 @@ describe('Wiki Engine & Knowledge Base Suite', () => {
     const allArticles = getAllWikiArticles();
     expect(allArticles.length).toBeGreaterThan(WIKI_ARTICLES.length);
 
+    // Deve includere l'articolo di release v3.2.0
+    const v320Article = allArticles.find((a) => a.id === 'release-v3.2.0');
+    expect(v320Article).toBeDefined();
+    expect(v320Article?.category).toBe('releases');
+    expect(v320Article?.badge).toBe('RELEASE');
+    expect(v320Article?.content.some((c) => c.includes('PC Care Center'))).toBe(true);
+    expect(v320Article?.steps?.length).toBeGreaterThan(0);
+    expect(v320Article?.actionLinks?.length).toBeGreaterThan(0);
+
     // Deve includere l'articolo di release v3.1.0
     const v250Article = allArticles.find((a) => a.id === 'release-v3.1.0');
     expect(v250Article).toBeDefined();

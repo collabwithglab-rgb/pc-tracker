@@ -13,6 +13,7 @@ import { SystemFactsInput, SystemHealthReport, HealthAffectedArea } from '../typ
 import { OptimizationRecommendation } from '../types/optimization';
 import { SupportedLocale } from '../types';
 import { downloadFile } from '../storage/backupService';
+import { APP_VERSION } from '../constants/version';
 
 export interface CareReportExportPayload {
   filename: string;
@@ -32,7 +33,7 @@ export function generateCareHealthReportJson(
   const exportData = {
     schemaVersion: 1,
     generatedAt: report.evaluatedAt || new Date().toISOString(),
-    generator: 'PC Tracker Care Center v3.1.0',
+    generator: `PC Tracker Care Center v${APP_VERSION}`,
     summary: {
       healthScore: report.healthScore,
       overallStatus: report.overallStatus,
@@ -238,7 +239,7 @@ export function generateCareHealthReportMarkdown(
   // 8. Footer & Privacy
   lines.push('---');
   lines.push(
-    `*Report generated locally by PC Tracker v3.1.0 under Local-First & Zero-Telemetry architecture.*`
+    `*Report generated locally by PC Tracker v${APP_VERSION} under Local-First & Zero-Telemetry architecture.*`
   );
 
   return lines.join('\n');

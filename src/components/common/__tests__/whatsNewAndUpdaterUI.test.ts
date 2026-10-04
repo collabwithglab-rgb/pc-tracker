@@ -153,9 +153,23 @@ describe('Sistema Notifiche Aggiornamenti & Changelog WhatsNew', () => {
   });
 
   describe('4. Predisposizione Mini-Wiki & Contenuti Release Attuale', () => {
-    it('include nella release attuale (v3.1.0) le funzionalità cardine di PC Care Center', () => {
+    it('include nella release attuale (v3.2.0) le funzionalità cardine di PC Care Center e Diagnostica Avanzata', () => {
       const currentChangelog = getChangelogForVersion(APP_VERSION);
       const addedTitles = currentChangelog.added.map((a) => a.title);
+
+      expect(addedTitles).toContain('Telemetria AMD Radeon & Hotspot Monitoring');
+      expect(addedTitles).toContain('Core Hardware Faults & CfgMgr32 Device Error Detection');
+      expect(addedTitles).toContain('Memory Commit Guard & Architecture Power Intelligence');
+      expect(addedTitles).toContain('Deep Event Log Correlation (WHEA, BSOD, Disk)');
+      expect(addedTitles).toContain('Startup Apps Intelligence & Network ICMP Quality');
+      expect(addedTitles).toContain('Display Diagnostics & Audio Latency Intelligence');
+      expect(addedTitles).toContain('Network Adapter Link Speed & Wi-Fi Signal Intelligence');
+      expect(addedTitles).toContain('System Care Center Comprehensive Health Report Export');
+    });
+
+    it('include nella release v3.1.0 le funzionalità iniziali di PC Care Center', () => {
+      const v310 = getChangelogForVersion('3.1.0');
+      const addedTitles = v310.added.map((a) => a.title);
 
       expect(addedTitles).toContain('Monitoraggio Hardware Nativo & Telemetria Live');
       expect(addedTitles).toContain('Health Engine Deterministico & Health Score (0-100)');

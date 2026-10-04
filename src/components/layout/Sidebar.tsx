@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { usePCStore } from '../../store';
 import { useTranslation } from '../../locales';
-import { APP_VERSION } from '../../constants/version';
+import { APP_VERSION_LABEL } from '../../constants/version';
 
 export type NavSection =
   | 'dashboard'
@@ -184,13 +184,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               title={t('sidebar_whats_new_tooltip')}
               id="btn-sidebar-whatsnew"
             >
-              <span>v{APP_VERSION} (Beta)</span>
+              <span>{APP_VERSION_LABEL}</span>
               {hasUpdateAvailable && (
                 <span className="sidebar-update-dot" style={{ width: '6px', height: '6px', marginLeft: '0' }} />
               )}
             </button>
           ) : (
-            <span style={styles.versionText}>v{APP_VERSION} (Beta)</span>
+            <span style={styles.versionText}>{APP_VERSION_LABEL}</span>
           )}
         </div>
 

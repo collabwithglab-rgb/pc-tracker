@@ -28,6 +28,90 @@ export interface ReleaseChangelog {
 
 export const APP_CHANGELOG: ReleaseChangelog[] = [
   {
+    version: '3.2.0',
+    date: '2026-10-04',
+    title: 'PC Care Center Full Release — Deep Diagnostics, Hardware Intelligence & Smart Maintenance Complete',
+    summary:
+      'Rilascio ufficiale e stabile di PC Tracker al compimento di tutte le 12 Fasi di sviluppo. PC Care Center si arricchisce di telemetria GPU AMD Radeon (ADL FFI), diagnostica errori hardware CfgMgr32, commit charge memory guard, correlazione nativa eventi WHEA e Kernel-Power 41, ispezione servizi SCM, diagnostica monitor, frequenze audio WASAPI, link speed Ethernet e segnale Wi-Fi nativo.',
+    wikiArticleId: 'release-v3.2.0',
+    wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
+    added: [
+      {
+        title: 'Telemetria AMD Radeon & Hotspot Monitoring',
+        description:
+          'Integrazione nativa FFI con le librerie AMD Display Library (ADL) per monitorare clock VRAM/Core, carico GPU, temperature Edge e Hotspot (Tjunction) e regime ventole per tutte le schede grafiche AMD Radeon.',
+        tag: 'AMD Radeon',
+      },
+      {
+        title: 'Core Hardware Faults & CfgMgr32 Device Error Detection',
+        description:
+          'Scansione Win32 in tempo reale per intercettare driver difettosi e codici di errore di periferica (Code 43, Code 10, ecc.) prima che causino instabilità di sistema.',
+        tag: 'Diagnostica',
+      },
+      {
+        title: 'Memory Commit Guard & Architecture Power Intelligence',
+        description:
+          'Monitoraggio avanzato del commit charge tramite PSAPI per prevenire out-of-memory e rilevamento dell\'architettura di alimentazione (Desktop vs Laptop) con soglie di risparmio energetico intelligenti.',
+        tag: 'Memoria & Power',
+      },
+      {
+        title: 'Deep Event Log Correlation (WHEA, BSOD, Disk)',
+        description:
+          'Ispezione degli eventi di sistema Windows per errori hardware critici WHEA (Machine Check/PCIe), Kernel-Power 41 (arresti anomali improvvisi) e corruzioni NTFS/Disk con prevenzione intelligente del doppio conteggio di penalità.',
+        tag: 'Event Log',
+      },
+      {
+        title: 'Native Windows Services SCM Catalog',
+        description:
+          'Controllo dello stato e del tipo di avvio dei servizi essenziali di sistema (SysMain, WSearch, WinDefend, BITS, wuauserv) per garantire un funzionamento fluido e senza intoppi.',
+        tag: 'Servizi Windows',
+      },
+      {
+        title: 'Startup Apps Intelligence & Network ICMP Quality',
+        description:
+          'Analisi delle applicazioni ad avvio automatico (StartupApproved\\Run) con impatto prestazionale e test on-demand di latenza, jitter e packet loss verso Cloudflare, Google e OpenDNS.',
+        tag: 'Startup & Rete',
+      },
+      {
+        title: 'Display Diagnostics & Audio Latency Intelligence',
+        description:
+          'Rilevamento di monitor multipli e refresh rate limitati (es. 144Hz limitato a 60Hz), unito all\'analisi del sample rate e latenza del motore audio WASAPI.',
+        tag: 'Display & Audio',
+      },
+      {
+        title: 'Network Adapter Link Speed & Wi-Fi Signal Intelligence',
+        description:
+          'Rilevamento del declassamento del cavo Ethernet (Gigabit declassato a 100 Mbps) e scansione radio Wi-Fi nativa (standard 802.11ax/ac, banda 2.4/5/6 GHz, RSSI dBm e qualità segnale).',
+        tag: 'Connettività',
+      },
+      {
+        title: 'System Care Center Comprehensive Health Report Export',
+        description:
+          'Esportazione istantanea con un click dell\'intero stato diagnostico del computer in report formattati Markdown (.md) e JSON conformi alla filosofia Local-First.',
+        tag: 'Report Export',
+      },
+    ],
+    improved: [
+      {
+        title: 'Uscita Ufficiale dalla Fase Beta (v3.2.0 Stable)',
+        description:
+          'Tutti i motori di calcolo, la gestione del ciclo di vita eventi, il time travel, i checkpoint, le raccomandazioni di manutenzione e i diagnostici hardware sono completati e collaudati al 100%.',
+      },
+      {
+        title: 'Design System & Micro-Interazioni Raffinate',
+        description:
+          'Feedback visivo armonizzato, banner diagnostici reattivi con azioni risolutive dirette e rispetto rigoroso dei principi "Anti AI-Slop" e "Less, but better".',
+      },
+    ],
+    fixed: [
+      {
+        title: 'Prevenzione Sovrascrittura e Doppia Penalità Diagnostica',
+        description:
+          'Isolamento completo delle metriche tra sensori hardware nativi e fallback architetturali, azzerando falsi positivi nel calcolo dell\'Health Score.',
+      },
+    ],
+  },
+  {
     version: '3.1.0',
     date: '2026-09-24',
     title: 'PC Care Center (Beta) — Telemetria Live Win32/NVML, Health & Optimization Engine',
