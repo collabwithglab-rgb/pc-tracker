@@ -39,7 +39,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
   onOpenChangelog,
   onOpenWikiArticle,
 }) => {
-  const { t } = useTranslation();
+  const { t, formatDate } = useTranslation();
   const newVersion = updateInfo.newVersion || 'Nuova';
   const matchingChangelog = getChangelogForVersion(newVersion);
   const isChangelogAvailable = matchingChangelog.version === newVersion.replace(/^v/, '');
@@ -72,12 +72,12 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
         <div className="update-prompt-version-banner">
           <div className="update-prompt-version-flow">
             <div className="update-prompt-version-pill current">
-              <span className="label">Installata</span>
+              <span className="label">{t('update_prompt_pill_installed')}</span>
               <span className="val">v{updateInfo.currentVersion}</span>
             </div>
             <ArrowRight size={18} className="update-prompt-flow-arrow" />
             <div className="update-prompt-version-pill target">
-              <span className="label">Disponibile</span>
+              <span className="label">{t('update_prompt_pill_available')}</span>
               <span className="val">v{newVersion}</span>
             </div>
           </div>
@@ -85,11 +85,11 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
           <div className="update-prompt-badge-group">
             <span className="update-prompt-status-tag recommended">
               <Sparkles size={12} />
-              <span>Consigliato</span>
+              <span>{t('update_prompt_tag_recommended')}</span>
             </span>
             <span className="update-prompt-status-tag verified">
               <ShieldCheck size={12} />
-              <span>Firma Minisign Ed25519</span>
+              <span>{t('update_prompt_tag_verified')}</span>
             </span>
           </div>
         </div>
@@ -98,11 +98,11 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
         <div className="update-prompt-preview-card">
           <div className="update-prompt-preview-header">
             <span className="update-prompt-preview-title">
-              {isChangelogAvailable ? matchingChangelog.title : 'Principali Novità Introdotte'}
+              {isChangelogAvailable ? matchingChangelog.title : t('update_prompt_default_title')}
             </span>
             {isChangelogAvailable && (
               <span className="update-prompt-preview-date">
-                Rilasciato il {matchingChangelog.date}
+                {t('update_prompt_released_on', { date: formatDate(matchingChangelog.date) })}
               </span>
             )}
           </div>
@@ -110,8 +110,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
           <p className="update-prompt-preview-summary">
             {isChangelogAvailable
               ? matchingChangelog.summary
-              : updateInfo.releaseNotes ||
-                'Questo aggiornamento include ottimizzazioni per la stabilità, miglioramenti delle prestazioni e correzioni per il tuo PC.'}
+              : updateInfo.releaseNotes || t('update_prompt_default_summary')}
           </p>
 
           {/* Top 3 Novità Principali se presenti nel changelog */}
@@ -137,7 +136,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
         <div className="update-prompt-integrity-notice">
           <ShieldCheck size={15} color="var(--accent-emerald)" />
           <span>
-            I tuoi dati hardware memorizzati su <strong>IndexedDB</strong> sono al 100% preservati e non verranno alterati.
+            {t('update_prompt_integrity_notice', { target: 'IndexedDB' })}
           </span>
         </div>
 
@@ -154,7 +153,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
           <div className="update-prompt-progress-container">
             <div className="update-prompt-progress-header">
               <span className="update-prompt-progress-label">
-                Download e installazione del pacchetto Windows...
+                {t('update_prompt_progress_label')}
               </span>
               <span className="update-prompt-progress-percent">{percent}%</span>
             </div>
@@ -165,7 +164,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
               />
             </div>
             <span className="update-prompt-progress-sub">
-              L'applicazione si riavvierà automaticamente al termine del download.
+              {t('update_prompt_progress_sub')}
             </span>
           </div>
         )}
@@ -179,10 +178,10 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                   type="button"
                   onClick={handleSkip}
                   className="update-prompt-skip-btn micro-press"
-                  title={`Non mostrare più questo avviso all'avvio per la versione v${newVersion}`}
+                  title={t('update_prompt_skip_tooltip', { version: newVersion })}
                   id="btn-update-prompt-skip"
                 >
-                  Salta questa versione
+                  {t('update_prompt_btn_skip')}
                 </button>
 
                 {(onOpenChangelog || onOpenWikiArticle) && (
@@ -193,7 +192,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
                     id="btn-update-prompt-details"
                   >
                     <BookOpen size={13} />
-                    <span>Dettagli completi</span>
+                    <span>{t('update_prompt_btn_details')}</span>
                   </button>
                 )}
               </>
@@ -222,7 +221,7 @@ export const UpdatePromptModal: React.FC<UpdatePromptModalProps> = ({
               style={{ minWidth: '150px' }}
             >
               <Download size={16} />
-              <span>{downloading ? 'Installazione...' : t('update_prompt_btn_install')}</span>
+              <span>{downloading ? t('update_prompt_btn_installing') : t('update_prompt_btn_install')}</span>
             </button>
           </div>
         </div>

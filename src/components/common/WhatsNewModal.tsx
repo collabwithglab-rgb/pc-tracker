@@ -25,7 +25,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
   initialVersion = APP_VERSION,
   onOpenWikiArticle,
 }) => {
-  const { t } = useTranslation();
+  const { t, formatDate } = useTranslation();
   const [selectedVersion, setSelectedVersion] = useState<string>(initialVersion);
 
   // Sincronizza la versione selezionata all'apertura
@@ -54,6 +54,8 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
     }
   };
 
+  const formattedDate = formatDate(currentChangelog.date);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -65,9 +67,9 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
       <div className="whatsnew-modal-content">
         {/* Selettore rapido versioni per consultare anche i changelog passati */}
         {APP_CHANGELOG.length > 1 && (
-          <div style={styles.versionTabsRow}>
-            <span style={styles.versionTabsLabel}>Versione:</span>
-            <div style={styles.versionTabsContainer}>
+          <div className="whatsnew-version-tabs-row">
+            <span className="whatsnew-version-tabs-label">{t('whats_new_version_label')}</span>
+            <div className="whatsnew-version-tabs-container">
               {APP_CHANGELOG.map((rel) => {
                 const isSelected = rel.version === currentChangelog.version;
                 const isCurrentInstalled = rel.version === APP_VERSION;
@@ -76,15 +78,11 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
                     key={rel.version}
                     type="button"
                     onClick={() => setSelectedVersion(rel.version)}
-                    className="micro-press"
-                    style={{
-                      ...styles.versionTabBtn,
-                      ...(isSelected ? styles.versionTabBtnActive : {}),
-                    }}
+                    className={`whatsnew-version-tab-btn micro-press ${isSelected ? 'whatsnew-version-tab-btn-active' : ''}`}
                   >
                     <span>v{rel.version}</span>
                     {isCurrentInstalled && (
-                      <span style={styles.currentInstalledBadge}>Attuale</span>
+                      <span className="whatsnew-current-badge">{t('whats_new_current_badge')}</span>
                     )}
                   </button>
                 );
@@ -98,11 +96,11 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
           <div className="whatsnew-hero-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="whatsnew-version-pill">v{currentChangelog.version}</span>
-              <span className="whatsnew-date-pill">Rilasciato il {currentChangelog.date}</span>
+              <span className="whatsnew-date-pill">{t('whats_new_released_on', { date: formattedDate })}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--accent-primary)', fontSize: '12px', fontWeight: 600 }}>
               <Sparkles size={14} />
-              <span>Release Ufficiale</span>
+              <span>{t('whats_new_official_release')}</span>
             </div>
           </div>
 
@@ -115,7 +113,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
           <div className="whatsnew-section">
             <div className="whatsnew-section-header" style={{ color: 'var(--accent-primary)' }}>
               <PlusCircle size={15} />
-              <span>Nuove Funzionalità & Aggiunte</span>
+              <span>{t('whats_new_section_added')}</span>
               <span className="whatsnew-section-badge whatsnew-section-badge-added">
                 {currentChangelog.added.length}
               </span>
@@ -139,7 +137,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
           <div className="whatsnew-section">
             <div className="whatsnew-section-header" style={{ color: 'var(--accent-emerald)' }}>
               <Zap size={15} />
-              <span>Miglioramenti & Ottimizzazioni</span>
+              <span>{t('whats_new_section_improved')}</span>
               <span className="whatsnew-section-badge whatsnew-section-badge-improved">
                 {currentChangelog.improved.length}
               </span>
@@ -163,7 +161,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
           <div className="whatsnew-section">
             <div className="whatsnew-section-header" style={{ color: 'var(--accent-amber)' }}>
               <Wrench size={15} />
-              <span>Bug Fix & Hardening</span>
+              <span>{t('whats_new_section_fixed')}</span>
               <span className="whatsnew-section-badge whatsnew-section-badge-fixed">
                 {currentChangelog.fixed.length}
               </span>
@@ -185,12 +183,12 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
         {/* Box Predisposizione Mini-Wiki */}
         <div className="whatsnew-wiki-box">
           <div className="whatsnew-wiki-info">
-            <div style={styles.wikiIconWrapper}>
+            <div className="whatsnew-wiki-icon-wrapper">
               <BookOpen size={18} color="var(--accent-primary)" />
             </div>
             <div className="whatsnew-wiki-text">
-              <strong>Mini-Wiki & Guide Operative</strong>
-              <span>Consulta la guida interattiva e le FAQ per approfondire l'uso delle nuove funzionalità.</span>
+              <strong>{t('whats_new_wiki_title')}</strong>
+              <span>{t('whats_new_wiki_desc')}</span>
             </div>
           </div>
 
@@ -200,18 +198,18 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             className="btn btn-secondary micro-press"
             id="btn-whatsnew-open-wiki"
             style={{ fontSize: '12px', padding: '6px 12px', flexShrink: 0, gap: '6px' }}
-            title="Apri l'articolo guida di questo rilascio nella Mini-Wiki interattiva"
+            title={t('whats_new_wiki_tooltip')}
           >
             <BookOpen size={13} color="var(--accent-primary)" />
-            <span>Apri Guida Mini-Wiki</span>
+            <span>{t('whats_new_wiki_btn')}</span>
           </button>
         </div>
       </div>
 
       {/* Footer Azioni */}
-      <div style={styles.footer}>
-        <span style={styles.footerHint}>
-          Puoi rileggere queste note in qualsiasi momento dalla sezione Impostazioni.
+      <div className="whatsnew-footer">
+        <span className="whatsnew-footer-hint">
+          {t('whats_new_footer_hint')}
         </span>
 
         <button
@@ -229,88 +227,3 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
   );
 };
 
-const styles: Record<string, React.CSSProperties> = {
-  versionTabsRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    paddingTop: '2px',
-    paddingBottom: '10px',
-    marginBottom: '4px',
-    borderBottom: '1px solid var(--border-subtle)',
-    overflowX: 'auto',
-    flexShrink: 0,
-    lineHeight: 1.2,
-  },
-  versionTabsLabel: {
-    fontSize: '11px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    color: 'var(--text-muted)',
-    fontWeight: 700,
-    flexShrink: 0,
-    lineHeight: 1,
-  },
-  versionTabsContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    flexWrap: 'wrap',
-  },
-  versionTabBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '4px 10px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border-subtle)',
-    backgroundColor: 'var(--bg-surface)',
-    color: 'var(--text-secondary)',
-    fontSize: '12px',
-    fontFamily: 'var(--font-mono)',
-    cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
-  },
-  versionTabBtnActive: {
-    backgroundColor: 'var(--accent-primary-subtle)',
-    border: '1px solid var(--accent-primary-border)',
-    color: 'var(--accent-primary)',
-    fontWeight: 700,
-  },
-  currentInstalledBadge: {
-    fontSize: '9px',
-    fontFamily: 'var(--font-sans)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    color: 'var(--accent-primary)',
-    padding: '1px 4px',
-    borderRadius: 'var(--radius-xs)',
-    fontWeight: 700,
-  },
-  wikiIconWrapper: {
-    width: '34px',
-    height: '34px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--bg-surface-elevated)',
-    border: '1px solid var(--border-subtle)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  footer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    marginTop: '16px',
-    paddingTop: '14px',
-    borderTop: '1px solid var(--border-subtle)',
-    flexWrap: 'wrap',
-  },
-  footerHint: {
-    fontSize: '11.5px',
-    color: 'var(--text-muted)',
-  },
-};

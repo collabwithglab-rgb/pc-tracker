@@ -1922,13 +1922,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
                 {/* Banner di notifica aggiornamento disponibile */}
                 {updateState.info?.available && (
-                  <div style={{ marginTop: '16px', padding: '14px 16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-status-success)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-status-success)', fontWeight: 600, fontSize: '14px' }}>
+                  <div className="settings-updater-banner-available">
+                    <div className="settings-updater-banner-header">
                       <Sparkles size={16} />
                       <span>{t('settings_updater_new_version_available', { version: updateState.info.newVersion || '' })}</span>
                     </div>
                     {updateState.info.releaseNotes && (
-                      <p style={{ marginTop: '6px', fontSize: '12.5px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
+                      <p className="settings-updater-notes-body">
                         {updateState.info.releaseNotes}
                       </p>
                     )}
@@ -1937,7 +1937,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
                 {/* Banner di conferma: già all'ultima versione */}
                 {updateState.info && !updateState.info.available && !updateState.error && (
-                  <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="settings-updater-banner-uptodate">
                     <CheckCircle2 size={16} color="var(--color-status-success)" />
                     <span>{t('settings_updater_up_to_date')}</span>
                   </div>
@@ -1945,7 +1945,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
                 {/* Banner errore */}
                 {updateState.error && (
-                  <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-status-danger)', color: 'var(--color-status-danger)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="settings-updater-banner-error">
                     <AlertTriangle size={16} />
                     <span>{updateState.error}</span>
                   </div>
