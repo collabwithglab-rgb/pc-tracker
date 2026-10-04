@@ -120,3 +120,55 @@ export interface WinGetUpdateItem {
   installedVersion: string;
   availableVersion: string;
 }
+
+export type StartupScope = 'current_user' | 'local_machine' | 'local_machine_wow64';
+export type StartupImpact = 'high' | 'medium' | 'low' | 'none' | 'unknown';
+
+export interface StartupAppItem {
+  name: string;
+  command: string;
+  scope: StartupScope;
+  enabled: boolean;
+  impact: StartupImpact;
+  rawStatusHex?: string | null;
+}
+
+export interface StartupAppsSnapshot {
+  availability: 'available' | 'unavailable' | 'unsupported' | 'error';
+  source: string;
+  totalApps: number;
+  enabledCount: number;
+  disabledCount: number;
+  apps: StartupAppItem[];
+  errorDetails?: string | null;
+}
+
+export type NetworkQualityRating = 'optimal' | 'good' | 'degraded' | 'critical' | 'offline';
+
+export interface NetworkDiagnosticsResult {
+  targetHost: string;
+  sentPackets: number;
+  receivedPackets: number;
+  packetLossPercent: number;
+  rttMinMs?: number | null;
+  rttMaxMs?: number | null;
+  rttAvgMs?: number | null;
+  jitterMs?: number | null;
+  qualityRating: NetworkQualityRating;
+  rawSamples: number[];
+  status: 'success' | 'warning' | 'error';
+  errorDetails?: string | null;
+  executionTimeMs: number;
+}
+
+export interface WindowsUpdateStatus {
+  availability: 'available' | 'unavailable' | 'unsupported' | 'error';
+  source: string;
+  rebootPending: boolean;
+  rebootSources: string[];
+  lastCheckTime?: string | null;
+  lastInstallTime?: string | null;
+  pendingFileRenameCount: number;
+  details?: string | null;
+}
+

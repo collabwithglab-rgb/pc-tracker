@@ -31,6 +31,10 @@ pub fn run() {
       windows_tools::clean_component_store,
       windows_tools::reboot_to_uefi,
       windows_tools::check_winget_updates,
+      windows_tools::query_startup_apps,
+      windows_tools::open_startup_settings,
+      windows_tools::run_network_diagnostics,
+      windows_tools::query_windows_update_status,
       monitoring::get_monitoring_snapshot,
       diagnostics::get_system_diagnostics_snapshot,
     ])

@@ -98,6 +98,227 @@ pub struct WinGetUpdateItem {
     pub available_version: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupAppItem {
+    pub name: String,
+    pub command: String,
+    pub scope: String, // "current_user" | "local_machine" | "local_machine_wow64"
+    pub enabled: bool,
+    pub impact: String, // "high" | "medium" | "low" | "none" | "unknown"
+    pub raw_status_hex: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupAppsSnapshot {
+    pub availability: String, // "available" | "unavailable" | "unsupported" | "error"
+    pub source: String,
+    pub total_apps: u32,
+    pub enabled_count: u32,
+    pub disabled_count: u32,
+    pub apps: Vec<StartupAppItem>,
+    pub error_details: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkDiagnosticsResult {
+    pub target_host: String,
+    pub sent_packets: u32,
+    pub received_packets: u32,
+    pub packet_loss_percent: f64,
+    pub rtt_min_ms: Option<f64>,
+    pub rtt_max_ms: Option<f64>,
+    pub rtt_avg_ms: Option<f64>,
+    pub jitter_ms: Option<f64>,
+    pub quality_rating: String, // "optimal" | "good" | "degraded" | "critical" | "offline"
+    pub raw_samples: Vec<f64>,
+    pub status: String, // "success" | "error"
+    pub error_details: Option<String>,
+    pub execution_time_ms: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowsUpdateStatus {
+    pub availability: String, // "available" | "unavailable" | "unsupported" | "error"
+    pub source: String,
+    pub reboot_pending: bool,
+    pub reboot_sources: Vec<String>,
+    pub last_check_time: Option<String>,
+    pub last_install_time: Option<String>,
+    pub pending_file_rename_count: u32,
+    pub details: Option<String>,
+}
+
+/// Decodifica lo stato abilitato/disabilitato da StartupApproved\Run nel Registry Windows.
+/// Se None o vuoto -> true (default Task Manager: abilitato).
+/// Se presente: byte[0] pari (0x02, 0x00) -> abilitato; byte[0] dispari (0x01, 0x03) -> disabilitato.
+pub fn decode_startup_approved_status(raw: Option<&[u8]>) -> bool {
+    match raw {
+        None => true,
+        Some(bytes) if bytes.is_empty() => true,
+        Some(bytes) => bytes[0] % 2 == 0,
+    }
+}
+
+/// Stima euristica dell'impatto di avvio di un'applicazione (high, medium, low).
+pub fn estimate_startup_impact(name: &str, cmd: &str) -> &'static str {
+    let s = format!("{} {}", name, cmd).to_lowercase();
+    if s.contains("steam")
+        || s.contains("epicgames")
+        || s.contains("discord")
+        || s.contains("slack")
+        || s.contains("teams")
+        || s.contains("spotify")
+        || s.contains("chrome")
+        || s.contains("battle.net")
+        || s.contains("origin")
+        || s.contains("riot")
+        || s.contains("ea desktop")
+    {
+        "high"
+    } else if s.contains("audio")
+        || s.contains("realtek")
+        || s.contains("tray")
+        || s.contains("helper")
+        || s.contains("service")
+        || s.contains("driver")
+        || s.contains("synaptics")
+        || s.contains("logitech")
+    {
+        "low"
+    } else {
+        "medium"
+    }
+}
+
+/// Classifica la qualità della connessione di rete in base a latenza media, packet loss e jitter.
+pub fn classify_network_quality(avg_rtt: f64, packet_loss: f64, jitter: f64) -> String {
+    if packet_loss >= 100.0 {
+        "offline".to_string()
+    } else if packet_loss > 20.0 || avg_rtt > 200.0 {
+        "critical".to_string()
+    } else if packet_loss > 0.0 || avg_rtt > 80.0 || jitter > 30.0 {
+        "degraded".to_string()
+    } else if avg_rtt <= 30.0 && jitter <= 5.0 {
+        "optimal".to_string()
+    } else {
+        "good".to_string()
+    }
+}
+
+/// Calcola metriche di rete min, max, avg, jitter, packet loss e quality rating dai campioni RTT.
+pub fn calculate_network_metrics(
+    samples: &[f64],
+    sent_packets: u32,
+) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, f64, String) {
+    let received = samples.len() as u32;
+    let packet_loss = if sent_packets == 0 {
+        0.0
+    } else {
+        ((sent_packets.saturating_sub(received)) as f64 / sent_packets as f64) * 100.0
+    };
+
+    if samples.is_empty() {
+        return (None, None, None, None, 100.0, "offline".to_string());
+    }
+
+    let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let sum: f64 = samples.iter().sum();
+    let avg = sum / (samples.len() as f64);
+
+    let jitter = if samples.len() > 1 {
+        let diff_sum: f64 = samples.windows(2).map(|w| (w[1] - w[0]).abs()).sum();
+        Some(diff_sum / ((samples.len() - 1) as f64))
+    } else {
+        Some(0.0)
+    };
+
+    let quality = classify_network_quality(avg, packet_loss, jitter.unwrap_or(0.0));
+    (Some(min), Some(max), Some(avg), jitter, packet_loss, quality)
+}
+
+/// Estrae il tempo in ms da una riga di risposta di ping (supporta IT 'tempo=Xms', EN 'time=Xms', 'tempo<1ms', ecc.)
+pub fn parse_ping_time_line(line: &str) -> Option<f64> {
+    let lower = line.to_lowercase();
+    if lower.contains("tempo<1ms")
+        || lower.contains("time<1ms")
+        || lower.contains("tempo < 1ms")
+        || lower.contains("time < 1ms")
+    {
+        return Some(0.5);
+    }
+
+    let markers = ["tempo=", "time="];
+    for marker in markers {
+        if let Some(pos) = lower.find(marker) {
+            let start = pos + marker.len();
+            let remainder = &lower[start..];
+            let mut num_str = String::new();
+            for ch in remainder.chars() {
+                if ch.is_ascii_digit() || ch == '.' {
+                    num_str.push(ch);
+                } else if !num_str.is_empty() {
+                    break;
+                }
+            }
+            if let Ok(val) = num_str.parse::<f64>() {
+                return Some(val);
+            }
+        }
+    }
+    None
+}
+
+/// Parsa l'output completo di ping.exe e costruisce NetworkDiagnosticsResult
+pub fn parse_ping_output(
+    output_text: &str,
+    target_host: &str,
+    sent_packets: u32,
+    duration_ms: u64,
+) -> NetworkDiagnosticsResult {
+    let mut samples: Vec<f64> = Vec::new();
+
+    for line in output_text.lines() {
+        if let Some(ms) = parse_ping_time_line(line) {
+            samples.push(ms);
+        }
+    }
+
+    let (rtt_min_ms, rtt_max_ms, rtt_avg_ms, jitter_ms, packet_loss_percent, quality_rating) =
+        calculate_network_metrics(&samples, sent_packets);
+
+    let received_packets = samples.len() as u32;
+    let is_offline = quality_rating == "offline";
+
+    NetworkDiagnosticsResult {
+        target_host: target_host.to_string(),
+        sent_packets,
+        received_packets,
+        packet_loss_percent,
+        rtt_min_ms,
+        rtt_max_ms,
+        rtt_avg_ms,
+        jitter_ms,
+        quality_rating,
+        raw_samples: samples,
+        status: if is_offline && received_packets == 0 {
+            "warning".to_string()
+        } else {
+            "success".to_string()
+        },
+        error_details: if is_offline {
+            Some("Nessuna risposta ricevuta dal target host (100% packet loss).".to_string())
+        } else {
+            None
+        },
+        execution_time_ms: duration_ms,
+    }
+}
+
 #[cfg(target_os = "windows")]
 mod windows_native {
     use super::*;
@@ -1240,6 +1461,270 @@ foreach ($p in $paths) {
             },
         }
     }
+
+    fn scan_registry_run_scope(
+        root: &RegKey,
+        run_path: &str,
+        approved_path: &str,
+        scope: &str,
+        apps: &mut Vec<StartupAppItem>,
+    ) {
+        let run_key = match root.open_subkey_with_flags(run_path, KEY_READ) {
+            Ok(k) => k,
+            Err(_) => return,
+        };
+        let approved_key = root.open_subkey_with_flags(approved_path, KEY_READ).ok();
+
+        for item in run_key.enum_values().flatten() {
+            let (name, val) = item;
+            let command = val.to_string();
+            if name.is_empty() || command.is_empty() {
+                continue;
+            }
+
+            let raw_bytes: Option<Vec<u8>> = approved_key.as_ref().and_then(|k| {
+                k.get_raw_value(&name).ok().map(|v| v.bytes)
+            });
+
+            let enabled = decode_startup_approved_status(raw_bytes.as_deref());
+            let impact = estimate_startup_impact(&name, &command).to_string();
+            let raw_status_hex = raw_bytes.map(|b| {
+                b.iter().map(|byte| format!("{:02X}", byte)).collect::<Vec<_>>().join(" ")
+            });
+
+            apps.push(StartupAppItem {
+                name,
+                command,
+                scope: scope.to_string(),
+                enabled,
+                impact,
+                raw_status_hex,
+            });
+        }
+    }
+
+    /// Query non-distruttiva (KEY_READ) delle applicazioni configurate per l'avvio automatico
+    pub fn query_startup_apps_native() -> StartupAppsSnapshot {
+        let mut apps: Vec<StartupAppItem> = Vec::new();
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+
+        // HKCU Run
+        scan_registry_run_scope(
+            &hkcu,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run",
+            "current_user",
+            &mut apps,
+        );
+
+        // HKLM Run
+        scan_registry_run_scope(
+            &hklm,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run",
+            "local_machine",
+            &mut apps,
+        );
+
+        // HKLM WOW6432Node Run
+        scan_registry_run_scope(
+            &hklm,
+            "Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run32",
+            "local_machine_wow64",
+            &mut apps,
+        );
+
+        // Ordina alfabeticamente per nome
+        apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        apps.dedup_by(|a, b| a.name.eq_ignore_ascii_case(&b.name) && a.scope == b.scope);
+
+        let total_apps = apps.len() as u32;
+        let enabled_count = apps.iter().filter(|a| a.enabled).count() as u32;
+        let disabled_count = total_apps.saturating_sub(enabled_count);
+
+        StartupAppsSnapshot {
+            availability: "available".to_string(),
+            source: "windows_registry_run".to_string(),
+            total_apps,
+            enabled_count,
+            disabled_count,
+            apps,
+            error_details: None,
+        }
+    }
+
+    /// Apre l'interfaccia nativa ufficiale "App di avvio" di Windows
+    pub fn open_startup_settings_native() -> WindowsToolResult<String> {
+        let start = Instant::now();
+        let res = Command::new("cmd.exe")
+            .args(["/c", "start", "ms-settings:startupapps"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+
+        match res {
+            Ok(_) => WindowsToolResult {
+                status: "success".to_string(),
+                message: "Impostazioni App di avvio Windows aperte con successo.".to_string(),
+                details: Some("È possibile abilitare o disabilitare le applicazioni in modo sicuro dall'interfaccia ufficiale di Windows.".to_string()),
+                data: Some("ms-settings:startupapps".to_string()),
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+            Err(err) => WindowsToolResult {
+                status: "failed".to_string(),
+                message: format!("Impossibile aprire Impostazioni Windows: {}", err),
+                details: None,
+                data: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+        }
+    }
+
+    /// Esegue test ICMP Echo (ping) on-demand con calcolo di latenza e jitter
+    pub fn run_network_diagnostics_native(target: Option<String>) -> NetworkDiagnosticsResult {
+        let start = Instant::now();
+        let host = target.unwrap_or_else(|| "1.1.1.1".to_string()).trim().to_string();
+        let host = if host.is_empty() { "1.1.1.1".to_string() } else { host };
+
+        let is_valid_host = !host.is_empty()
+            && host.len() <= 255
+            && host.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == ':');
+
+        if !is_valid_host {
+            return NetworkDiagnosticsResult {
+                target_host: host,
+                sent_packets: 0,
+                received_packets: 0,
+                packet_loss_percent: 100.0,
+                rtt_min_ms: None,
+                rtt_max_ms: None,
+                rtt_avg_ms: None,
+                jitter_ms: None,
+                quality_rating: "offline".to_string(),
+                raw_samples: vec![],
+                status: "error".to_string(),
+                error_details: Some("Target host non valido. Specificare un indirizzo IPv4/IPv6 o hostname valido.".to_string()),
+                execution_time_ms: 0,
+            };
+        }
+
+        let sent_packets = 4;
+        let res = Command::new("ping.exe")
+            .args(["-n", &sent_packets.to_string(), "-w", "1000", &host])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        match res {
+            Ok(output) => {
+                let text = String::from_utf8_lossy(&output.stdout);
+                parse_ping_output(&text, &host, sent_packets, duration_ms)
+            }
+            Err(err) => NetworkDiagnosticsResult {
+                target_host: host,
+                sent_packets,
+                received_packets: 0,
+                packet_loss_percent: 100.0,
+                rtt_min_ms: None,
+                rtt_max_ms: None,
+                rtt_avg_ms: None,
+                jitter_ms: None,
+                quality_rating: "offline".to_string(),
+                raw_samples: vec![],
+                status: "error".to_string(),
+                error_details: Some(format!("Errore esecuzione ping: {}", err)),
+                execution_time_ms: duration_ms,
+            },
+        }
+    }
+
+    /// Rileva flag di riavvio pendente (RebootRequired, CBS, PendingFileRenameOperations) e date aggiornamento
+    pub fn query_windows_update_status_native() -> WindowsUpdateStatus {
+        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+        let mut reboot_sources: Vec<String> = Vec::new();
+        let mut last_check_time: Option<String> = None;
+        let mut last_install_time: Option<String> = None;
+        let mut pending_file_rename_count: u32 = 0;
+
+        // 1. WindowsUpdate Auto Update RebootRequired
+        if hklm.open_subkey_with_flags(
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired",
+            KEY_READ,
+        ).is_ok() {
+            reboot_sources.push("WindowsUpdate: RebootRequired".to_string());
+        }
+
+        // 2. Component Based Servicing RebootPending
+        if hklm.open_subkey_with_flags(
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending",
+            KEY_READ,
+        ).is_ok() {
+            reboot_sources.push("CBS: RebootPending".to_string());
+        }
+
+        // 3. Session Manager PendingFileRenameOperations
+        if let Ok(sm_key) = hklm.open_subkey_with_flags(
+            "SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+            KEY_READ,
+        ) {
+            if let Ok(raw_val) = sm_key.get_raw_value("PendingFileRenameOperations") {
+                if !raw_val.bytes.is_empty() {
+                    let op_count = raw_val.bytes.windows(2).filter(|w| w[0] == 0 && w[1] == 0).count() as u32;
+                    let count = if op_count == 0 { 1 } else { op_count };
+                    pending_file_rename_count = count;
+                    reboot_sources.push(format!("SessionManager: PendingFileRenameOperations ({} file)", count));
+                }
+            }
+        }
+
+        // 4. Date di ultimo check / installazione
+        if let Ok(detect_key) = hklm.open_subkey_with_flags(
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\Results\\Detect",
+            KEY_READ,
+        ) {
+            if let Ok(ts) = detect_key.get_value::<String, _>("LastSuccessTime") {
+                if !ts.trim().is_empty() {
+                    last_check_time = Some(ts.trim().to_string());
+                }
+            }
+        }
+
+        if let Ok(install_key) = hklm.open_subkey_with_flags(
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\Results\\Install",
+            KEY_READ,
+        ) {
+            if let Ok(ts) = install_key.get_value::<String, _>("LastSuccessTime") {
+                if !ts.trim().is_empty() {
+                    last_install_time = Some(ts.trim().to_string());
+                }
+            }
+        }
+
+        let reboot_pending = !reboot_sources.is_empty();
+        let details = if reboot_pending {
+            Some(format!(
+                "Rilevato riavvio pendente da: {}.",
+                reboot_sources.join(", ")
+            ))
+        } else {
+            Some("Nessun riavvio pendente rilevato nel sistema operativo.".to_string())
+        };
+
+        WindowsUpdateStatus {
+            availability: "available".to_string(),
+            source: "windows_registry_update_flags".to_string(),
+            reboot_pending,
+            reboot_sources,
+            last_check_time,
+            last_install_time,
+            pending_file_rename_count,
+            details,
+        }
+    }
 }
 
 // --- COMANDI TAURI ESPOSTI AL FRONTEND ---
@@ -1597,3 +2082,266 @@ pub async fn check_winget_updates() -> Result<WindowsToolResult<Vec<WinGetUpdate
         })
     }
 }
+
+#[tauri::command]
+pub async fn query_startup_apps() -> Result<StartupAppsSnapshot, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::query_startup_apps_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(query_startup_apps_mock())
+    }
+}
+
+#[tauri::command]
+pub async fn open_startup_settings() -> Result<WindowsToolResult<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::open_startup_settings_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: false,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn run_network_diagnostics(target: Option<String>) -> Result<NetworkDiagnosticsResult, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::run_network_diagnostics_native(target))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let host = target.unwrap_or_else(|| "1.1.1.1".to_string());
+        Ok(parse_ping_output("", &host, 4, 0))
+    }
+}
+
+#[tauri::command]
+pub async fn query_windows_update_status() -> Result<WindowsUpdateStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::query_windows_update_status_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(query_windows_update_status_mock())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn query_startup_apps_mock() -> StartupAppsSnapshot {
+    StartupAppsSnapshot {
+        availability: "unsupported".to_string(),
+        source: "unsupported_os".to_string(),
+        total_apps: 0,
+        enabled_count: 0,
+        disabled_count: 0,
+        apps: vec![],
+        error_details: Some("Disponibile solo su Windows.".to_string()),
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn query_windows_update_status_mock() -> WindowsUpdateStatus {
+    WindowsUpdateStatus {
+        availability: "unsupported".to_string(),
+        source: "unsupported_os".to_string(),
+        reboot_pending: false,
+        reboot_sources: vec![],
+        last_check_time: None,
+        last_install_time: None,
+        pending_file_rename_count: 0,
+        details: Some("Disponibile solo su Windows.".to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_startup_approved_status_none_and_empty() {
+        assert_eq!(decode_startup_approved_status(None), true);
+        assert_eq!(decode_startup_approved_status(Some(&[])), true);
+    }
+
+    #[test]
+    fn test_decode_startup_approved_status_enabled_even_bytes() {
+        // In Task Manager 0x02 indica esplicitamente abilitato
+        assert_eq!(decode_startup_approved_status(Some(&[0x02, 0x00, 0x00, 0x00])), true);
+        // 0x00 (pari)
+        assert_eq!(decode_startup_approved_status(Some(&[0x00])), true);
+        assert_eq!(decode_startup_approved_status(Some(&[0x06, 0x11])), true);
+    }
+
+    #[test]
+    fn test_decode_startup_approved_status_disabled_odd_bytes() {
+        // In Task Manager 0x03 o 0x01 indicano disabilitato dall'utente
+        assert_eq!(decode_startup_approved_status(Some(&[0x03, 0x00, 0x00, 0x00])), false);
+        assert_eq!(decode_startup_approved_status(Some(&[0x01, 0x00, 0x00, 0x00])), false);
+        assert_eq!(decode_startup_approved_status(Some(&[0x05])), false);
+    }
+
+    #[test]
+    fn test_estimate_startup_impact_classifications() {
+        assert_eq!(estimate_startup_impact("Discord", "C:\\Users\\Peppe\\AppData\\Local\\Discord\\app.exe"), "high");
+        assert_eq!(estimate_startup_impact("Steam", "\"C:\\Program Files (x86)\\Steam\\steam.exe\" -silent"), "high");
+        assert_eq!(estimate_startup_impact("Spotify", "C:\\Users\\Peppe\\AppData\\Roaming\\Spotify\\Spotify.exe"), "high");
+        assert_eq!(estimate_startup_impact("Realtek HD Audio", "C:\\Program Files\\Realtek\\Audio\\RtkNGUI64.exe -s"), "low");
+        assert_eq!(estimate_startup_impact("Logitech G HUB", "lghub_tray.exe --background"), "low");
+        assert_eq!(estimate_startup_impact("GenericApp", "C:\\Tools\\app.exe"), "medium");
+    }
+
+    #[test]
+    fn test_parse_ping_time_line_it_and_en() {
+        let line_it = "Risposta da 1.1.1.1: byte=32 tempo=12ms TTL=57";
+        assert_eq!(parse_ping_time_line(line_it), Some(12.0));
+
+        let line_en = "Reply from 1.1.1.1: bytes=32 time=15.4ms TTL=57";
+        assert_eq!(parse_ping_time_line(line_en), Some(15.4));
+
+        let line_sub_ms = "Risposta da 127.0.0.1: byte=32 tempo<1ms TTL=128";
+        assert_eq!(parse_ping_time_line(line_sub_ms), Some(0.5));
+
+        let line_timeout = "Richiesta scaduta.";
+        assert_eq!(parse_ping_time_line(line_timeout), None);
+    }
+
+    #[test]
+    fn test_calculate_network_metrics_optimal() {
+        let samples = vec![12.0, 14.0, 16.0, 14.0];
+        let (min, max, avg, jitter, packet_loss, quality) = calculate_network_metrics(&samples, 4);
+
+        assert_eq!(min, Some(12.0));
+        assert_eq!(max, Some(16.0));
+        assert_eq!(avg, Some(14.0));
+        assert_eq!(packet_loss, 0.0);
+        // Jitter: |14-12| + |16-14| + |14-16| = 2 + 2 + 2 = 6 / 3 = 2.0
+        assert_eq!(jitter, Some(2.0));
+        assert_eq!(quality, "optimal");
+    }
+
+    #[test]
+    fn test_calculate_network_metrics_packet_loss_critical() {
+        let samples = vec![50.0, 60.0];
+        let (_, _, _, _, packet_loss, quality) = calculate_network_metrics(&samples, 4);
+
+        assert_eq!(packet_loss, 50.0);
+        assert_eq!(quality, "critical");
+    }
+
+    #[test]
+    fn test_calculate_network_metrics_offline() {
+        let samples: Vec<f64> = vec![];
+        let (min, max, avg, jitter, packet_loss, quality) = calculate_network_metrics(&samples, 4);
+
+        assert_eq!(min, None);
+        assert_eq!(max, None);
+        assert_eq!(avg, None);
+        assert_eq!(jitter, None);
+        assert_eq!(packet_loss, 100.0);
+        assert_eq!(quality, "offline");
+    }
+
+    #[test]
+    fn test_classify_network_quality_thresholds() {
+        assert_eq!(classify_network_quality(20.0, 0.0, 3.0), "optimal");
+        assert_eq!(classify_network_quality(50.0, 0.0, 10.0), "good");
+        assert_eq!(classify_network_quality(90.0, 0.0, 5.0), "degraded");
+        assert_eq!(classify_network_quality(25.0, 0.0, 35.0), "degraded");
+        assert_eq!(classify_network_quality(210.0, 0.0, 10.0), "critical");
+        assert_eq!(classify_network_quality(40.0, 25.0, 5.0), "critical");
+        assert_eq!(classify_network_quality(0.0, 100.0, 0.0), "offline");
+    }
+
+    #[test]
+    fn test_parse_ping_output_full_scenario() {
+        let stdout = "\
+Esecuzione di Ping 1.1.1.1 con 32 byte di dati:
+Risposta da 1.1.1.1: byte=32 tempo=11ms TTL=57
+Risposta da 1.1.1.1: byte=32 tempo=13ms TTL=57
+Risposta da 1.1.1.1: byte=32 tempo=12ms TTL=57
+Risposta da 1.1.1.1: byte=32 tempo=14ms TTL=57
+
+Statistiche Ping per 1.1.1.1:
+    Pacchetti: Trasmessi = 4, Ricevuti = 4, Persi = 0 (0% persi),
+Tempo approssimativo percorsi andata/ritorno in millisecondi:
+    Minimo = 11ms, Massimo = 14ms, Medio = 12ms
+";
+        let res = parse_ping_output(stdout, "1.1.1.1", 4, 120);
+        assert_eq!(res.sent_packets, 4);
+        assert_eq!(res.received_packets, 4);
+        assert_eq!(res.packet_loss_percent, 0.0);
+        assert_eq!(res.rtt_min_ms, Some(11.0));
+        assert_eq!(res.rtt_max_ms, Some(14.0));
+        assert_eq!(res.rtt_avg_ms, Some(12.5));
+        assert_eq!(res.quality_rating, "optimal");
+        assert_eq!(res.status, "success");
+    }
+
+    #[test]
+    fn test_startup_apps_snapshot_serialization() {
+        let snapshot = StartupAppsSnapshot {
+            availability: "available".to_string(),
+            source: "windows_registry_run".to_string(),
+            total_apps: 2,
+            enabled_count: 1,
+            disabled_count: 1,
+            apps: vec![
+                StartupAppItem {
+                    name: "Discord".to_string(),
+                    command: "C:\\Discord\\app.exe".to_string(),
+                    scope: "current_user".to_string(),
+                    enabled: true,
+                    impact: "high".to_string(),
+                    raw_status_hex: Some("02 00 00 00".to_string()),
+                },
+                StartupAppItem {
+                    name: "OldApp".to_string(),
+                    command: "C:\\Old\\app.exe".to_string(),
+                    scope: "local_machine".to_string(),
+                    enabled: false,
+                    impact: "medium".to_string(),
+                    raw_status_hex: Some("03 00 00 00".to_string()),
+                },
+            ],
+            error_details: None,
+        };
+
+        let json = serde_json::to_string(&snapshot).expect("must serialize");
+        assert!(json.contains("\"totalApps\":2"));
+        assert!(json.contains("\"enabledCount\":1"));
+        assert!(json.contains("\"disabledCount\":1"));
+        assert!(json.contains("\"rawStatusHex\":\"02 00 00 00\""));
+    }
+
+    #[test]
+    fn test_windows_update_status_serialization() {
+        let status = WindowsUpdateStatus {
+            availability: "available".to_string(),
+            source: "windows_registry_update_flags".to_string(),
+            reboot_pending: true,
+            reboot_sources: vec!["WindowsUpdate: RebootRequired".to_string()],
+            last_check_time: Some("2026-10-02 10:00:00".to_string()),
+            last_install_time: Some("2026-10-01 22:30:00".to_string()),
+            pending_file_rename_count: 0,
+            details: Some("Riavvio richiesto.".to_string()),
+        };
+
+        let json = serde_json::to_string(&status).expect("must serialize");
+        assert!(json.contains("\"rebootPending\":true"));
+        assert!(json.contains("\"rebootSources\":[\"WindowsUpdate: RebootRequired\"]"));
+    }
+}
+

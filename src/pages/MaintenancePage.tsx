@@ -24,6 +24,9 @@ import {
   SystemFactsInput,
   MonitoringSnapshot,
   SystemDiagnosticsSnapshot,
+  StartupAppsSnapshot,
+  NetworkDiagnosticsResult,
+  WindowsUpdateStatus,
 } from '../types';
 import {
   formatDate as formatWithSettings,
@@ -43,6 +46,8 @@ import {
   formatWearPercentage,
   evaluateSecurityAuditStatus,
   computeMaintenanceConditionSummary,
+  getNetworkQualityMeta,
+  formatLatencyMs,
 } from '../domain';
 import {
   scanStorageVolumes,
@@ -64,6 +69,10 @@ import {
   cleanComponentStore,
   rebootToUefi,
   checkWinGetUpdates,
+  queryStartupApps,
+  openStartupSettings,
+  runNetworkDiagnostics,
+  queryWindowsUpdateStatus,
 } from '../services/windowsToolsService';
 import { getMonitoringSnapshot } from '../services/monitoringService';
 import { getSystemDiagnosticsSnapshot } from '../services/diagnosticsService';
@@ -77,6 +86,7 @@ import {
   CareLiveTab,
   EventLogInspectionModal,
   WindowsServicesInspectionModal,
+  StartupAppsInspectionModal,
 } from '../components/maintenance';
 import { Modal } from '../components/common/Modal';
 import {
@@ -109,6 +119,7 @@ import {
   Download,
   RotateCcw,
   FileText,
+  Wifi,
 } from 'lucide-react';
 
 
@@ -213,10 +224,18 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [isEventLogModalOpen, setIsEventLogModalOpen] = useState(false);
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
 
+  // Stati Tranche 10: Startup Apps, Windows Update & Network Diagnostics
+  const [startupAppsSnapshot, setStartupAppsSnapshot] = useState<StartupAppsSnapshot | null>(null);
+  const [isStartupModalOpen, setIsStartupModalOpen] = useState(false);
+  const [windowsUpdateStatus, setWindowsUpdateStatus] = useState<WindowsUpdateStatus | null>(null);
+  const [networkTarget, setNetworkTarget] = useState('1.1.1.1');
+  const [networkResult, setNetworkResult] = useState<NetworkDiagnosticsResult | null>(null);
+  const [isRunningNetworkTest, setIsRunningNetworkTest] = useState(false);
+
   // Caricamento dati iniziali per la tab Strumenti e Panoramica
   const loadWindowsToolsData = async () => {
     try {
-      const [vols, trim, bin, hiber, smart, sec, snap, diag] = await Promise.all([
+      const [vols, trim, bin, hiber, smart, sec, snap, diag, startup, update] = await Promise.all([
         scanStorageVolumes(),
         queryTrimConfiguration(),
         queryRecycleBin(),
@@ -225,6 +244,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         querySecurityAudit(),
         getMonitoringSnapshot(),
         getSystemDiagnosticsSnapshot(),
+        queryStartupApps(),
+        queryWindowsUpdateStatus(),
       ]);
 
       if (vols.data && vols.data.length > 0) {
@@ -239,6 +260,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       if (sec.data) setSecurityAudit(sec.data);
       if (snap) setMonitoringSnapshot(snap);
       if (diag) setDiagnosticsSnapshot(diag);
+      if (startup) setStartupAppsSnapshot(startup);
+      if (update) setWindowsUpdateStatus(update);
     } catch (err) {
       console.warn('Errore caricamento dati strumenti Windows:', err);
     }
@@ -263,6 +286,9 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       recycleBin: recycleBin,
       wingetUpdates: wingetUpdates,
       diagnostics: diagnosticsSnapshot,
+      startupApps: startupAppsSnapshot,
+      windowsUpdate: windowsUpdateStatus,
+      networkDiagnostics: networkResult,
     };
   }, [
     monitoringSnapshot,
@@ -276,7 +302,34 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     recycleBin,
     wingetUpdates,
     diagnosticsSnapshot,
+    startupAppsSnapshot,
+    windowsUpdateStatus,
+    networkResult,
   ]);
+
+  const handleRunNetworkDiagnostics = async () => {
+    setIsRunningNetworkTest(true);
+    try {
+      const host = networkTarget.trim() || '1.1.1.1';
+      const res = await runNetworkDiagnostics(host);
+      setNetworkResult(res);
+      if (res.status === 'error') {
+        showNotification('error', res.errorDetails || 'Network diagnostics error');
+      }
+    } catch (err) {
+      showNotification('error', (err as Error).message);
+    } finally {
+      setIsRunningNetworkTest(false);
+    }
+  };
+
+  const handleOpenStartupSettings = async () => {
+    try {
+      await openStartupSettings();
+    } catch (err) {
+      showNotification('error', `Impossibile aprire impostazioni: ${(err as Error).message}`);
+    }
+  };
 
   // Esecuzione Scan Now
   const handleRunScanNow = async () => {
@@ -1688,6 +1741,79 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                     Verifica Servizi di Sistema (SCM)
                   </button>
                 </div>
+
+                {/* Tool: Stato Windows Update (Pendente Reboots & Installazioni) */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <RefreshCw size={18} color="var(--accent-primary)" />
+                        {t('windows_update_title')}
+                      </div>
+                      <span className={`badge ${windowsUpdateStatus?.rebootPending ? 'badge-amber' : 'badge-emerald'}`} style={{ fontSize: '0.68rem' }}>
+                        {windowsUpdateStatus?.rebootPending ? t('windows_update_status_reboot') : t('windows_update_status_updated')}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      {t('windows_update_desc')}
+                    </div>
+
+                    {windowsUpdateStatus && (
+                      <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem' }}>
+                        {windowsUpdateStatus.rebootPending && (
+                          <div
+                            style={{
+                              padding: '8px 10px',
+                              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              borderRadius: '4px',
+                              color: 'var(--accent-amber)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                            <span>{t('windows_update_reboot_pending')}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{t('windows_update_last_check')}</span>
+                          <strong style={{ color: 'var(--text-secondary)' }}>
+                            {windowsUpdateStatus.lastCheckTime || 'N/D'}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{t('windows_update_last_install')}</span>
+                          <strong style={{ color: 'var(--text-secondary)' }}>
+                            {windowsUpdateStatus.lastInstallTime || 'N/D'}
+                          </strong>
+                        </div>
+                        {windowsUpdateStatus.pendingFileRenameCount > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('windows_update_pending_files')}</span>
+                            <strong style={{ color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }}>
+                              {windowsUpdateStatus.pendingFileRenameCount}
+                            </strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={async () => {
+                      const res = await queryWindowsUpdateStatus();
+                      if (res) setWindowsUpdateStatus(res);
+                    }}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <RefreshCw size={13} style={{ marginRight: '6px' }} />
+                    {t('windows_update_refresh_btn')}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2081,6 +2207,163 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                     <RefreshCw size={13} className={isLoadingWinGet ? 'spin' : ''} style={{ marginRight: '6px' }} />
                     {isLoadingWinGet ? 'Controllo in corso...' : 'Verifica Aggiornamenti WinGet'}
                   </button>
+                </div>
+
+                {/* Tool: Startup Intelligence (Applicazioni all'Avvio) */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Sliders size={18} color="var(--accent-cyan)" />
+                        {t('startup_apps_title')}
+                      </div>
+                      <span className="badge badge-cyan" style={{ fontSize: '0.68rem' }}>
+                        Read-Only Registry
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      {t('startup_apps_desc')}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        padding: '10px 12px',
+                        background: 'var(--bg-input)',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <span>
+                          {t('startup_apps_total')}: <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{startupAppsSnapshot?.totalApps ?? 0}</strong>
+                        </span>
+                        <span>
+                          {t('startup_apps_enabled')}: <strong style={{ color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>{startupAppsSnapshot?.enabledCount ?? 0}</strong>
+                        </span>
+                        <span>
+                          {t('startup_apps_disabled')}: <strong style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{startupAppsSnapshot?.disabledCount ?? 0}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setIsStartupModalOpen(true)}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      {t('startup_apps_inspect_btn')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={handleOpenStartupSettings}
+                      title={t('startup_apps_open_settings_btn')}
+                      style={{ padding: '0 10px' }}
+                    >
+                      <ExternalLink size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tool: Diagnostica Rete & Latenza ICMP */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Wifi size={18} color="var(--accent-primary)" />
+                        {t('network_diagnostics_title')}
+                      </div>
+                      {networkResult ? (
+                        <span className={`badge ${getNetworkQualityMeta(networkResult.qualityRating).badgeClass}`} style={{ fontSize: '0.68rem' }}>
+                          {getNetworkQualityMeta(networkResult.qualityRating).label}
+                        </span>
+                      ) : (
+                        <span className="badge badge-subtle" style={{ fontSize: '0.68rem' }}>
+                          On-Demand ICMP
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      {t('network_diagnostics_desc')}
+                    </div>
+
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder={t('network_diagnostics_target_placeholder')}
+                          value={networkTarget}
+                          onChange={(e) => setNetworkTarget(e.target.value)}
+                          style={{ height: '32px', fontSize: '0.8rem', flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          disabled={isRunningNetworkTest}
+                          onClick={handleRunNetworkDiagnostics}
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          <RefreshCw size={12} className={isRunningNetworkTest ? 'spin' : ''} style={{ marginRight: '4px' }} />
+                          {isRunningNetworkTest ? t('network_diagnostics_running') : t('network_diagnostics_run_btn')}
+                        </button>
+                      </div>
+
+                      {networkResult && (
+                        <div
+                          style={{
+                            padding: '8px 10px',
+                            background: 'var(--bg-input)',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
+                            gap: '8px',
+                            fontSize: '0.74rem',
+                          }}
+                        >
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('network_diagnostics_rtt_min')}:</span>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {formatLatencyMs(networkResult.rttMinMs)}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('network_diagnostics_rtt_avg')}:</span>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                              {formatLatencyMs(networkResult.rttAvgMs)}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('network_diagnostics_rtt_max')}:</span>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {formatLatencyMs(networkResult.rttMaxMs)}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('network_diagnostics_jitter')}:</span>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                              {formatLatencyMs(networkResult.jitterMs)}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>{t('network_diagnostics_loss')}:</span>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: networkResult.packetLossPercent > 0 ? 'var(--accent-ruby)' : 'var(--accent-emerald)' }}>
+                              {networkResult.packetLossPercent}%
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2634,6 +2917,14 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         isOpen={isServicesModalOpen}
         onClose={() => setIsServicesModalOpen(false)}
         servicesSnapshot={diagnosticsSnapshot?.systemServices}
+      />
+
+      {/* Modale Ispezione Applicazioni di Avvio */}
+      <StartupAppsInspectionModal
+        isOpen={isStartupModalOpen}
+        onClose={() => setIsStartupModalOpen(false)}
+        snapshot={startupAppsSnapshot}
+        onOpenSettings={handleOpenStartupSettings}
       />
     </div>
   );

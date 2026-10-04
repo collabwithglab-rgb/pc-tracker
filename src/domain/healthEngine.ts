@@ -31,6 +31,7 @@ import {
   CorrelationStrength,
 } from '../types/diagnostics';
 import { computeDiagnosticCorrelations } from './diagnosticCorrelationEngine';
+import { translate } from '../locales';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -165,6 +166,9 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   // 6c. Valutazione Salute Servizi di Sistema Windows (Tranche 8D-2)
   const serviceFindings = evaluateWindowsServicesHealth(facts);
   findings.push(...serviceFindings);
+
+  // 6e. Valutazione Windows Update e Startup Intelligence (Tranche 10)
+  evaluateWindowsUpdateAndStartupHealth(facts, findings);
 
   // 6d. Calcolo e Arricchimento Correlazioni Diagnostiche (Tranche 8D-3)
   const correlationInput: DiagnosticCorrelationInput = {
@@ -864,6 +868,53 @@ function evaluateSystemAndSecurityHealth(facts: SystemFactsInput, findings: Heal
         confidence: 'HIGH',
       });
     }
+  }
+}
+
+/**
+ * Valutazione di Windows Update e Startup Intelligence (Tranche 10).
+ * Finding deterministico per riavvio pendente e warning informativo per startup apps > 15.
+ */
+export function evaluateWindowsUpdateAndStartupHealth(
+  facts: SystemFactsInput,
+  findings: HealthFinding[]
+): void {
+  // A. Riavvio di sistema pendente da Windows Update / CBS / FileRenameOperations
+  if (facts.windowsUpdate?.rebootPending) {
+    const sources = facts.windowsUpdate.rebootSources || [];
+    const sourcesLabel = sources.length > 0 ? sources.join(', ') : 'Windows Update';
+    findings.push({
+      id: 'system-reboot-pending',
+      severity: 'WARNING',
+      area: 'system',
+      title: translate('it', 'health_finding_reboot_pending_title'),
+      evidence: sourcesLabel,
+      explanation: translate('it', 'health_finding_reboot_pending_explanation'),
+      confidence: 'HIGH',
+      recommendedActionId: 'reboot_system_patch',
+      metadata: {
+        rebootSources: sources.join('; '),
+        pendingRenames: facts.windowsUpdate.pendingFileRenameCount,
+      },
+    });
+  }
+
+  // B. Warning informativo per numero elevato di applicazioni con avvio automatico (>15)
+  if (facts.startupApps && facts.startupApps.enabledCount > 15) {
+    findings.push({
+      id: 'startup-apps-high-count',
+      severity: 'ATTENTION',
+      area: 'system',
+      title: translate('it', 'health_finding_startup_apps_high_title'),
+      evidence: `${facts.startupApps.enabledCount} / ${facts.startupApps.totalApps}`,
+      explanation: translate('it', 'health_finding_startup_apps_high_explanation'),
+      confidence: 'HIGH',
+      recommendedActionId: 'review_startup_apps',
+      metadata: {
+        enabledCount: facts.startupApps.enabledCount,
+        totalApps: facts.startupApps.totalApps,
+      },
+    });
   }
 }
 

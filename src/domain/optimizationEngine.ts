@@ -20,6 +20,7 @@ import { SystemFactsInput, SystemHealthReport } from '../types/health';
 import { evaluateSystemHealth, computeDaysBetween } from './healthEngine';
 import { isMetricAvailable } from '../services/monitoringService';
 import { evaluateRecommendationsWithHistory } from './optimizationLifecycleEngine';
+import { translate } from '../locales';
 
 /**
  * Genera il catalogo delle raccomandazioni ottimizzate per il sistema corrente,
@@ -46,6 +47,9 @@ export function generateOptimizationRecommendations(
 
   // 3. Raccomandazioni su Performance, Cache, GPU TDR, CPU WHEA, RAM e WinGet
   evaluatePerformanceRecommendations(facts, health, recommendations);
+
+  // 3b. Raccomandazioni su Windows Update e Startup Intelligence (Tranche 10)
+  evaluateWindowsUpdateAndStartupRecommendations(facts, health, recommendations);
 
   // 4. Raccomandazioni su Termiche e Manutenzione Fisica (con Personal Baseline)
   evaluateThermalAndMaintenanceRecommendations(facts, health, recommendations, refDate);
@@ -512,6 +516,68 @@ function evaluateWindowsServicesRecommendations(
       actionDescription: 'Avvio del servizio Winmgmt e impostazione dell\'avvio su Automatico in services.msc',
       verificationMethod: 'Servizio Winmgmt in esecuzione (Running)',
       parameters: { serviceName: 'Winmgmt' },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2c. WINDOWS UPDATE & STARTUP INTELLIGENCE RECOMMENDATIONS (TRANCHE 10)
+// ---------------------------------------------------------------------------
+
+function evaluateWindowsUpdateAndStartupRecommendations(
+  facts: SystemFactsInput,
+  health: SystemHealthReport,
+  recommendations: OptimizationRecommendation[]
+): void {
+  // A. Finalizzazione aggiornamenti di sistema con riavvio programmato
+  const rebootFinding = health.findings.find((f) => f.id === 'system-reboot-pending');
+  if (facts.windowsUpdate?.rebootPending || rebootFinding) {
+    const sources = facts.windowsUpdate?.rebootSources || [];
+    recommendations.push({
+      id: 'opt-finalize-windows-update',
+      title: translate('it', 'opt_finalize_windows_update_title'),
+      category: 'system',
+      reason: translate('it', 'opt_finalize_windows_update_reason'),
+      evidence: rebootFinding?.evidence || (sources.join(', ') || 'Windows Update'),
+      expectedBenefit: translate('it', 'opt_finalize_windows_update_benefit'),
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'reboot-system',
+      actionDescription: translate('it', 'opt_finalize_windows_update_action'),
+      verificationMethod: 'RebootPending flag cleared post-reboot',
+      cadenceType: 'STATE_REMEDIATION',
+      parameters: {
+        rebootSources: sources.join('; '),
+      },
+    });
+  }
+
+  // B. Revisione delle applicazioni con avvio automatico abilitato (>15)
+  const startupFinding = health.findings.find((f) => f.id === 'startup-apps-high-count');
+  if ((facts.startupApps && facts.startupApps.enabledCount > 15) || startupFinding) {
+    const enabled = facts.startupApps?.enabledCount ?? 16;
+    const total = facts.startupApps?.totalApps ?? enabled;
+    recommendations.push({
+      id: 'opt-review-startup-apps',
+      title: translate('it', 'opt_review_startup_apps_title'),
+      category: 'performance',
+      reason: translate('it', 'opt_review_startup_apps_reason'),
+      evidence: startupFinding?.evidence || `${enabled} / ${total}`,
+      expectedBenefit: translate('it', 'opt_review_startup_apps_benefit'),
+      risk: 'LOW',
+      confidence: 'HIGH',
+      actionAvailability: 'ONE_CLICK',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'open-startup-settings',
+      actionDescription: translate('it', 'opt_review_startup_apps_action'),
+      verificationMethod: 'Startup apps count <= 15',
+      cadenceType: 'STATE_REMEDIATION',
+      parameters: {
+        enabledCount: enabled,
+        totalApps: total,
+      },
     });
   }
 }

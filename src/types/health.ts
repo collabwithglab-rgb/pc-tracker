@@ -9,6 +9,9 @@ import {
   SecurityAuditData,
   RecycleBinInfo,
   WinGetUpdateItem,
+  StartupAppsSnapshot,
+  WindowsUpdateStatus,
+  NetworkDiagnosticsResult,
 } from './windowsTools';
 import { MaintenanceEntry } from './maintenance';
 import { TuningProfile } from './tuning';
@@ -82,6 +85,9 @@ export interface SystemFactsInput {
   recycleBin?: RecycleBinInfo | null;
   wingetUpdates?: WinGetUpdateItem[] | null;
   diagnostics?: SystemDiagnosticsSnapshot | null;
+  startupApps?: StartupAppsSnapshot | null;
+  windowsUpdate?: WindowsUpdateStatus | null;
+  networkDiagnostics?: NetworkDiagnosticsResult | null;
 }
 
 export interface AreaHealthSummary {

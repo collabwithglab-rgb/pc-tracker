@@ -9,6 +9,9 @@ import {
   DiskSmartHealth,
   ShaderCacheCleanResult,
   WinGetUpdateItem,
+  StartupAppsSnapshot,
+  NetworkDiagnosticsResult,
+  WindowsUpdateStatus,
 } from '../types/windowsTools';
 import { isDesktopApp } from './desktopService';
 import { evaluateScanNowRecommendations } from '../domain/windowsToolsEngine';
@@ -721,4 +724,193 @@ export async function checkWinGetUpdates(): Promise<WindowsToolResult<WinGetUpda
     requiresElevation: false,
   };
 }
+
+export const MOCK_STARTUP_APPS: StartupAppsSnapshot = {
+  availability: 'available',
+  source: 'windows_registry_run (web mock)',
+  totalApps: 5,
+  enabledCount: 3,
+  disabledCount: 2,
+  apps: [
+    {
+      name: 'Discord',
+      command: 'C:\\Users\\Peppe\\AppData\\Local\\Discord\\app.exe',
+      scope: 'current_user',
+      enabled: true,
+      impact: 'high',
+      rawStatusHex: '02 00 00 00',
+    },
+    {
+      name: 'Steam',
+      command: '"C:\\Program Files (x86)\\Steam\\steam.exe" -silent',
+      scope: 'current_user',
+      enabled: true,
+      impact: 'high',
+      rawStatusHex: '02 00 00 00',
+    },
+    {
+      name: 'Realtek Audio',
+      command: 'C:\\Program Files\\Realtek\\Audio\\RtkNGUI64.exe -s',
+      scope: 'local_machine',
+      enabled: true,
+      impact: 'low',
+      rawStatusHex: '02 00 00 00',
+    },
+    {
+      name: 'Spotify',
+      command: 'C:\\Users\\Peppe\\AppData\\Roaming\\Spotify\\Spotify.exe --autostart',
+      scope: 'current_user',
+      enabled: false,
+      impact: 'high',
+      rawStatusHex: '03 00 00 00',
+    },
+    {
+      name: 'EpicGamesLauncher',
+      command: '"C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe" -silent',
+      scope: 'local_machine_wow64',
+      enabled: false,
+      impact: 'high',
+      rawStatusHex: '03 00 00 00',
+    },
+  ],
+  errorDetails: null,
+};
+
+export const MOCK_WINDOWS_UPDATE_STATUS: WindowsUpdateStatus = {
+  availability: 'available',
+  source: 'windows_registry_update_flags (web mock)',
+  rebootPending: false,
+  rebootSources: [],
+  lastCheckTime: '2026-10-02 18:30:00',
+  lastInstallTime: '2026-10-01 10:15:00',
+  pendingFileRenameCount: 0,
+  details: null,
+};
+
+export const MOCK_NETWORK_DIAGNOSTICS: NetworkDiagnosticsResult = {
+  targetHost: '1.1.1.1',
+  sentPackets: 4,
+  receivedPackets: 4,
+  packetLossPercent: 0,
+  rttMinMs: 11.2,
+  rttMaxMs: 14.8,
+  rttAvgMs: 12.6,
+  jitterMs: 1.8,
+  qualityRating: 'optimal',
+  rawSamples: [11.2, 12.5, 14.8, 12.0],
+  status: 'success',
+  errorDetails: null,
+  executionTimeMs: 140,
+};
+
+/**
+ * Interroga le applicazioni con avvio automatico nel registro di Windows (HKCU, HKLM, WOW6432Node).
+ */
+export async function queryStartupApps(): Promise<StartupAppsSnapshot> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<StartupAppsSnapshot>('query_startup_apps');
+    } catch (err) {
+      return {
+        availability: 'error',
+        source: 'tauri_error',
+        totalApps: 0,
+        enabledCount: 0,
+        disabledCount: 0,
+        apps: [],
+        errorDetails: (err as Error).message,
+      };
+    }
+  }
+
+  return MOCK_STARTUP_APPS;
+}
+
+/**
+ * Apre l'interfaccia nativa delle impostazioni Windows per le app di avvio.
+ */
+export async function openStartupSettings(): Promise<WindowsToolResult<string>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<string>>('open_startup_settings');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Error opening Windows Settings: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: false,
+      };
+    }
+  }
+
+  return {
+    status: 'success',
+    message: 'Windows startup settings opened (simulated)',
+    details: 'Native settings opened safely',
+    data: 'ms-settings:startupapps',
+    durationMs: 300,
+    requiresElevation: false,
+  };
+}
+
+/**
+ * Esegue il test ICMP Echo (ping) verso il target host on-demand.
+ */
+export async function runNetworkDiagnostics(target?: string): Promise<NetworkDiagnosticsResult> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<NetworkDiagnosticsResult>('run_network_diagnostics', {
+        target: target || null,
+      });
+    } catch (err) {
+      const host = target || '1.1.1.1';
+      return {
+        targetHost: host,
+        sentPackets: 4,
+        receivedPackets: 0,
+        packetLossPercent: 100,
+        qualityRating: 'offline',
+        rawSamples: [],
+        status: 'error',
+        errorDetails: (err as Error).message,
+        executionTimeMs: 0,
+      };
+    }
+  }
+
+  const host = target || '1.1.1.1';
+  return {
+    ...MOCK_NETWORK_DIAGNOSTICS,
+    targetHost: host,
+  };
+}
+
+/**
+ * Interroga lo stato di Windows Update e rileva eventuali flag di riavvio pendente.
+ */
+export async function queryWindowsUpdateStatus(): Promise<WindowsUpdateStatus> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsUpdateStatus>('query_windows_update_status');
+    } catch (err) {
+      return {
+        availability: 'error',
+        source: 'tauri_error',
+        rebootPending: false,
+        rebootSources: [],
+        lastCheckTime: null,
+        lastInstallTime: null,
+        pendingFileRenameCount: 0,
+        details: (err as Error).message,
+      };
+    }
+  }
+
+  return MOCK_WINDOWS_UPDATE_STATUS;
+}
+
 

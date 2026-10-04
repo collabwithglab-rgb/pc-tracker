@@ -21,4 +21,5 @@ export * from './optimizationHistoryEngine';
 export * from './optimizationLifecycleEngine';
 export * from './maintenanceSchedulerEngine';
 export * from './diagnosticCorrelationEngine';
+export * from './networkQualityEngine';
 

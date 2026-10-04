@@ -8,3 +8,4 @@ export { CareLiveTab } from './CareLiveTab';
 export { OptimizationHistoryModal } from './OptimizationHistoryModal';
 export { EventLogInspectionModal } from './EventLogInspectionModal';
 export { WindowsServicesInspectionModal } from './WindowsServicesInspectionModal';
+export { StartupAppsInspectionModal } from './StartupAppsInspectionModal';
