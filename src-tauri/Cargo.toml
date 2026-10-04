@@ -26,3 +26,6 @@ tauri-plugin-process = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.55"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
