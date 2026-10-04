@@ -51,6 +51,9 @@ export function generateOptimizationRecommendations(
   // 3b. Raccomandazioni su Windows Update e Startup Intelligence (Tranche 10)
   evaluateWindowsUpdateAndStartupRecommendations(facts, health, recommendations);
 
+  // 3c. Raccomandazioni su Display Diagnostics & Audio Settings (Tranche 11)
+  evaluateDisplayAndAudioRecommendations(facts, health, recommendations);
+
   // 4. Raccomandazioni su Termiche e Manutenzione Fisica (con Personal Baseline)
   evaluateThermalAndMaintenanceRecommendations(facts, health, recommendations, refDate);
 
@@ -578,6 +581,89 @@ function evaluateWindowsUpdateAndStartupRecommendations(
         enabledCount: enabled,
         totalApps: total,
       },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3c. DISPLAY DIAGNOSTICS & AUDIO LATENCY INTELLIGENCE (TRANCHE 11)
+// ---------------------------------------------------------------------------
+
+function evaluateDisplayAndAudioRecommendations(
+  facts: SystemFactsInput,
+  health: SystemHealthReport,
+  recommendations: OptimizationRecommendation[]
+): void {
+  // A. Ottimizzazione refresh rate monitor limitato a 60Hz su pannello gaming
+  if (facts.displayDiagnostics?.monitors) {
+    for (const monitor of facts.displayDiagnostics.monitors) {
+      const finding = health.findings.find(
+        (f) => f.id === `display-refresh-rate-limited-${monitor.id}`
+      );
+      if (monitor.isRefreshRateLimited || finding) {
+        recommendations.push({
+          id: `opt-display-refresh-rate-${monitor.id}`,
+          title: translate('it', 'opt_display_maximize_refresh_rate_title', {
+            monitor: monitor.monitorName,
+            maxHz: monitor.maxSupportedRefreshRate,
+          }),
+          category: 'performance',
+          reason: translate('it', 'opt_display_maximize_refresh_rate_reason', {
+            monitor: monitor.monitorName,
+            currentHz: monitor.currentRefreshRate,
+            maxHz: monitor.maxSupportedRefreshRate,
+          }),
+          evidence: finding?.evidence || `${monitor.currentRefreshRate} Hz -> ${monitor.maxSupportedRefreshRate} Hz`,
+          expectedBenefit: translate('it', 'opt_display_maximize_refresh_rate_benefit', {
+            maxHz: monitor.maxSupportedRefreshRate,
+          }),
+          risk: 'NONE',
+          confidence: 'HIGH',
+          actionAvailability: 'ASSISTED',
+          rollbackAvailability: 'NOT_APPLICABLE',
+          actionId: 'open-display-settings',
+          actionDescription: translate('it', 'opt_display_maximize_refresh_rate_action'),
+          verificationMethod: 'Display settings updated to maximum refresh rate',
+          cadenceType: 'STATE_REMEDIATION',
+          parameters: {
+            monitorId: monitor.id,
+            targetHz: monitor.maxSupportedRefreshRate,
+          },
+        });
+      }
+    }
+  }
+
+  // B. Revisione configurazione audio e sample rate sub-ottimale
+  const audioDegraded = health.findings.find((f) => f.id === 'audio-sample-rate-degraded');
+  const audioServiceStopped = health.findings.find((f) => f.id === 'audio-service-stopped');
+  const audioIssues = health.findings.find((f) => f.id === 'audio-issues-detected');
+
+  if (
+    audioDegraded ||
+    audioServiceStopped ||
+    audioIssues ||
+    (facts.audioDiagnostics && facts.audioDiagnostics.engineStatus === 'degraded')
+  ) {
+    recommendations.push({
+      id: 'opt-audio-format-review',
+      title: translate('it', 'opt_audio_format_review_title'),
+      category: 'system',
+      reason: translate('it', 'opt_audio_format_review_reason'),
+      evidence:
+        audioDegraded?.evidence ||
+        audioServiceStopped?.evidence ||
+        facts.audioDiagnostics?.issueSummary ||
+        `${facts.audioDiagnostics?.defaultSampleRateHz || 0} Hz`,
+      expectedBenefit: translate('it', 'opt_audio_format_review_benefit'),
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'ASSISTED',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'open-sound-settings',
+      actionDescription: translate('it', 'opt_audio_format_review_action'),
+      verificationMethod: 'Windows Audio settings opened for sample rate review',
+      cadenceType: 'STATE_REMEDIATION',
     });
   }
 }

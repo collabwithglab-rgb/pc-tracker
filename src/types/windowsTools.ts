@@ -172,3 +172,73 @@ export interface WindowsUpdateStatus {
   details?: string | null;
 }
 
+export type MonitorOrientation = 'landscape' | 'portrait' | 'landscape_flipped' | 'portrait_flipped' | 'unknown';
+
+export interface MonitorResolution {
+  width: number;
+  height: number;
+}
+
+export interface MonitorVirtualBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface MonitorInfo {
+  id: string;
+  monitorName: string;
+  adapterName: string;
+  currentResolution: MonitorResolution;
+  currentRefreshRate: number;
+  maxSupportedRefreshRate: number;
+  supportedRefreshRates: number[];
+  bitsPerPixel: number;
+  orientation: MonitorOrientation;
+  isPrimary: boolean;
+  virtualBounds: MonitorVirtualBounds;
+  dpiScalePercent: number;
+  isRefreshRateLimited: boolean;
+}
+
+export interface DisplayDiagnosticsSnapshot {
+  availability: 'available' | 'unavailable' | 'unsupported' | 'error';
+  source: string;
+  totalMonitors: number;
+  monitors: MonitorInfo[];
+  hasHighRefreshRateMismatch: boolean;
+  hasMixedRefreshRates: boolean;
+  errorDetails?: string | null;
+}
+
+export type AudioDeviceState = 'active' | 'disabled' | 'unplugged' | 'not_present' | 'unknown';
+export type AudioEngineStatus = 'optimal' | 'standard' | 'degraded' | 'issues_detected';
+
+export interface AudioDeviceInfo {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  state: AudioDeviceState;
+  sampleRateHz?: number | null;
+  bitDepth?: number | null;
+  channels?: number | null;
+  driverName?: string | null;
+}
+
+export interface AudioDiagnosticsSnapshot {
+  availability: 'available' | 'unavailable' | 'unsupported' | 'error';
+  source: string;
+  defaultDeviceName?: string | null;
+  defaultSampleRateHz?: number | null;
+  defaultBitDepth?: number | null;
+  defaultChannels?: number | null;
+  devices: AudioDeviceInfo[];
+  audioServiceRunning: boolean;
+  audioEndpointBuilderRunning: boolean;
+  engineStatus: AudioEngineStatus;
+  glitchOrIssueDetected: boolean;
+  issueSummary?: string | null;
+  errorDetails?: string | null;
+}
+

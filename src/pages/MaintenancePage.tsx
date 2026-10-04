@@ -27,6 +27,8 @@ import {
   StartupAppsSnapshot,
   NetworkDiagnosticsResult,
   WindowsUpdateStatus,
+  DisplayDiagnosticsSnapshot,
+  AudioDiagnosticsSnapshot,
 } from '../types';
 import {
   formatDate as formatWithSettings,
@@ -73,6 +75,10 @@ import {
   openStartupSettings,
   runNetworkDiagnostics,
   queryWindowsUpdateStatus,
+  queryDisplayDiagnostics,
+  detectAudioGlitchesOrStatus,
+  openDisplaySettings,
+  openSoundSettings,
 } from '../services/windowsToolsService';
 import { getMonitoringSnapshot } from '../services/monitoringService';
 import { getSystemDiagnosticsSnapshot } from '../services/diagnosticsService';
@@ -120,6 +126,8 @@ import {
   RotateCcw,
   FileText,
   Wifi,
+  Monitor,
+  Volume2,
 } from 'lucide-react';
 
 
@@ -232,10 +240,14 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [networkResult, setNetworkResult] = useState<NetworkDiagnosticsResult | null>(null);
   const [isRunningNetworkTest, setIsRunningNetworkTest] = useState(false);
 
+  // Stati Tranche 11: Display Diagnostics & Audio Latency
+  const [displayDiagnostics, setDisplayDiagnostics] = useState<DisplayDiagnosticsSnapshot | null>(null);
+  const [audioDiagnostics, setAudioDiagnostics] = useState<AudioDiagnosticsSnapshot | null>(null);
+
   // Caricamento dati iniziali per la tab Strumenti e Panoramica
   const loadWindowsToolsData = async () => {
     try {
-      const [vols, trim, bin, hiber, smart, sec, snap, diag, startup, update] = await Promise.all([
+      const [vols, trim, bin, hiber, smart, sec, snap, diag, startup, update, display, audio] = await Promise.all([
         scanStorageVolumes(),
         queryTrimConfiguration(),
         queryRecycleBin(),
@@ -246,6 +258,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         getSystemDiagnosticsSnapshot(),
         queryStartupApps(),
         queryWindowsUpdateStatus(),
+        queryDisplayDiagnostics(),
+        detectAudioGlitchesOrStatus(),
       ]);
 
       if (vols.data && vols.data.length > 0) {
@@ -262,6 +276,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       if (diag) setDiagnosticsSnapshot(diag);
       if (startup) setStartupAppsSnapshot(startup);
       if (update) setWindowsUpdateStatus(update);
+      if (display) setDisplayDiagnostics(display);
+      if (audio) setAudioDiagnostics(audio);
     } catch (err) {
       console.warn('Errore caricamento dati strumenti Windows:', err);
     }
@@ -289,6 +305,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       startupApps: startupAppsSnapshot,
       windowsUpdate: windowsUpdateStatus,
       networkDiagnostics: networkResult,
+      displayDiagnostics: displayDiagnostics,
+      audioDiagnostics: audioDiagnostics,
     };
   }, [
     monitoringSnapshot,
@@ -305,7 +323,25 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     startupAppsSnapshot,
     windowsUpdateStatus,
     networkResult,
+    displayDiagnostics,
+    audioDiagnostics,
   ]);
+
+  const handleOpenDisplaySettings = async () => {
+    try {
+      await openDisplaySettings();
+    } catch (err) {
+      showNotification('error', `Impossibile aprire impostazioni schermo: ${(err as Error).message}`);
+    }
+  };
+
+  const handleOpenSoundSettings = async () => {
+    try {
+      await openSoundSettings();
+    } catch (err) {
+      showNotification('error', `Impossibile aprire impostazioni audio: ${(err as Error).message}`);
+    }
+  };
 
   const handleRunNetworkDiagnostics = async () => {
     setIsRunningNetworkTest(true);
@@ -2128,6 +2164,225 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                     style={{ width: '100%', justifyContent: 'center' }}
                   >
                     {runningTool === 'trim' ? 'Esecuzione TRIM in corso...' : `Esegui TRIM su ${selectedTrimDrive}`}
+                  </button>
+                </div>
+
+                {/* Tool: Diagnostica Monitor & Frequenze di Aggiornamento */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Monitor size={18} color="var(--accent-cyan)" />
+                        {t('care_display_hub_title')}
+                      </div>
+                      {displayDiagnostics && (
+                        <span
+                          className={`badge ${displayDiagnostics.monitors.some(m => m.isRefreshRateLimited) ? 'badge-amber' : 'badge-emerald'}`}
+                          style={{ fontSize: '0.68rem' }}
+                        >
+                          {displayDiagnostics.monitors.some(m => m.isRefreshRateLimited)
+                            ? t('care_display_limited_badge')
+                            : t('care_display_optimal_badge')}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      {t('care_display_hub_desc')}
+                    </div>
+
+                    {displayDiagnostics && displayDiagnostics.monitors.length > 0 && (
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {displayDiagnostics.monitors.map((mon) => (
+                          <div
+                            key={mon.id}
+                            style={{
+                              padding: '10px 12px',
+                              background: 'var(--bg-input)',
+                              borderRadius: '6px',
+                              border: mon.isRefreshRateLimited ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-subtle)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                                {mon.monitorName || mon.adapterName}
+                              </span>
+                              {mon.isPrimary && (
+                                <span className="badge badge-cyan" style={{ fontSize: '0.62rem' }}>
+                                  {t('care_display_primary_badge')}
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '6px', fontSize: '0.74rem' }}>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_display_res_label')} </span>
+                                <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                  {mon.currentResolution.width}x{mon.currentResolution.height}
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_display_refresh_label')} </span>
+                                <strong
+                                  style={{
+                                    color: mon.isRefreshRateLimited ? 'var(--accent-amber)' : 'var(--accent-emerald)',
+                                    fontFamily: 'var(--font-mono)',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {mon.currentRefreshRate} Hz
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_display_max_label')} </span>
+                                <strong style={{ color: 'var(--accent-primary)', fontFamily: 'var(--font-mono)' }}>
+                                  {mon.maxSupportedRefreshRate} Hz
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_display_dpi_label')} </span>
+                                <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                  {mon.dpiScalePercent}%
+                                </strong>
+                              </div>
+                            </div>
+
+                            {mon.isRefreshRateLimited && (
+                              <div
+                                style={{
+                                  marginTop: '4px',
+                                  padding: '6px 8px',
+                                  background: 'rgba(245, 158, 11, 0.1)',
+                                  borderRadius: '4px',
+                                  color: 'var(--accent-amber)',
+                                  fontSize: '0.72rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                }}
+                              >
+                                <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                                <span>{t('care_display_limited_badge')}: {mon.currentRefreshRate} Hz &lt; {mon.maxSupportedRefreshRate} Hz</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleOpenDisplaySettings}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <ExternalLink size={13} style={{ marginRight: '6px' }} />
+                    {t('care_display_open_settings')}
+                  </button>
+                </div>
+
+                {/* Tool: Sottosistema Audio & Sample Rate */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Volume2 size={18} color="var(--accent-emerald)" />
+                        {t('care_audio_hub_title')}
+                      </div>
+                      {audioDiagnostics && (
+                        <span
+                          className={`badge ${audioDiagnostics.engineStatus === 'optimal' ? 'badge-emerald' : audioDiagnostics.engineStatus === 'standard' ? 'badge-cyan' : 'badge-amber'}`}
+                          style={{ fontSize: '0.68rem' }}
+                        >
+                          {audioDiagnostics.engineStatus.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      {t('care_audio_hub_desc')}
+                    </div>
+
+                    {audioDiagnostics && (
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div
+                          style={{
+                            padding: '10px 12px',
+                            background: 'var(--bg-input)',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              {t('care_audio_default_label')}
+                            </span>
+                            <span
+                              className={`badge ${audioDiagnostics.audioServiceRunning ? 'badge-emerald' : 'badge-ruby'}`}
+                              style={{ fontSize: '0.62rem' }}
+                            >
+                              Audiosrv: {audioDiagnostics.audioServiceRunning ? 'Attivo' : 'Arrestato'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                            {audioDiagnostics.defaultDeviceName || 'Endpoint Audio Windows'}
+                          </div>
+
+                          {audioDiagnostics.devices && audioDiagnostics.devices.length > 0 && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '6px', fontSize: '0.74rem', marginTop: '4px' }}>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_audio_sample_rate')} </span>
+                                <strong style={{ color: 'var(--accent-primary)', fontFamily: 'var(--font-mono)' }}>
+                                  {audioDiagnostics.devices[0]?.sampleRateHz
+                                    ? `${(audioDiagnostics.devices[0].sampleRateHz / 1000).toFixed(1)} kHz`
+                                    : 'N/D'}
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_audio_bit_depth')} </span>
+                                <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                  {audioDiagnostics.devices[0]?.bitDepth
+                                    ? `${audioDiagnostics.devices[0].bitDepth}-bit`
+                                    : 'N/D'}
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_audio_channels')} </span>
+                                <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                  {audioDiagnostics.devices[0]?.channels === 2
+                                    ? 'Stereo (2.0)'
+                                    : audioDiagnostics.devices[0]?.channels
+                                      ? `${audioDiagnostics.devices[0].channels} Ch`
+                                      : 'N/D'}
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_audio_active_devices')} </span>
+                                <strong style={{ color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
+                                  {audioDiagnostics.devices.length}
+                                </strong>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleOpenSoundSettings}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <ExternalLink size={13} style={{ marginRight: '6px' }} />
+                    {t('care_audio_open_settings')}
                   </button>
                 </div>
               </div>

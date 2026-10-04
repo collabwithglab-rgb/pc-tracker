@@ -35,6 +35,10 @@ pub fn run() {
       windows_tools::open_startup_settings,
       windows_tools::run_network_diagnostics,
       windows_tools::query_windows_update_status,
+      windows_tools::query_display_diagnostics,
+      windows_tools::detect_audio_glitches_or_status,
+      windows_tools::open_display_settings,
+      windows_tools::open_sound_settings,
       monitoring::get_monitoring_snapshot,
       diagnostics::get_system_diagnostics_snapshot,
     ])

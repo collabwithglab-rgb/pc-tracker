@@ -20,6 +20,9 @@ import {
   cleanComponentStore,
   checkDiskReadonly,
   queryRecycleBin,
+  openDisplaySettings,
+  openSoundSettings,
+  openStartupSettings,
 } from './windowsToolsService';
 import { formatBytes } from '../domain';
 
@@ -301,6 +304,45 @@ export async function executeOptimizationWorkflow({
       evidenceAfterSummary = 'Consultazione parametri BIOS/UEFI avviata';
       notificationType = 'info';
       notificationMessage = 'Consultazione parametri BIOS/UEFI avviata.';
+    } else if (rec.actionId === 'open-display-settings') {
+      const res = await openDisplaySettings();
+      if (res.status === 'success') {
+        notificationType = 'success';
+        notificationMessage = 'Windows Advanced Display Settings opened.';
+        verificationStatus = 'verified';
+        evidenceAfterSummary = 'Advanced Display Settings panel launched';
+      } else {
+        notificationType = 'warning';
+        notificationMessage = res.message || 'Unable to open Display Settings.';
+        verificationStatus = 'inconclusive';
+        evidenceAfterSummary = res.message;
+      }
+    } else if (rec.actionId === 'open-sound-settings') {
+      const res = await openSoundSettings();
+      if (res.status === 'success') {
+        notificationType = 'success';
+        notificationMessage = 'Windows Sound Settings opened.';
+        verificationStatus = 'verified';
+        evidenceAfterSummary = 'Sound Settings panel launched';
+      } else {
+        notificationType = 'warning';
+        notificationMessage = res.message || 'Unable to open Sound Settings.';
+        verificationStatus = 'inconclusive';
+        evidenceAfterSummary = res.message;
+      }
+    } else if (rec.actionId === 'open-startup-settings') {
+      const res = await openStartupSettings();
+      if (res.status === 'success') {
+        notificationType = 'success';
+        notificationMessage = 'Windows Startup Apps Settings opened.';
+        verificationStatus = 'verified';
+        evidenceAfterSummary = 'Startup Apps panel launched';
+      } else {
+        notificationType = 'warning';
+        notificationMessage = res.message || 'Unable to open Startup Apps Settings.';
+        verificationStatus = 'inconclusive';
+        evidenceAfterSummary = res.message;
+      }
     } else {
       verificationStatus = 'not_applicable';
       evidenceAfterSummary = 'Azione guidata completata';

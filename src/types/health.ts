@@ -12,6 +12,8 @@ import {
   StartupAppsSnapshot,
   WindowsUpdateStatus,
   NetworkDiagnosticsResult,
+  DisplayDiagnosticsSnapshot,
+  AudioDiagnosticsSnapshot,
 } from './windowsTools';
 import { MaintenanceEntry } from './maintenance';
 import { TuningProfile } from './tuning';
@@ -88,6 +90,8 @@ export interface SystemFactsInput {
   startupApps?: StartupAppsSnapshot | null;
   windowsUpdate?: WindowsUpdateStatus | null;
   networkDiagnostics?: NetworkDiagnosticsResult | null;
+  displayDiagnostics?: DisplayDiagnosticsSnapshot | null;
+  audioDiagnostics?: AudioDiagnosticsSnapshot | null;
 }
 
 export interface AreaHealthSummary {

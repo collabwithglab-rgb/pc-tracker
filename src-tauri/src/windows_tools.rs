@@ -152,6 +152,126 @@ pub struct WindowsUpdateStatus {
     pub details: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorResolution {
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorVirtualBounds {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorInfo {
+    pub id: String,
+    pub monitor_name: String,
+    pub adapter_name: String,
+    pub current_resolution: MonitorResolution,
+    pub current_refresh_rate: u32,
+    pub max_supported_refresh_rate: u32,
+    pub supported_refresh_rates: Vec<u32>,
+    pub bits_per_pixel: u32,
+    pub orientation: String, // "landscape" | "portrait" | "landscape_flipped" | "portrait_flipped" | "unknown"
+    pub is_primary: bool,
+    pub virtual_bounds: MonitorVirtualBounds,
+    pub dpi_scale_percent: u32,
+    pub is_refresh_rate_limited: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayDiagnosticsSnapshot {
+    pub availability: String, // "available" | "unavailable" | "unsupported" | "error"
+    pub source: String,
+    pub total_monitors: u32,
+    pub monitors: Vec<MonitorInfo>,
+    pub has_high_refresh_rate_mismatch: bool,
+    pub has_mixed_refresh_rates: bool,
+    pub error_details: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioDeviceInfo {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+    pub state: String, // "active" | "disabled" | "unplugged" | "not_present" | "unknown"
+    pub sample_rate_hz: Option<u32>,
+    pub bit_depth: Option<u32>,
+    pub channels: Option<u32>,
+    pub driver_name: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioDiagnosticsSnapshot {
+    pub availability: String, // "available" | "unavailable" | "unsupported" | "error"
+    pub source: String,
+    pub default_device_name: Option<String>,
+    pub default_sample_rate_hz: Option<u32>,
+    pub default_bit_depth: Option<u32>,
+    pub default_channels: Option<u32>,
+    pub devices: Vec<AudioDeviceInfo>,
+    pub audio_service_running: bool,
+    pub audio_endpoint_builder_running: bool,
+    pub engine_status: String, // "optimal" | "standard" | "degraded" | "issues_detected"
+    pub glitch_or_issue_detected: bool,
+    pub issue_summary: Option<String>,
+    pub error_details: Option<String>,
+}
+
+/// Determina in modo deterministico se un monitor con refresh rate potenziale elevato (>= 100 Hz)
+/// è limitato a un refresh rate ridotto (es. 60 Hz).
+pub fn is_monitor_refresh_rate_limited(max_hz: u32, current_hz: u32) -> bool {
+    (max_hz >= 100 && current_hz <= 60) || (max_hz > current_hz + 20)
+}
+
+/// Classifica lo stato di salute del motore audio Windows in base ai servizi e al formato predefinito.
+pub fn classify_audio_engine_status(
+    service_running: bool,
+    default_hz: Option<u32>,
+    default_bits: Option<u32>,
+) -> (&'static str, bool, &'static str) {
+    if !service_running {
+        return (
+            "issues_detected",
+            true,
+            "Il servizio principale Windows Audio (Audiosrv) risulta interrotto.",
+        );
+    }
+    match (default_hz, default_bits) {
+        (Some(hz), Some(bits)) if hz >= 48000 && bits >= 16 => (
+            "optimal",
+            false,
+            "Sottosistema audio operativo con risoluzione Studio/HD (>= 48.0 kHz, >= 16-bit).",
+        ),
+        (Some(hz), Some(bits)) if hz >= 44100 && bits >= 16 => (
+            "standard",
+            false,
+            "Sottosistema audio operativo con risoluzione standard CD (44.1 kHz, 16-bit).",
+        ),
+        (Some(hz), _) if hz < 44100 => (
+            "degraded",
+            true,
+            "Rilevato formato audio sub-ottimale con frequenza di campionamento ridotta (< 44.1 kHz).",
+        ),
+        _ => (
+            "standard",
+            false,
+            "Sottosistema audio attivo e operante.",
+        ),
+    }
+}
+
 /// Decodifica lo stato abilitato/disabilitato da StartupApproved\Run nel Registry Windows.
 /// Se None o vuoto -> true (default Task Manager: abilitato).
 /// Se presente: byte[0] pari (0x02, 0x00) -> abilitato; byte[0] dispari (0x01, 0x03) -> disabilitato.
@@ -344,6 +464,12 @@ mod windows_native {
             return_length: *mut u32,
         ) -> i32;
         fn CloseHandle(handle: *mut std::ffi::c_void) -> i32;
+        fn LoadLibraryA(lp_lib_file_name: *const i8) -> *mut std::ffi::c_void;
+        fn GetProcAddress(
+            h_module: *mut std::ffi::c_void,
+            lp_proc_name: *const i8,
+        ) -> *mut std::ffi::c_void;
+        fn FreeLibrary(h_lib_module: *mut std::ffi::c_void) -> i32;
     }
 
     /// Verifica nativamente se il processo corrente possiede il token di elevazione Amministratore (UAC)
@@ -1725,6 +1851,586 @@ foreach ($p in $paths) {
             details,
         }
     }
+
+    #[repr(C)]
+    struct RECT {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+
+    #[repr(C)]
+    struct MONITORINFOEXW {
+        cb_size: u32,
+        rc_monitor: RECT,
+        rc_work: RECT,
+        dw_flags: u32,
+        sz_device: [u16; 32],
+    }
+
+    #[repr(C)]
+    struct DISPLAY_DEVICEW {
+        cb: u32,
+        device_name: [u16; 32],
+        device_string: [u16; 128],
+        state_flags: u32,
+        device_id: [u16; 128],
+        device_key: [u16; 128],
+    }
+
+    #[repr(C)]
+    struct DEVMODEW {
+        dm_device_name: [u16; 32],
+        dm_spec_version: u16,
+        dm_driver_version: u16,
+        dm_size: u16,
+        dm_driver_extra: u16,
+        dm_fields: u32,
+        dm_orientation: i16,
+        dm_paper_size: i16,
+        dm_paper_length: i16,
+        dm_paper_width: i16,
+        dm_scale: i16,
+        dm_copies: i16,
+        dm_default_source: i16,
+        dm_print_quality: i16,
+        dm_color: i16,
+        dm_duplex: i16,
+        dm_y_resolution: i16,
+        dm_tt_option: i16,
+        dm_collate: i16,
+        dm_form_name: [u16; 32],
+        dm_log_pixels: u16,
+        dm_bits_per_pel: u32,
+        dm_pels_width: u32,
+        dm_pels_height: u32,
+        dm_display_flags: u32,
+        dm_display_frequency: u32,
+        dm_icm_method: u32,
+        dm_icm_intent: u32,
+        dm_media_type: u32,
+        dm_dither_type: u32,
+        dm_reserved1: u32,
+        dm_reserved2: u32,
+        dm_panning_width: u32,
+        dm_panning_height: u32,
+    }
+
+    type EnumDisplayMonitorsFn = unsafe extern "system" fn(
+        hdc: *mut std::ffi::c_void,
+        lprc_clip: *const RECT,
+        lpfn_enum: unsafe extern "system" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut RECT, isize) -> i32,
+        dw_data: isize,
+    ) -> i32;
+
+    type GetMonitorInfoWFn = unsafe extern "system" fn(
+        h_monitor: *mut std::ffi::c_void,
+        lpmi: *mut MONITORINFOEXW,
+    ) -> i32;
+
+    type EnumDisplayDevicesWFn = unsafe extern "system" fn(
+        lp_device: *const u16,
+        i_dev_num: u32,
+        lp_display_device: *mut DISPLAY_DEVICEW,
+        dw_flags: u32,
+    ) -> i32;
+
+    type EnumDisplaySettingsWFn = unsafe extern "system" fn(
+        lpsz_device_name: *const u16,
+        i_mode_num: u32,
+        lp_dev_mode: *mut DEVMODEW,
+    ) -> i32;
+
+    type GetDpiForMonitorFn = unsafe extern "system" fn(
+        h_monitor: *mut std::ffi::c_void,
+        dpi_type: u32,
+        dpi_x: *mut u32,
+        dpi_y: *mut u32,
+    ) -> i32;
+
+    /// Rileva tutti i monitor attivi con risoluzione, refresh rate corrente, massimo supportato e DPI
+    pub fn query_display_diagnostics_native() -> DisplayDiagnosticsSnapshot {
+        unsafe {
+            let user32 = LoadLibraryA(b"user32.dll\0".as_ptr() as *const i8);
+            if user32.is_null() {
+                return DisplayDiagnosticsSnapshot {
+                    availability: "error".to_string(),
+                    source: "win32_enum_display".to_string(),
+                    total_monitors: 0,
+                    monitors: vec![],
+                    has_high_refresh_rate_mismatch: false,
+                    has_mixed_refresh_rates: false,
+                    error_details: Some("Impossibile caricare user32.dll".to_string()),
+                };
+            }
+
+            let fn_enum_monitors: Option<EnumDisplayMonitorsFn> = {
+                let p = GetProcAddress(user32, b"EnumDisplayMonitors\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_get_mon_info: Option<GetMonitorInfoWFn> = {
+                let p = GetProcAddress(user32, b"GetMonitorInfoW\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_enum_devices: Option<EnumDisplayDevicesWFn> = {
+                let p = GetProcAddress(user32, b"EnumDisplayDevicesW\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+            let fn_enum_settings: Option<EnumDisplaySettingsWFn> = {
+                let p = GetProcAddress(user32, b"EnumDisplaySettingsW\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            };
+
+            let shcore = LoadLibraryA(b"shcore.dll\0".as_ptr() as *const i8);
+            let fn_get_dpi: Option<GetDpiForMonitorFn> = if !shcore.is_null() {
+                let p = GetProcAddress(shcore, b"GetDpiForMonitor\0".as_ptr() as *const i8);
+                if p.is_null() { None } else { Some(std::mem::transmute(p)) }
+            } else {
+                None
+            };
+
+            if fn_enum_monitors.is_none() || fn_get_mon_info.is_none() || fn_enum_settings.is_none() {
+                FreeLibrary(user32);
+                if !shcore.is_null() {
+                    FreeLibrary(shcore);
+                }
+                return DisplayDiagnosticsSnapshot {
+                    availability: "error".to_string(),
+                    source: "win32_enum_display".to_string(),
+                    total_monitors: 0,
+                    monitors: vec![],
+                    has_high_refresh_rate_mismatch: false,
+                    has_mixed_refresh_rates: false,
+                    error_details: Some("Funzioni Win32 EnumDisplay non disponibili".to_string()),
+                };
+            }
+
+            let fn_enum_monitors = fn_enum_monitors.unwrap();
+            let fn_get_mon_info = fn_get_mon_info.unwrap();
+            let fn_enum_settings = fn_enum_settings.unwrap();
+
+            unsafe extern "system" fn collect_mon_cb(
+                h_mon: *mut std::ffi::c_void,
+                _hdc: *mut std::ffi::c_void,
+                _rc: *mut RECT,
+                dw_data: isize,
+            ) -> i32 {
+                let list = &mut *(dw_data as *mut Vec<*mut std::ffi::c_void>);
+                list.push(h_mon);
+                1
+            }
+
+            let mut h_monitors: Vec<*mut std::ffi::c_void> = Vec::new();
+            fn_enum_monitors(
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                collect_mon_cb,
+                &mut h_monitors as *mut Vec<*mut std::ffi::c_void> as isize,
+            );
+
+            let mut monitors_info: Vec<MonitorInfo> = Vec::new();
+
+            for (idx, &h_mon) in h_monitors.iter().enumerate() {
+                let mut mi: MONITORINFOEXW = std::mem::zeroed();
+                mi.cb_size = std::mem::size_of::<MONITORINFOEXW>() as u32;
+
+                if fn_get_mon_info(h_mon, &mut mi) == 0 {
+                    continue;
+                }
+
+                let is_primary = (mi.dw_flags & 1) != 0;
+                let v_bounds = MonitorVirtualBounds {
+                    x: mi.rc_monitor.left,
+                    y: mi.rc_monitor.top,
+                    width: (mi.rc_monitor.right - mi.rc_monitor.left).max(0) as u32,
+                    height: (mi.rc_monitor.bottom - mi.rc_monitor.top).max(0) as u32,
+                };
+
+                let sz_len = mi.sz_device.iter().position(|&c| c == 0).unwrap_or(mi.sz_device.len());
+                let adapter_name = String::from_utf16_lossy(&mi.sz_device[..sz_len]);
+
+                // Current settings (ENUM_CURRENT_SETTINGS = 0xFFFFFFFF)
+                let mut current_dm: DEVMODEW = std::mem::zeroed();
+                current_dm.dm_size = std::mem::size_of::<DEVMODEW>() as u16;
+
+                let (current_res, current_hz, bpp, orientation) = if fn_enum_settings(
+                    mi.sz_device.as_ptr(),
+                    0xFFFFFFFF,
+                    &mut current_dm,
+                ) != 0 {
+                    let orient_str = match current_dm.dm_orientation {
+                        0 => "landscape",
+                        1 => "portrait",
+                        2 => "landscape_flipped",
+                        3 => "portrait_flipped",
+                        _ => "unknown",
+                    };
+                    (
+                        MonitorResolution {
+                            width: current_dm.dm_pels_width,
+                            height: current_dm.dm_pels_height,
+                        },
+                        current_dm.dm_display_frequency,
+                        current_dm.dm_bits_per_pel,
+                        orient_str.to_string(),
+                    )
+                } else {
+                    (
+                        MonitorResolution {
+                            width: v_bounds.width,
+                            height: v_bounds.height,
+                        },
+                        60,
+                        32,
+                        "landscape".to_string(),
+                    )
+                };
+
+                // Enumerate supported refresh rates for current resolution
+                let mut supported_rates = std::collections::BTreeSet::new();
+                if current_hz > 0 {
+                    supported_rates.insert(current_hz);
+                }
+
+                let mut mode_idx = 0u32;
+                loop {
+                    let mut mode_dm: DEVMODEW = std::mem::zeroed();
+                    mode_dm.dm_size = std::mem::size_of::<DEVMODEW>() as u16;
+
+                    if fn_enum_settings(mi.sz_device.as_ptr(), mode_idx, &mut mode_dm) == 0 {
+                        break;
+                    }
+
+                    if mode_dm.dm_pels_width == current_res.width
+                        && mode_dm.dm_pels_height == current_res.height
+                        && mode_dm.dm_display_frequency > 0
+                    {
+                        supported_rates.insert(mode_dm.dm_display_frequency);
+                    }
+
+                    mode_idx += 1;
+                    if mode_idx > 1000 {
+                        break;
+                    }
+                }
+
+                let rates_vec: Vec<u32> = supported_rates.into_iter().collect();
+                let max_hz = *rates_vec.iter().max().unwrap_or(&current_hz);
+                let is_limited = is_monitor_refresh_rate_limited(max_hz, current_hz);
+
+                // Friendly Name
+                let mut monitor_name = format!("Display {}", idx + 1);
+                if let Some(fn_enum_dev) = fn_enum_devices {
+                    let mut disp_dev: DISPLAY_DEVICEW = std::mem::zeroed();
+                    disp_dev.cb = std::mem::size_of::<DISPLAY_DEVICEW>() as u32;
+
+                    if fn_enum_dev(mi.sz_device.as_ptr(), 0, &mut disp_dev, 0) != 0 {
+                        let dev_str_len = disp_dev.device_string.iter().position(|&c| c == 0).unwrap_or(disp_dev.device_string.len());
+                        let name_str = String::from_utf16_lossy(&disp_dev.device_string[..dev_str_len]).trim().to_string();
+                        if !name_str.is_empty() && !name_str.eq_ignore_ascii_case("Generic PnP Monitor") {
+                            monitor_name = name_str;
+                        } else if !name_str.is_empty() {
+                            monitor_name = format!("{} ({})", name_str, adapter_name);
+                        }
+                    }
+                }
+
+                // DPI scale
+                let dpi_scale = if let Some(fn_dpi) = fn_get_dpi {
+                    let mut dpi_x = 96u32;
+                    let mut dpi_y = 96u32;
+                    if fn_dpi(h_mon, 0, &mut dpi_x, &mut dpi_y) == 0 {
+                        ((dpi_x as f64 / 96.0) * 100.0).round() as u32
+                    } else {
+                        100
+                    }
+                } else {
+                    100
+                };
+
+                let mon_id = if !adapter_name.is_empty() {
+                    adapter_name.clone()
+                } else {
+                    format!("MONITOR_{}", idx + 1)
+                };
+
+                monitors_info.push(MonitorInfo {
+                    id: mon_id,
+                    monitor_name,
+                    adapter_name,
+                    current_resolution: current_res,
+                    current_refresh_rate: current_hz,
+                    max_supported_refresh_rate: max_hz,
+                    supported_refresh_rates: rates_vec,
+                    bits_per_pixel: bpp,
+                    orientation,
+                    is_primary,
+                    virtual_bounds: v_bounds,
+                    dpi_scale_percent: dpi_scale,
+                    is_refresh_rate_limited: is_limited,
+                });
+            }
+
+            FreeLibrary(user32);
+            if !shcore.is_null() {
+                FreeLibrary(shcore);
+            }
+
+            let has_mismatch = monitors_info.iter().any(|m| m.is_refresh_rate_limited);
+            let unique_rates: std::collections::HashSet<u32> = monitors_info.iter().map(|m| m.current_refresh_rate).collect();
+            let has_mixed = monitors_info.len() > 1 && unique_rates.len() > 1;
+
+            DisplayDiagnosticsSnapshot {
+                availability: "available".to_string(),
+                source: "win32_enum_display".to_string(),
+                total_monitors: monitors_info.len() as u32,
+                monitors: monitors_info,
+                has_high_refresh_rate_mismatch: has_mismatch,
+                has_mixed_refresh_rates: has_mixed,
+                error_details: None,
+            }
+        }
+    }
+
+    /// Rileva gli endpoint audio attivi da MMDevices, formato di campionamento e stato dei servizi audio
+    pub fn detect_audio_glitches_or_status_native() -> AudioDiagnosticsSnapshot {
+        let mut devices: Vec<AudioDeviceInfo> = Vec::new();
+        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+
+        if let Ok(render_key) = hklm.open_subkey_with_flags(
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\MMDevices\\Audio\\Render",
+            KEY_READ,
+        ) {
+            for subkey_name in render_key.enum_keys().filter_map(|k| k.ok()) {
+                if let Ok(dev_key) = render_key.open_subkey_with_flags(&subkey_name, KEY_READ) {
+                    let state_raw: u32 = dev_key.get_value("DeviceState").unwrap_or(0);
+                    let state_str = match state_raw {
+                        1 => "active",
+                        2 => "disabled",
+                        4 => "not_present",
+                        8 => "unplugged",
+                        _ => "unknown",
+                    };
+
+                    let mut friendly_name = subkey_name.clone();
+                    let mut driver_name: Option<String> = None;
+                    let mut sample_rate_hz: Option<u32> = None;
+                    let mut bit_depth: Option<u32> = None;
+                    let mut channels: Option<u32> = None;
+
+                    if let Ok(props_key) = dev_key.open_subkey_with_flags("Properties", KEY_READ) {
+                        if let Ok(name_val) = props_key.get_value::<String, _>("{a45c254e-df1c-4efd-8020-67d146a850e0},2") {
+                            if !name_val.trim().is_empty() {
+                                friendly_name = name_val.trim().to_string();
+                            }
+                        }
+
+                        if let Ok(drv_val) = props_key.get_value::<String, _>("{b3f8fa53-0004-438e-9003-51a46e139bfc},6") {
+                            driver_name = Some(drv_val.trim().to_string());
+                        }
+
+                        // Read PKEY_AudioEngine_DeviceFormat binary blob: {f19f064d-082c-4e27-bc73-6882a1bb8e4c},0
+                        if let Ok(raw_blob) = props_key.get_raw_value("{f19f064d-082c-4e27-bc73-6882a1bb8e4c},0") {
+                            let bytes = &raw_blob.bytes;
+                            if bytes.len() >= 24 {
+                                let ch = u16::from_le_bytes([bytes[10], bytes[11]]) as u32;
+                                let hz = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
+                                let bits = u16::from_le_bytes([bytes[22], bytes[23]]) as u32;
+                                if hz > 0 && hz < 1_000_000 {
+                                    sample_rate_hz = Some(hz);
+                                }
+                                if bits > 0 && bits <= 64 {
+                                    bit_depth = Some(bits);
+                                }
+                                if ch > 0 && ch <= 32 {
+                                    channels = Some(ch);
+                                }
+                            }
+                        }
+                    }
+
+                    if state_str == "active" || state_str == "disabled" {
+                        devices.push(AudioDeviceInfo {
+                            id: subkey_name,
+                            name: friendly_name,
+                            is_default: false,
+                            state: state_str.to_string(),
+                            sample_rate_hz,
+                            bit_depth,
+                            channels,
+                            driver_name,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Determina il default device con euristica su speaker/altoparlanti o primo attivo
+        let mut default_idx = None;
+        for (i, d) in devices.iter().enumerate() {
+            if d.state == "active" {
+                let lower = d.name.to_lowercase();
+                if lower.contains("altoparlanti")
+                    || lower.contains("speakers")
+                    || lower.contains("cuffie")
+                    || lower.contains("headphones")
+                {
+                    default_idx = Some(i);
+                    break;
+                }
+            }
+        }
+        if default_idx.is_none() {
+            default_idx = devices.iter().position(|d| d.state == "active");
+        }
+        if let Some(idx) = default_idx {
+            devices[idx].is_default = true;
+        }
+
+        let default_device = devices.iter().find(|d| d.is_default);
+        let default_name = default_device.map(|d| d.name.clone());
+        let default_hz = default_device.and_then(|d| d.sample_rate_hz);
+        let default_bits = default_device.and_then(|d| d.bit_depth);
+        let default_channels = default_device.and_then(|d| d.channels);
+
+        let (audio_srv, endpoint_builder) = check_audio_services_status();
+        let (status, glitch_detected, summary) = classify_audio_engine_status(audio_srv, default_hz, default_bits);
+
+        AudioDiagnosticsSnapshot {
+            availability: "available".to_string(),
+            source: "win32_audio_engine".to_string(),
+            default_device_name: default_name,
+            default_sample_rate_hz: default_hz,
+            default_bit_depth: default_bits,
+            default_channels,
+            devices,
+            audio_service_running: audio_srv,
+            audio_endpoint_builder_running: endpoint_builder,
+            engine_status: status.to_string(),
+            glitch_or_issue_detected: glitch_detected,
+            issue_summary: Some(summary.to_string()),
+            error_details: None,
+        }
+    }
+
+    fn check_audio_services_status() -> (bool, bool) {
+        unsafe {
+            let advapi32 = LoadLibraryA(b"advapi32.dll\0".as_ptr() as *const i8);
+            if advapi32.is_null() {
+                return (true, true);
+            }
+
+            type OpenSCManagerWFn = unsafe extern "system" fn(*const u16, *const u16, u32) -> *mut std::ffi::c_void;
+            type OpenServiceWFn = unsafe extern "system" fn(*mut std::ffi::c_void, *const u16, u32) -> *mut std::ffi::c_void;
+            type QueryServiceStatusExFn = unsafe extern "system" fn(*mut std::ffi::c_void, u32, *mut u8, u32, *mut u32) -> i32;
+            type CloseServiceHandleFn = unsafe extern "system" fn(*mut std::ffi::c_void) -> i32;
+
+            let p_open_scm = GetProcAddress(advapi32, b"OpenSCManagerW\0".as_ptr() as *const i8);
+            let p_open_svc = GetProcAddress(advapi32, b"OpenServiceW\0".as_ptr() as *const i8);
+            let p_query_stat = GetProcAddress(advapi32, b"QueryServiceStatusEx\0".as_ptr() as *const i8);
+            let p_close = GetProcAddress(advapi32, b"CloseServiceHandle\0".as_ptr() as *const i8);
+
+            if p_open_scm.is_null() || p_open_svc.is_null() || p_query_stat.is_null() || p_close.is_null() {
+                FreeLibrary(advapi32);
+                return (true, true);
+            }
+
+            let fn_open_scm: OpenSCManagerWFn = std::mem::transmute(p_open_scm);
+            let fn_open_svc: OpenServiceWFn = std::mem::transmute(p_open_svc);
+            let fn_query_stat: QueryServiceStatusExFn = std::mem::transmute(p_query_stat);
+            let fn_close: CloseServiceHandleFn = std::mem::transmute(p_close);
+
+            let scm = fn_open_scm(std::ptr::null(), std::ptr::null(), 0x0001); // SC_MANAGER_CONNECT
+            if scm.is_null() {
+                FreeLibrary(advapi32);
+                return (true, true);
+            }
+
+            let check_svc = |name: &str| -> bool {
+                let mut name_w: Vec<u16> = name.encode_utf16().collect();
+                name_w.push(0);
+                let svc = fn_open_svc(scm, name_w.as_ptr(), 0x0004); // SERVICE_QUERY_STATUS
+                if svc.is_null() {
+                    return false;
+                }
+                let mut buf = [0u8; 36];
+                let mut needed = 0u32;
+                let ok = fn_query_stat(svc, 0, buf.as_mut_ptr(), 36, &mut needed);
+                fn_close(svc);
+                if ok != 0 {
+                    let state = u32::from_le_bytes([buf[4], buf[5], buf[6], buf[7]]);
+                    state == 4 // SERVICE_RUNNING
+                } else {
+                    false
+                }
+            };
+
+            let audiosrv_running = check_svc("Audiosrv");
+            let endpoint_running = check_svc("AudioEndpointBuilder");
+
+            fn_close(scm);
+            FreeLibrary(advapi32);
+
+            (audiosrv_running, endpoint_running)
+        }
+    }
+
+    /// Apre l'interfaccia nativa ufficiale "Impostazioni schermo avanzate" di Windows
+    pub fn open_display_settings_native() -> WindowsToolResult<String> {
+        let start = Instant::now();
+        let res = Command::new("cmd.exe")
+            .args(["/c", "start", "ms-settings:display-advanced"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+
+        match res {
+            Ok(_) => WindowsToolResult {
+                status: "success".to_string(),
+                message: "Impostazioni Schermo Avanzate aperte con successo.".to_string(),
+                details: Some("È possibile configurare il refresh rate (Hz) e la profondità colore nativamente in Windows.".to_string()),
+                data: Some("ms-settings:display-advanced".to_string()),
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+            Err(err) => WindowsToolResult {
+                status: "failed".to_string(),
+                message: format!("Impossibile aprire Impostazioni Schermo: {}", err),
+                details: None,
+                data: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+        }
+    }
+
+    /// Apre l'interfaccia nativa ufficiale "Impostazioni audio" di Windows
+    pub fn open_sound_settings_native() -> WindowsToolResult<String> {
+        let start = Instant::now();
+        let res = Command::new("cmd.exe")
+            .args(["/c", "start", "ms-settings:sound"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+
+        match res {
+            Ok(_) => WindowsToolResult {
+                status: "success".to_string(),
+                message: "Impostazioni Audio di Windows aperte con successo.".to_string(),
+                details: Some("È possibile configurare i dispositivi di output, sample rate e bit depth nelle impostazioni audio.".to_string()),
+                data: Some("ms-settings:sound".to_string()),
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+            Err(err) => WindowsToolResult {
+                status: "failed".to_string(),
+                message: format!("Impossibile aprire Impostazioni Audio: {}", err),
+                details: None,
+                data: None,
+                duration_ms: start.elapsed().as_millis() as u64,
+                requires_elevation: false,
+            },
+        }
+    }
 }
 
 // --- COMANDI TAURI ESPOSTI AL FRONTEND ---
@@ -2166,6 +2872,114 @@ pub fn query_windows_update_status_mock() -> WindowsUpdateStatus {
     }
 }
 
+#[tauri::command]
+pub async fn query_display_diagnostics() -> Result<DisplayDiagnosticsSnapshot, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::query_display_diagnostics_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(query_display_diagnostics_mock())
+    }
+}
+
+#[tauri::command]
+pub async fn detect_audio_glitches_or_status() -> Result<AudioDiagnosticsSnapshot, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::detect_audio_glitches_or_status_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(detect_audio_glitches_or_status_mock())
+    }
+}
+
+#[tauri::command]
+pub async fn open_display_settings() -> Result<WindowsToolResult<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::open_display_settings_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: false,
+        })
+    }
+}
+
+#[tauri::command]
+pub async fn open_sound_settings() -> Result<WindowsToolResult<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::open_sound_settings_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(WindowsToolResult {
+            status: "not_supported".to_string(),
+            message: "Disponibile solo su Windows.".to_string(),
+            details: None,
+            data: None,
+            duration_ms: 0,
+            requires_elevation: false,
+        })
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn query_display_diagnostics_mock() -> DisplayDiagnosticsSnapshot {
+    DisplayDiagnosticsSnapshot {
+        availability: "unsupported".to_string(),
+        source: "unsupported_os".to_string(),
+        total_monitors: 1,
+        monitors: vec![MonitorInfo {
+            id: "MOCK_DISPLAY".to_string(),
+            monitor_name: "Generic Display".to_string(),
+            adapter_name: "Mock Adapter".to_string(),
+            current_resolution: MonitorResolution { width: 1920, height: 1080 },
+            current_refresh_rate: 60,
+            max_supported_refresh_rate: 60,
+            supported_refresh_rates: vec![60],
+            bits_per_pixel: 32,
+            orientation: "landscape".to_string(),
+            is_primary: true,
+            virtual_bounds: MonitorVirtualBounds { x: 0, y: 0, width: 1920, height: 1080 },
+            dpi_scale_percent: 100,
+            is_refresh_rate_limited: false,
+        }],
+        has_high_refresh_rate_mismatch: false,
+        has_mixed_refresh_rates: false,
+        error_details: Some("Disponibile solo su Windows.".to_string()),
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn detect_audio_glitches_or_status_mock() -> AudioDiagnosticsSnapshot {
+    AudioDiagnosticsSnapshot {
+        availability: "unsupported".to_string(),
+        source: "unsupported_os".to_string(),
+        default_device_name: Some("Altoparlanti (Mock)".to_string()),
+        default_sample_rate_hz: Some(48000),
+        default_bit_depth: Some(24),
+        default_channels: Some(2),
+        devices: vec![],
+        audio_service_running: true,
+        audio_endpoint_builder_running: true,
+        engine_status: "optimal".to_string(),
+        glitch_or_issue_detected: false,
+        issue_summary: Some("Mock audio status".to_string()),
+        error_details: Some("Disponibile solo su Windows.".to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2342,6 +3156,127 @@ Tempo approssimativo percorsi andata/ritorno in millisecondi:
         let json = serde_json::to_string(&status).expect("must serialize");
         assert!(json.contains("\"rebootPending\":true"));
         assert!(json.contains("\"rebootSources\":[\"WindowsUpdate: RebootRequired\"]"));
+    }
+
+    #[test]
+    fn test_is_monitor_refresh_rate_limited() {
+        // Monitor 144Hz o 165Hz impostato a 60Hz per errore
+        assert!(is_monitor_refresh_rate_limited(144, 60));
+        assert!(is_monitor_refresh_rate_limited(165, 60));
+        assert!(is_monitor_refresh_rate_limited(240, 60));
+        assert!(is_monitor_refresh_rate_limited(144, 120)); // > 20 Hz gap
+
+        // Monitor impostato alla frequenza massima o standard 60Hz nativo
+        assert!(!is_monitor_refresh_rate_limited(60, 60));
+        assert!(!is_monitor_refresh_rate_limited(75, 75));
+        assert!(!is_monitor_refresh_rate_limited(144, 144));
+        assert!(!is_monitor_refresh_rate_limited(165, 164)); // jitter di 1 Hz arrotondato
+    }
+
+    #[test]
+    fn test_classify_audio_engine_status() {
+        // Servizio interrotto -> issues_detected
+        let (status, glitch, _) = classify_audio_engine_status(false, Some(48000), Some(24));
+        assert_eq!(status, "issues_detected");
+        assert!(glitch);
+
+        // 48 kHz 24-bit -> optimal
+        let (status, glitch, _) = classify_audio_engine_status(true, Some(48000), Some(24));
+        assert_eq!(status, "optimal");
+        assert!(!glitch);
+
+        // 44.1 kHz 16-bit -> standard
+        let (status, glitch, _) = classify_audio_engine_status(true, Some(44100), Some(16));
+        assert_eq!(status, "standard");
+        assert!(!glitch);
+
+        // < 44.1 kHz -> degraded
+        let (status, glitch, _) = classify_audio_engine_status(true, Some(22050), Some(16));
+        assert_eq!(status, "degraded");
+        assert!(glitch);
+    }
+
+    #[test]
+    fn test_display_diagnostics_snapshot_serialization() {
+        let snap = DisplayDiagnosticsSnapshot {
+            availability: "available".to_string(),
+            source: "win32_enum_display".to_string(),
+            total_monitors: 1,
+            monitors: vec![MonitorInfo {
+                id: "\\\\.\\DISPLAY1".to_string(),
+                monitor_name: "LG UltraGear 27GP850".to_string(),
+                adapter_name: "\\\\.\\DISPLAY1".to_string(),
+                current_resolution: MonitorResolution { width: 2560, height: 1440 },
+                current_refresh_rate: 165,
+                max_supported_refresh_rate: 165,
+                supported_refresh_rates: vec![60, 120, 144, 165],
+                bits_per_pixel: 32,
+                orientation: "landscape".to_string(),
+                is_primary: true,
+                virtual_bounds: MonitorVirtualBounds { x: 0, y: 0, width: 2560, height: 1440 },
+                dpi_scale_percent: 100,
+                is_refresh_rate_limited: false,
+            }],
+            has_high_refresh_rate_mismatch: false,
+            has_mixed_refresh_rates: false,
+            error_details: None,
+        };
+
+        let json = serde_json::to_string(&snap).expect("must serialize");
+        assert!(json.contains("\"totalMonitors\":1"));
+        assert!(json.contains("\"monitorName\":\"LG UltraGear 27GP850\""));
+        assert!(json.contains("\"currentRefreshRate\":165"));
+        assert!(json.contains("\"isRefreshRateLimited\":false"));
+    }
+
+    #[test]
+    fn test_audio_diagnostics_snapshot_serialization() {
+        let snap = AudioDiagnosticsSnapshot {
+            availability: "available".to_string(),
+            source: "win32_audio_engine".to_string(),
+            default_device_name: Some("Altoparlanti (Realtek High Definition Audio)".to_string()),
+            default_sample_rate_hz: Some(48000),
+            default_bit_depth: Some(24),
+            default_channels: Some(2),
+            devices: vec![AudioDeviceInfo {
+                id: "{0.0.0.00000000}.{mock_guid}".to_string(),
+                name: "Altoparlanti".to_string(),
+                is_default: true,
+                state: "active".to_string(),
+                sample_rate_hz: Some(48000),
+                bit_depth: Some(24),
+                channels: Some(2),
+                driver_name: Some("Realtek".to_string()),
+            }],
+            audio_service_running: true,
+            audio_endpoint_builder_running: true,
+            engine_status: "optimal".to_string(),
+            glitch_or_issue_detected: false,
+            issue_summary: Some("Tutti i servizi operativi".to_string()),
+            error_details: None,
+        };
+
+        let json = serde_json::to_string(&snap).expect("must serialize");
+        assert!(json.contains("\"defaultDeviceName\":\"Altoparlanti (Realtek High Definition Audio)\""));
+        assert!(json.contains("\"defaultSampleRateHz\":48000"));
+        assert!(json.contains("\"audioServiceRunning\":true"));
+        assert!(json.contains("\"engineStatus\":\"optimal\""));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_native_display_and_audio_diagnostics_execution() {
+        let disp = windows_native::query_display_diagnostics_native();
+        assert_eq!(disp.availability, "available");
+        assert!(disp.total_monitors >= 1);
+        let first_mon = &disp.monitors[0];
+        assert!(first_mon.current_resolution.width > 0);
+        assert!(first_mon.current_resolution.height > 0);
+        assert!(first_mon.current_refresh_rate > 0);
+
+        let audio = windows_native::detect_audio_glitches_or_status_native();
+        assert_eq!(audio.availability, "available");
+        assert!(audio.audio_service_running);
     }
 }
 

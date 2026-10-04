@@ -170,6 +170,9 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   // 6e. Valutazione Windows Update e Startup Intelligence (Tranche 10)
   evaluateWindowsUpdateAndStartupHealth(facts, findings);
 
+  // 6f. Valutazione Display Diagnostics & Audio Intelligence (Tranche 11)
+  evaluateDisplayAndAudioHealth(facts, findings);
+
   // 6d. Calcolo e Arricchimento Correlazioni Diagnostiche (Tranche 8D-3)
   const correlationInput: DiagnosticCorrelationInput = {
     deviceProblems: facts.diagnostics?.deviceProblems,
@@ -915,6 +918,103 @@ export function evaluateWindowsUpdateAndStartupHealth(
         totalApps: facts.startupApps.totalApps,
       },
     });
+  }
+}
+
+/**
+ * Valutazione di Display Diagnostics & Audio Latency Intelligence (Tranche 11).
+ * Finding deterministico per monitor ad alto refresh rate limitato a frequenza ridotta,
+ * monitor multipli con refresh rate disallineati e problemi/sample rate nel sottosistema audio.
+ */
+export function evaluateDisplayAndAudioHealth(
+  facts: SystemFactsInput,
+  findings: HealthFinding[]
+): void {
+  // A. Monitor ad alto refresh rate configurato a frequenza limitata (es. 144Hz limitato a 60Hz)
+  if (facts.displayDiagnostics?.monitors) {
+    for (const monitor of facts.displayDiagnostics.monitors) {
+      if (monitor.isRefreshRateLimited) {
+        findings.push({
+          id: `display-refresh-rate-limited-${monitor.id}`,
+          severity: 'WARNING',
+          area: 'system',
+          title: translate('it', 'health_finding_display_limited_title', {
+            monitor: monitor.monitorName,
+            currentHz: monitor.currentRefreshRate,
+            maxHz: monitor.maxSupportedRefreshRate,
+          }),
+          evidence: `${monitor.currentRefreshRate} Hz (max: ${monitor.maxSupportedRefreshRate} Hz)`,
+          explanation: translate('it', 'health_finding_display_limited_explanation', {
+            monitor: monitor.monitorName,
+            currentHz: monitor.currentRefreshRate,
+            maxHz: monitor.maxSupportedRefreshRate,
+          }),
+          confidence: 'HIGH',
+          recommendedActionId: 'optimize_display_refresh_rate',
+          metadata: {
+            monitorId: monitor.id,
+            monitorName: monitor.monitorName,
+            currentRefreshRate: monitor.currentRefreshRate,
+            maxSupportedRefreshRate: monitor.maxSupportedRefreshRate,
+          },
+        });
+      }
+    }
+
+    // B. Multi-monitor con refresh rate disallineati
+    if (facts.displayDiagnostics.hasMixedRefreshRates) {
+      findings.push({
+        id: 'display-mixed-refresh-rates',
+        severity: 'INFO',
+        area: 'system',
+        title: translate('it', 'health_finding_display_mixed_rates_title'),
+        evidence: facts.displayDiagnostics.monitors.map((m) => `${m.currentRefreshRate} Hz`).join(' / '),
+        explanation: translate('it', 'health_finding_display_mixed_rates_explanation'),
+        confidence: 'HIGH',
+        recommendedActionId: 'review_display_settings',
+      });
+    }
+  }
+
+  // C. Sottosistema Audio & Sample Rate
+  if (facts.audioDiagnostics) {
+    if (!facts.audioDiagnostics.audioServiceRunning) {
+      findings.push({
+        id: 'audio-service-stopped',
+        severity: 'WARNING',
+        area: 'system',
+        title: translate('it', 'health_finding_audio_service_stopped_title'),
+        evidence: 'Audiosrv: STOPPED',
+        explanation: translate('it', 'health_finding_audio_service_stopped_explanation'),
+        confidence: 'HIGH',
+        recommendedActionId: 'review_audio_subsystem',
+      });
+    } else if (
+      facts.audioDiagnostics.engineStatus === 'degraded' ||
+      (facts.audioDiagnostics.defaultSampleRateHz && facts.audioDiagnostics.defaultSampleRateHz < 44100)
+    ) {
+      findings.push({
+        id: 'audio-sample-rate-degraded',
+        severity: 'ATTENTION',
+        area: 'system',
+        title: translate('it', 'health_finding_audio_sample_rate_degraded_title'),
+        evidence: `${facts.audioDiagnostics.defaultSampleRateHz || 0} Hz`,
+        explanation: translate('it', 'health_finding_audio_sample_rate_degraded_explanation'),
+        confidence: 'HIGH',
+        recommendedActionId: 'optimize_audio_format',
+      });
+    } else if (facts.audioDiagnostics.glitchOrIssueDetected) {
+      findings.push({
+        id: 'audio-issues-detected',
+        severity: 'ATTENTION',
+        area: 'system',
+        title: translate('it', 'health_finding_audio_issues_title'),
+        evidence: facts.audioDiagnostics.issueSummary || 'Audio issues detected',
+        explanation: translate('it', 'health_finding_audio_issues_explanation'),
+        confidence: 'MEDIUM',
+        recommendedActionId: 'review_audio_subsystem',
+      });
+    }
   }
 }
 

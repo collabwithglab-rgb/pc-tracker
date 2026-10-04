@@ -12,6 +12,8 @@ import {
   StartupAppsSnapshot,
   NetworkDiagnosticsResult,
   WindowsUpdateStatus,
+  DisplayDiagnosticsSnapshot,
+  AudioDiagnosticsSnapshot,
 } from '../types/windowsTools';
 import { isDesktopApp } from './desktopService';
 import { evaluateScanNowRecommendations } from '../domain/windowsToolsEngine';
@@ -911,6 +913,179 @@ export async function queryWindowsUpdateStatus(): Promise<WindowsUpdateStatus> {
   }
 
   return MOCK_WINDOWS_UPDATE_STATUS;
+}
+
+export const MOCK_DISPLAY_DIAGNOSTICS: DisplayDiagnosticsSnapshot = {
+  availability: 'available',
+  source: 'win32_enum_display_mock',
+  totalMonitors: 1,
+  monitors: [
+    {
+      id: '\\\\.\\DISPLAY1',
+      monitorName: 'LG UltraGear 27GP850 (QHD Nano IPS)',
+      adapterName: '\\\\.\\DISPLAY1',
+      currentResolution: { width: 2560, height: 1440 },
+      currentRefreshRate: 165,
+      maxSupportedRefreshRate: 165,
+      supportedRefreshRates: [60, 100, 120, 144, 165],
+      bitsPerPixel: 32,
+      orientation: 'landscape',
+      isPrimary: true,
+      virtualBounds: { x: 0, y: 0, width: 2560, height: 1440 },
+      dpiScalePercent: 100,
+      isRefreshRateLimited: false,
+    },
+  ],
+  hasHighRefreshRateMismatch: false,
+  hasMixedRefreshRates: false,
+  errorDetails: null,
+};
+
+export const MOCK_AUDIO_DIAGNOSTICS: AudioDiagnosticsSnapshot = {
+  availability: 'available',
+  source: 'win32_audio_engine_mock',
+  defaultDeviceName: 'Altoparlanti (Realtek High Definition Audio)',
+  defaultSampleRateHz: 48000,
+  defaultBitDepth: 24,
+  defaultChannels: 2,
+  devices: [
+    {
+      id: '{0.0.0.00000000}.{mock_realtek}',
+      name: 'Altoparlanti (Realtek High Definition Audio)',
+      isDefault: true,
+      state: 'active',
+      sampleRateHz: 48000,
+      bitDepth: 24,
+      channels: 2,
+      driverName: 'Realtek High Definition Audio',
+    },
+    {
+      id: '{0.0.0.00000000}.{mock_monitor}',
+      name: 'MSI MP243X (NVIDIA High Definition Audio)',
+      isDefault: false,
+      state: 'active',
+      sampleRateHz: 48000,
+      bitDepth: 16,
+      channels: 2,
+      driverName: 'NVIDIA High Definition Audio',
+    },
+  ],
+  audioServiceRunning: true,
+  audioEndpointBuilderRunning: true,
+  engineStatus: 'optimal',
+  glitchOrIssueDetected: false,
+  issueSummary: 'All audio endpoints and services operational (Studio/HD 48.0 kHz 24-bit).',
+  errorDetails: null,
+};
+
+/**
+ * Interroga lo stato dei monitor connessi, risoluzione, frequenze supportate e scaling DPI.
+ */
+export async function queryDisplayDiagnostics(): Promise<DisplayDiagnosticsSnapshot> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<DisplayDiagnosticsSnapshot>('query_display_diagnostics');
+    } catch (err) {
+      return {
+        availability: 'error',
+        source: 'tauri_error',
+        totalMonitors: 0,
+        monitors: [],
+        hasHighRefreshRateMismatch: false,
+        hasMixedRefreshRates: false,
+        errorDetails: (err as Error).message,
+      };
+    }
+  }
+
+  return MOCK_DISPLAY_DIAGNOSTICS;
+}
+
+/**
+ * Interroga gli endpoint audio multimediali, sample rate, bit depth e stato dei servizi audio Windows.
+ */
+export async function detectAudioGlitchesOrStatus(): Promise<AudioDiagnosticsSnapshot> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<AudioDiagnosticsSnapshot>('detect_audio_glitches_or_status');
+    } catch (err) {
+      return {
+        availability: 'error',
+        source: 'tauri_error',
+        defaultDeviceName: null,
+        defaultSampleRateHz: null,
+        defaultBitDepth: null,
+        defaultChannels: null,
+        devices: [],
+        audioServiceRunning: false,
+        audioEndpointBuilderRunning: false,
+        engineStatus: 'issues_detected',
+        glitchOrIssueDetected: true,
+        issueSummary: 'Unable to query Windows audio engine.',
+        errorDetails: (err as Error).message,
+      };
+    }
+  }
+
+  return MOCK_AUDIO_DIAGNOSTICS;
+}
+
+/**
+ * Apre l'interfaccia nativa delle impostazioni schermo avanzate di Windows.
+ */
+export async function openDisplaySettings(): Promise<WindowsToolResult<string>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<string>>('open_display_settings');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Error opening Windows Display Settings: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: false,
+      };
+    }
+  }
+
+  return {
+    status: 'success',
+    message: 'Windows Display Settings opened (simulated)',
+    details: 'Native advanced display settings opened safely',
+    data: 'ms-settings:display-advanced',
+    durationMs: 300,
+    requiresElevation: false,
+  };
+}
+
+/**
+ * Apre l'interfaccia nativa delle impostazioni audio di Windows.
+ */
+export async function openSoundSettings(): Promise<WindowsToolResult<string>> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WindowsToolResult<string>>('open_sound_settings');
+    } catch (err) {
+      return {
+        status: 'failed',
+        message: `Error opening Windows Sound Settings: ${(err as Error).message}`,
+        durationMs: 0,
+        requiresElevation: false,
+      };
+    }
+  }
+
+  return {
+    status: 'success',
+    message: 'Windows Sound Settings opened (simulated)',
+    details: 'Native sound settings opened safely',
+    data: 'ms-settings:sound',
+    durationMs: 300,
+    requiresElevation: false,
+  };
 }
 
 
