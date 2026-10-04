@@ -183,6 +183,6 @@ La roadmap è organizzata in fasi sequenziali, indipendenti, verificabili e modu
 - [x] **Tranche 8**: Deep Event Log Correlation & Native Services SCM (WHEA, Kernel-Power 41, Disk/NTFS, Win32 SCM catalog, anti-double-penalty).
 - [x] **Tranche 10**: Startup Intelligence & Network Diagnostics (`StartupApproved\Run`, test latenza/packet loss ICMP on-demand, Windows Update check).
 - [x] **Tranche 11**: Display Diagnostics & Audio Latency Intelligence (Win32 `EnumDisplayMonitors` refresh rate limiter detection, multi-monitor sync, WASAPI Core Audio sample rate checks).
-- [ ] **Tranche 12** *(Prossima)*: Network Adapter Link Speed, Wi-Fi Signal Intelligence (`WlanGetNetworkBssList`, RSSI, NIC link speed) & System Care Center Comprehensive Health Report Export.
+- [x] **Tranche 12**: Network Adapter Link Speed, Wi-Fi Signal Intelligence (Win32 IP Helper `GetAdaptersAddresses`, link speed downgrade detection, `wlanapi.dll` RSSI/qualità/standard) & System Care Center Comprehensive Health Report Export (Markdown e JSON).
 
 
