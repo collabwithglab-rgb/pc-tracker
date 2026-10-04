@@ -172,7 +172,7 @@ La roadmap è organizzata in fasi sequenziali, indipendenti, verificabili e modu
 
 ---
 
-### FASE 12 — PC Care Center & Smart Maintenance Engine (IN CORSO)
+### FASE 12 — PC Care Center & Smart Maintenance Engine (COMPLETATA)
 - [x] **Tranche 1**: Monitoring Live locale (CPU/RAM/GPU NVML/Storage volumi/System info).
 - [x] **Tranche 2**: Health Engine deterministico & Diagnostic Coverage (Score 0-100 indipendente dai sensori non supportati).
 - [x] **Tranche 3**: Optimization Engine & Lifecycle con memoria storica (anti-duplicazione azioni eseguite).
