@@ -173,6 +173,9 @@ export function evaluateSystemHealth(facts: SystemFactsInput): SystemHealthRepor
   // 6f. Valutazione Display Diagnostics & Audio Intelligence (Tranche 11)
   evaluateDisplayAndAudioHealth(facts, findings);
 
+  // 6g. Valutazione Scheda di Rete, Link Speed e Wi-Fi Intelligence (Tranche 12)
+  evaluateNetworkIntelligenceHealth(facts, findings);
+
   // 6d. Calcolo e Arricchimento Correlazioni Diagnostiche (Tranche 8D-3)
   const correlationInput: DiagnosticCorrelationInput = {
     deviceProblems: facts.diagnostics?.deviceProblems,
@@ -1017,6 +1020,87 @@ export function evaluateDisplayAndAudioHealth(
     }
   }
 }
+
+/**
+ * 6g. Valutazione Scheda di Rete, Negoziazione Link Speed e Segnale Wi-Fi (Tranche 12)
+ */
+export function evaluateNetworkIntelligenceHealth(
+  facts: SystemFactsInput,
+  findings: HealthFinding[]
+): void {
+  // A. Negoziazione Link Ethernet ridotta (es. scheda Gigabit/2.5G limitata a 100 Mbps o 10 Mbps)
+  if (facts.networkAdapter) {
+    const adapter = facts.networkAdapter;
+    const isEthernet = adapter.adapterType === 'ethernet';
+    const isConnected = adapter.status === 'connected';
+
+    if (isConnected && isEthernet) {
+      const isDowngraded =
+        adapter.isLinkSpeedDowngraded ||
+        (adapter.linkSpeedMbps > 0 &&
+          adapter.linkSpeedMbps <= 100 &&
+          ((adapter.maxSpeedMbps ?? 0) >= 1000));
+
+      if (isDowngraded) {
+        findings.push({
+          id: 'network-ethernet-link-downgraded',
+          severity: 'WARNING',
+          area: 'system',
+          title: translate('it', 'health_finding_ethernet_link_downgraded_title', {
+            speed: adapter.linkSpeedMbps,
+          }),
+          evidence: `${adapter.linkSpeedMbps} Mbps (capacità nominale: ${
+            adapter.maxSpeedMbps ? `${adapter.maxSpeedMbps} Mbps` : '1000+ Mbps'
+          })`,
+          explanation: translate('it', 'health_finding_ethernet_link_downgraded_explanation', {
+            adapter: adapter.adapterName || adapter.description,
+            speed: adapter.linkSpeedMbps,
+          }),
+          confidence: 'HIGH',
+          recommendedActionId: 'opt-network-verify-ethernet-cable',
+          metadata: {
+            adapterName: adapter.adapterName,
+            description: adapter.description,
+            linkSpeedMbps: adapter.linkSpeedMbps,
+            maxSpeedMbps: adapter.maxSpeedMbps ?? 1000,
+          },
+        });
+      }
+    }
+  }
+
+  // B. Qualità del Segnale Wi-Fi debole (< 45%) con rischio instabilità e jitter elevato
+  if (facts.wifiSignal?.isConnected) {
+    const wifi = facts.wifiSignal;
+    if (wifi.signalQualityPercent > 0 && wifi.signalQualityPercent < 45) {
+      const isCritical = wifi.signalQualityPercent < 30;
+      findings.push({
+        id: 'network-wifi-weak-signal',
+        severity: isCritical ? 'WARNING' : 'ATTENTION',
+        area: 'system',
+        title: translate('it', 'health_finding_wifi_weak_signal_title', {
+          percent: wifi.signalQualityPercent,
+        }),
+        evidence: `${wifi.signalQualityPercent}% (${wifi.rssiDbm} dBm, ${wifi.band} - ${wifi.standard})`,
+        explanation: translate('it', 'health_finding_wifi_weak_signal_explanation', {
+          ssid: wifi.ssid || 'Wi-Fi',
+          percent: wifi.signalQualityPercent,
+          rssi: wifi.rssiDbm,
+        }),
+        confidence: 'HIGH',
+        recommendedActionId: 'opt-network-optimize-wifi-reception',
+        metadata: {
+          ssid: wifi.ssid || '',
+          signalQualityPercent: wifi.signalQualityPercent,
+          rssiDbm: wifi.rssiDbm,
+          band: wifi.band,
+          standard: wifi.standard,
+        },
+      });
+    }
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // 5b. EVENT LOG HARDWARE & KERNEL HEALTH EVALUATION (TRANCHE 8D-1)

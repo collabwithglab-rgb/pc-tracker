@@ -242,3 +242,41 @@ export interface AudioDiagnosticsSnapshot {
   errorDetails?: string | null;
 }
 
+export type NetworkAdapterType = 'ethernet' | 'wifi' | 'virtual' | 'other';
+
+export interface NetworkAdapterSnapshot {
+  availability: 'available' | 'unavailable' | 'unsupported' | 'error';
+  source: string;
+  adapterName: string;
+  description: string;
+  adapterType: NetworkAdapterType;
+  status: 'connected' | 'disconnected' | 'unknown';
+  linkSpeedMbps: number;
+  maxSpeedMbps?: number | null;
+  isLinkSpeedDowngraded: boolean;
+  ipv4?: string | null;
+  ipv6?: string | null;
+  gateway?: string | null;
+  macAddress?: string | null;
+  dhcpEnabled: boolean;
+  errorDetails?: string | null;
+}
+
+export type WifiBand = '2.4GHz' | '5GHz' | '6GHz' | 'unknown';
+export type WifiStandard = 'Wi-Fi 7' | 'Wi-Fi 6/6E' | 'Wi-Fi 6' | 'Wi-Fi 5' | 'Wi-Fi 4' | 'legacy' | 'unknown';
+
+export interface WifiSignalSnapshot {
+  availability: 'available' | 'unavailable' | 'not_connected' | 'unsupported' | 'error';
+  source: string;
+  isConnected: boolean;
+  ssid?: string | null;
+  bssid?: string | null;
+  signalQualityPercent: number; // 0 - 100%
+  rssiDbm: number;              // e.g. -50 dBm
+  band: WifiBand;
+  standard: WifiStandard;
+  channel?: number | null;
+  errorDetails?: string | null;
+}
+
+

@@ -22,7 +22,9 @@ import {
   FileText,
   Terminal,
   Activity,
+  Download,
 } from 'lucide-react';
+import { downloadCareHealthReport } from '../../domain/careReportExportEngine';
 import { useTranslation, getBcp47 } from '../../locales';
 import { SystemDiagnosticsSnapshot } from '../../types/diagnostics';
 import { EventLogInspectionModal } from './EventLogInspectionModal';
@@ -188,7 +190,7 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
   onOpenWikiArticle: _onOpenWikiArticle,
   onShowNotification,
 }) => {
-  const { currentLocale } = useTranslation();
+  const { t, currentLocale } = useTranslation();
   const bcp47 = getBcp47(currentLocale);
   const {
     optimizationHistory,
@@ -258,6 +260,15 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
 
   const notify = (type: 'success' | 'warning' | 'error' | 'info', msg: string) => {
     onShowNotification?.(type === 'success' ? 'success' : 'error', msg);
+  };
+
+  const handleExportReport = (format: 'markdown' | 'json' = 'markdown') => {
+    try {
+      downloadCareHealthReport(healthReport, facts, optReport.recommendations, format, currentLocale);
+      notify('success', t('care_export_report_success'));
+    } catch (err) {
+      notify('error', `Errore durante l'esportazione: ${(err as Error).message}`);
+    }
   };
 
   // Click su azione del promemoria: delega al target rec (con confirmation flow se necessario), a history o al registro
@@ -645,7 +656,25 @@ export const CareOverviewTab: React.FC<CareOverviewTabProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => handleExportReport('markdown')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)' }}
+            title={t('care_export_report_desc')}
+          >
+            <Download size={14} color="var(--accent-primary)" />
+            <span>{t('care_export_report_btn')}</span>
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => handleExportReport('json')}
+            style={{ padding: '4px 8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}
+            title="Esporta JSON diagnostico grezzo"
+          >
+            JSON
+          </button>
+
           <button
             className="btn btn-secondary btn-sm"
             onClick={onRefreshFacts}

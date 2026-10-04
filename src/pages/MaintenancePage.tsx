@@ -29,6 +29,8 @@ import {
   WindowsUpdateStatus,
   DisplayDiagnosticsSnapshot,
   AudioDiagnosticsSnapshot,
+  NetworkAdapterSnapshot,
+  WifiSignalSnapshot,
 } from '../types';
 import {
   formatDate as formatWithSettings,
@@ -79,6 +81,8 @@ import {
   detectAudioGlitchesOrStatus,
   openDisplaySettings,
   openSoundSettings,
+  queryNetworkAdapterDetails,
+  queryWifiSignalMetrics,
 } from '../services/windowsToolsService';
 import { getMonitoringSnapshot } from '../services/monitoringService';
 import { getSystemDiagnosticsSnapshot } from '../services/diagnosticsService';
@@ -128,6 +132,7 @@ import {
   Wifi,
   Monitor,
   Volume2,
+  Network,
 } from 'lucide-react';
 
 
@@ -244,10 +249,14 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   const [displayDiagnostics, setDisplayDiagnostics] = useState<DisplayDiagnosticsSnapshot | null>(null);
   const [audioDiagnostics, setAudioDiagnostics] = useState<AudioDiagnosticsSnapshot | null>(null);
 
+  // Stati Tranche 12: Network Adapter Link Speed & Wi-Fi Signal Intelligence
+  const [networkAdapter, setNetworkAdapter] = useState<NetworkAdapterSnapshot | null>(null);
+  const [wifiSignal, setWifiSignal] = useState<WifiSignalSnapshot | null>(null);
+
   // Caricamento dati iniziali per la tab Strumenti e Panoramica
   const loadWindowsToolsData = async () => {
     try {
-      const [vols, trim, bin, hiber, smart, sec, snap, diag, startup, update, display, audio] = await Promise.all([
+      const [vols, trim, bin, hiber, smart, sec, snap, diag, startup, update, display, audio, netAdapter, wifi] = await Promise.all([
         scanStorageVolumes(),
         queryTrimConfiguration(),
         queryRecycleBin(),
@@ -260,6 +269,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         queryWindowsUpdateStatus(),
         queryDisplayDiagnostics(),
         detectAudioGlitchesOrStatus(),
+        queryNetworkAdapterDetails(),
+        queryWifiSignalMetrics(),
       ]);
 
       if (vols.data && vols.data.length > 0) {
@@ -278,6 +289,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       if (update) setWindowsUpdateStatus(update);
       if (display) setDisplayDiagnostics(display);
       if (audio) setAudioDiagnostics(audio);
+      if (netAdapter) setNetworkAdapter(netAdapter);
+      if (wifi) setWifiSignal(wifi);
     } catch (err) {
       console.warn('Errore caricamento dati strumenti Windows:', err);
     }
@@ -307,6 +320,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
       networkDiagnostics: networkResult,
       displayDiagnostics: displayDiagnostics,
       audioDiagnostics: audioDiagnostics,
+      networkAdapter: networkAdapter,
+      wifiSignal: wifiSignal,
     };
   }, [
     monitoringSnapshot,
@@ -325,6 +340,8 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     networkResult,
     displayDiagnostics,
     audioDiagnostics,
+    networkAdapter,
+    wifiSignal,
   ]);
 
   const handleOpenDisplaySettings = async () => {
@@ -2383,6 +2400,158 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                   >
                     <ExternalLink size={13} style={{ marginRight: '6px' }} />
                     {t('care_audio_open_settings')}
+                  </button>
+                </div>
+
+                {/* Tool: Scheda di Rete & Connettività */}
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Network size={18} color="var(--accent-primary)" />
+                        {t('care_network_hub_title')}
+                      </div>
+                      {networkAdapter && (
+                        <span
+                          className={`badge ${networkAdapter.isLinkSpeedDowngraded ? 'badge-ruby' : networkAdapter.linkSpeedMbps && networkAdapter.linkSpeedMbps >= 1000 ? 'badge-emerald' : 'badge-cyan'}`}
+                          style={{ fontSize: '0.68rem' }}
+                        >
+                          {networkAdapter.isLinkSpeedDowngraded
+                            ? t('care_network_link_downgraded_badge')
+                            : networkAdapter.linkSpeedMbps
+                              ? `${networkAdapter.linkSpeedMbps} Mbps`
+                              : networkAdapter.adapterType.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+                      {t('care_network_hub_desc')}
+                    </div>
+
+                    {networkAdapter ? (
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div
+                          style={{
+                            padding: '10px 12px',
+                            background: 'var(--bg-input)',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              {t('care_network_adapter_label')}
+                            </span>
+                            <span
+                              className={`badge ${networkAdapter.status === 'connected' ? 'badge-emerald' : 'badge-amber'}`}
+                              style={{ fontSize: '0.62rem' }}
+                            >
+                              {networkAdapter.adapterType.toUpperCase()} • {networkAdapter.status.toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                            {networkAdapter.adapterName}
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '6px', fontSize: '0.74rem', marginTop: '4px' }}>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)' }}>{t('care_network_link_speed_label')} </span>
+                              <strong style={{
+                                color: networkAdapter.isLinkSpeedDowngraded ? 'var(--accent-ruby)' : 'var(--accent-primary)',
+                                fontFamily: 'var(--font-mono)'
+                              }}>
+                                {networkAdapter.linkSpeedMbps ? `${networkAdapter.linkSpeedMbps} Mbps` : 'N/D'}
+                              </strong>
+                            </div>
+
+                            {networkAdapter.ipv4 && (
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_network_ipv4_label')} </span>
+                                <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                  {networkAdapter.ipv4}
+                                </strong>
+                              </div>
+                            )}
+
+                            {networkAdapter.gateway && (
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_network_gateway_label')} </span>
+                                <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                  {networkAdapter.gateway}
+                                </strong>
+                              </div>
+                            )}
+
+                            {networkAdapter.macAddress && (
+                              <div>
+                                <span style={{ color: 'var(--text-muted)' }}>{t('care_network_mac_label')} </span>
+                                <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                  {networkAdapter.macAddress}
+                                </strong>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Se presente segnale Wi-Fi */}
+                          {wifiSignal && wifiSignal.isConnected && (
+                            <div style={{
+                              marginTop: '8px',
+                              paddingTop: '8px',
+                              borderTop: '1px solid var(--border-subtle)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '4px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Wifi size={12} color="var(--accent-cyan)" />
+                                  SSID: <strong style={{ color: 'var(--text-primary)' }}>{wifiSignal.ssid || 'N/D'}</strong>
+                                </span>
+                                <span
+                                  className={`badge ${wifiSignal.signalQualityPercent >= 60 ? 'badge-emerald' : wifiSignal.signalQualityPercent >= 45 ? 'badge-amber' : 'badge-ruby'}`}
+                                  style={{ fontSize: '0.62rem' }}
+                                >
+                                  {wifiSignal.signalQualityPercent}% ({wifiSignal.rssiDbm} dBm)
+                                </span>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '6px', fontSize: '0.74rem' }}>
+                                <div>
+                                  <span style={{ color: 'var(--text-muted)' }}>{t('care_network_wifi_band_label')} </span>
+                                  <strong style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                                    {wifiSignal.band}
+                                  </strong>
+                                </div>
+                                <div>
+                                  <span style={{ color: 'var(--text-muted)' }}>{t('care_network_wifi_standard_label')} </span>
+                                  <strong style={{ color: 'var(--text-secondary)' }}>
+                                    {wifiSignal.standard}
+                                  </strong>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: '12px', fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                        {t('care_network_not_connected')}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleRunNetworkDiagnostics}
+                    disabled={isRunningNetworkTest}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <RefreshCw size={13} className={isRunningNetworkTest ? 'spin' : ''} style={{ marginRight: '6px' }} />
+                    {isRunningNetworkTest ? t('network_diagnostics_running') : t('network_diagnostics_run_btn')}
                   </button>
                 </div>
               </div>

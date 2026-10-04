@@ -14,6 +14,8 @@ import {
   WindowsUpdateStatus,
   DisplayDiagnosticsSnapshot,
   AudioDiagnosticsSnapshot,
+  NetworkAdapterSnapshot,
+  WifiSignalSnapshot,
 } from '../types/windowsTools';
 import { isDesktopApp } from './desktopService';
 import { evaluateScanNowRecommendations } from '../domain/windowsToolsEngine';
@@ -978,6 +980,38 @@ export const MOCK_AUDIO_DIAGNOSTICS: AudioDiagnosticsSnapshot = {
   errorDetails: null,
 };
 
+export const MOCK_NETWORK_ADAPTER_SNAPSHOT: NetworkAdapterSnapshot = {
+  availability: 'available',
+  source: 'win32_iphelper_mock',
+  adapterName: 'Ethernet',
+  description: 'Realtek Gaming 2.5GbE Family Controller',
+  adapterType: 'ethernet',
+  status: 'connected',
+  linkSpeedMbps: 1000,
+  maxSpeedMbps: 2500,
+  isLinkSpeedDowngraded: false,
+  ipv4: '192.168.1.17',
+  ipv6: 'fe80::f0ad:c08c:4d7a:925c',
+  gateway: '192.168.1.1',
+  macAddress: 'D8:43:AE:14:6A:DF',
+  dhcpEnabled: true,
+  errorDetails: null,
+};
+
+export const MOCK_WIFI_SIGNAL_SNAPSHOT: WifiSignalSnapshot = {
+  availability: 'available',
+  source: 'win32_wlanapi_mock',
+  isConnected: true,
+  ssid: 'Fastweb_Home_5G',
+  bssid: 'A4:91:B1:22:33:44',
+  signalQualityPercent: 88,
+  rssiDbm: -56,
+  band: '5GHz',
+  standard: 'Wi-Fi 6',
+  channel: 36,
+  errorDetails: null,
+};
+
 /**
  * Interroga lo stato dei monitor connessi, risoluzione, frequenze supportate e scaling DPI.
  */
@@ -1087,5 +1121,66 @@ export async function openSoundSettings(): Promise<WindowsToolResult<string>> {
     requiresElevation: false,
   };
 }
+
+/**
+ * Interroga i dettagli della scheda di rete attiva (Ethernet / Wi-Fi), link speed e configurazione IP.
+ */
+export async function queryNetworkAdapterDetails(): Promise<NetworkAdapterSnapshot> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<NetworkAdapterSnapshot>('query_network_adapter_details');
+    } catch (err) {
+      return {
+        availability: 'error',
+        source: 'tauri_error',
+        adapterName: 'Network Adapter',
+        description: 'Unknown Adapter',
+        adapterType: 'ethernet',
+        status: 'unknown',
+        linkSpeedMbps: 0,
+        maxSpeedMbps: null,
+        isLinkSpeedDowngraded: false,
+        ipv4: null,
+        ipv6: null,
+        gateway: null,
+        macAddress: null,
+        dhcpEnabled: true,
+        errorDetails: (err as Error).message,
+      };
+    }
+  }
+
+  return MOCK_NETWORK_ADAPTER_SNAPSHOT;
+}
+
+/**
+ * Interroga le metriche del segnale Wi-Fi (SSID, qualità %, RSSI, banda, standard Wi-Fi).
+ */
+export async function queryWifiSignalMetrics(): Promise<WifiSignalSnapshot> {
+  if (isDesktopApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<WifiSignalSnapshot>('query_wifi_signal_metrics');
+    } catch (err) {
+      return {
+        availability: 'error',
+        source: 'tauri_error',
+        isConnected: false,
+        ssid: null,
+        bssid: null,
+        signalQualityPercent: 0,
+        rssiDbm: -100,
+        band: 'unknown',
+        standard: 'unknown',
+        channel: null,
+        errorDetails: (err as Error).message,
+      };
+    }
+  }
+
+  return MOCK_WIFI_SIGNAL_SNAPSHOT;
+}
+
 
 

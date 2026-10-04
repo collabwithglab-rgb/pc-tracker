@@ -14,6 +14,8 @@ import {
   NetworkDiagnosticsResult,
   DisplayDiagnosticsSnapshot,
   AudioDiagnosticsSnapshot,
+  NetworkAdapterSnapshot,
+  WifiSignalSnapshot,
 } from './windowsTools';
 import { MaintenanceEntry } from './maintenance';
 import { TuningProfile } from './tuning';
@@ -92,6 +94,8 @@ export interface SystemFactsInput {
   networkDiagnostics?: NetworkDiagnosticsResult | null;
   displayDiagnostics?: DisplayDiagnosticsSnapshot | null;
   audioDiagnostics?: AudioDiagnosticsSnapshot | null;
+  networkAdapter?: NetworkAdapterSnapshot | null;
+  wifiSignal?: WifiSignalSnapshot | null;
 }
 
 export interface AreaHealthSummary {

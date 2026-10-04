@@ -39,6 +39,8 @@ pub fn run() {
       windows_tools::detect_audio_glitches_or_status,
       windows_tools::open_display_settings,
       windows_tools::open_sound_settings,
+      windows_tools::query_network_adapter_details,
+      windows_tools::query_wifi_signal_metrics,
       monitoring::get_monitoring_snapshot,
       diagnostics::get_system_diagnostics_snapshot,
     ])

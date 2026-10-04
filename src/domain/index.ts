@@ -22,4 +22,5 @@ export * from './optimizationLifecycleEngine';
 export * from './maintenanceSchedulerEngine';
 export * from './diagnosticCorrelationEngine';
 export * from './networkQualityEngine';
+export * from './careReportExportEngine';
 

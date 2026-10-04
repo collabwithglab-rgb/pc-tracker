@@ -229,6 +229,275 @@ pub struct AudioDiagnosticsSnapshot {
     pub error_details: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkAdapterSnapshot {
+    pub availability: String, // "available" | "unavailable" | "error"
+    pub source: String,       // "win32_iphelper" | "win32_mock"
+    pub adapter_name: String,
+    pub description: String,
+    pub adapter_type: String, // "ethernet" | "wifi" | "virtual" | "other"
+    pub status: String,       // "connected" | "disconnected" | "unknown"
+    pub link_speed_mbps: u64,
+    pub max_speed_mbps: Option<u64>,
+    pub is_link_speed_downgraded: bool,
+    pub ipv4: Option<String>,
+    pub ipv6: Option<String>,
+    pub gateway: Option<String>,
+    pub mac_address: Option<String>,
+    pub dhcp_enabled: bool,
+    pub error_details: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WifiSignalSnapshot {
+    pub availability: String, // "available" | "unavailable" | "not_connected" | "error"
+    pub source: String,       // "win32_wlanapi" | "win32_mock"
+    pub is_connected: bool,
+    pub ssid: Option<String>,
+    pub bssid: Option<String>,
+    pub signal_quality_percent: u32, // 0 - 100%
+    pub rssi_dbm: i32,                // e.g. -50 dBm
+    pub band: String,                 // "2.4GHz" | "5GHz" | "6GHz" | "unknown"
+    pub standard: String,             // "Wi-Fi 7" | "Wi-Fi 6/6E" | "Wi-Fi 5" | "Wi-Fi 4" | "legacy" | "unknown"
+    pub channel: Option<u32>,
+    pub error_details: Option<String>,
+}
+
+/// Converte la stringa di velocità link (es. "1 Gbps", "100 Mbps", "2.5 Gbps", "0 bps") in Mbps
+pub fn parse_link_speed_to_mbps(val: &str) -> u64 {
+    let clean = val.trim().to_lowercase();
+    if clean.contains("gbps") {
+        let num_str = clean.replace("gbps", "").trim().to_string();
+        if let Ok(gbps) = num_str.parse::<f64>() {
+            return (gbps * 1000.0).round() as u64;
+        }
+    } else if clean.contains("mbps") {
+        let num_str = clean.replace("mbps", "").trim().to_string();
+        if let Ok(mbps) = num_str.parse::<f64>() {
+            return mbps.round() as u64;
+        }
+    } else if clean.contains("kbps") {
+        let num_str = clean.replace("kbps", "").trim().to_string();
+        if let Ok(kbps) = num_str.parse::<f64>() {
+            return (kbps / 1000.0).round() as u64;
+        }
+    } else if clean.contains("bps") {
+        let num_str = clean.replace("bps", "").trim().to_string();
+        if let Ok(bps) = num_str.parse::<f64>() {
+            return (bps / 1_000_000.0).round() as u64;
+        }
+    }
+    0
+}
+
+/// Stima la velocità nominale massima di una scheda di rete partendo dalla sua descrizione hardware
+pub fn estimate_max_speed_from_desc(description: &str) -> Option<u64> {
+    let lower = description.to_lowercase();
+    if lower.contains("10g") || lower.contains("10 gigabit") || lower.contains("10gbe") {
+        Some(10000)
+    } else if lower.contains("2.5g")
+        || lower.contains("2.5 gigabit")
+        || lower.contains("2.5gbe")
+        || lower.contains("rtl8125")
+        || lower.contains("i225")
+        || lower.contains("i226")
+    {
+        Some(2500)
+    } else if lower.contains("5gbe") || lower.contains("5 gigabit") || lower.contains(" 5g ") {
+        Some(5000)
+    } else if lower.contains("gigabit")
+        || lower.contains("gbe")
+        || lower.contains("10/100/1000")
+        || lower.contains("1000m")
+        || lower.contains("rtl8111")
+        || lower.contains("i219")
+        || lower.contains("i211")
+    {
+        Some(1000)
+    } else if lower.contains("fast ethernet") || lower.contains("10/100") {
+        Some(100)
+    } else {
+        None
+    }
+}
+
+/// Valuta se il link speed Ethernet negoziato è ridotto rispetto alla capacità nominale della scheda
+/// (es. scheda 1000M o 2500M che negozia a soli 100 Mbps o 10 Mbps a causa di cavo difettoso o porta limitata)
+pub fn evaluate_ethernet_link_speed_downgrade(
+    adapter_type: &str,
+    description: &str,
+    link_speed_mbps: u64,
+    max_speed_mbps: Option<u64>,
+) -> bool {
+    if adapter_type != "ethernet" || link_speed_mbps == 0 {
+        return false;
+    }
+    let max = max_speed_mbps.or_else(|| estimate_max_speed_from_desc(description));
+    if let Some(nominal) = max {
+        if nominal >= 1000 && link_speed_mbps <= 100 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Converte la percentuale di qualità del segnale Wi-Fi (0-100) in RSSI (dBm)
+/// secondo la specifica standard Windows NDIS / WLAN (100% = -50 dBm, 0% = -100 dBm).
+pub fn wifi_quality_to_rssi_dbm(quality_percent: u32) -> i32 {
+    let clamped = quality_percent.min(100) as i32;
+    (clamped / 2) - 100
+}
+
+/// Determina la banda radio (2.4GHz, 5GHz, 6GHz) in base al canale Wi-Fi o frequenza
+pub fn detect_wifi_band(channel: Option<u32>, freq_khz_or_mhz: Option<u64>) -> &'static str {
+    if let Some(freq) = freq_khz_or_mhz {
+        let mhz = if freq > 100_000 { freq / 1000 } else { freq };
+        if mhz >= 5925 {
+            return "6GHz";
+        } else if mhz >= 4900 && mhz < 5925 {
+            return "5GHz";
+        } else if mhz >= 2400 && mhz < 2500 {
+            return "2.4GHz";
+        }
+    }
+    if let Some(ch) = channel {
+        if ch >= 1 && ch <= 14 {
+            return "2.4GHz";
+        } else if ch >= 32 && ch <= 177 {
+            return "5GHz";
+        }
+    }
+    "5GHz"
+}
+
+/// Determina lo standard Wi-Fi (Wi-Fi 7, Wi-Fi 6/6E, Wi-Fi 5, Wi-Fi 4, legacy, unknown)
+pub fn detect_wifi_standard(radio_type: &str, band: &str) -> &'static str {
+    let lower = radio_type.to_lowercase();
+    if lower.contains("802.11be") || lower.contains("wifi 7") || lower.contains("wi-fi 7") {
+        "Wi-Fi 7"
+    } else if lower.contains("802.11ax") || lower.contains("wifi 6") || lower.contains("wi-fi 6") {
+        if band == "6GHz" {
+            "Wi-Fi 6E"
+        } else {
+            "Wi-Fi 6"
+        }
+    } else if lower.contains("802.11ac") || lower.contains("wifi 5") || lower.contains("wi-fi 5") {
+        "Wi-Fi 5"
+    } else if lower.contains("802.11n") || lower.contains("wifi 4") || lower.contains("wi-fi 4") {
+        "Wi-Fi 4"
+    } else if lower.contains("802.11g") || lower.contains("802.11a") || lower.contains("802.11b") {
+        "legacy"
+    } else {
+        "unknown"
+    }
+}
+
+/// Esegue il parsing deterministico dell'output del comando `netsh wlan show interfaces`
+pub fn parse_netsh_wifi_output(output: &str) -> WifiSignalSnapshot {
+    let lower = output.to_lowercase();
+    if lower.contains("there is no wireless interface") || lower.contains("nessuna interfaccia wireless") {
+        return WifiSignalSnapshot {
+            availability: "unavailable".to_string(),
+            source: "win32_netsh_wlan".to_string(),
+            is_connected: false,
+            ssid: None,
+            bssid: None,
+            signal_quality_percent: 0,
+            rssi_dbm: -100,
+            band: "unknown".to_string(),
+            standard: "unknown".to_string(),
+            channel: None,
+            error_details: Some("Nessuna interfaccia wireless rilevata nel sistema.".to_string()),
+        };
+    }
+
+    let mut is_connected = false;
+    let mut ssid = None;
+    let mut bssid = None;
+    let mut signal_percent = 0u32;
+    let mut radio_type = String::new();
+    let mut channel = None;
+    let mut band_str = None;
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if let Some(pos) = trimmed.find(':') {
+            let key = trimmed[..pos].trim().to_lowercase();
+            let val = trimmed[pos + 1..].trim();
+
+            if key == "state" || key == "stato" {
+                if val.eq_ignore_ascii_case("connected") || val.eq_ignore_ascii_case("connesso") {
+                    is_connected = true;
+                }
+            } else if key == "ssid" {
+                if !val.is_empty() {
+                    ssid = Some(val.to_string());
+                }
+            } else if key == "bssid" {
+                if !val.is_empty() {
+                    bssid = Some(val.to_string());
+                }
+            } else if key == "signal" || key == "segnale" {
+                let clean = val.replace('%', "").trim().to_string();
+                if let Ok(pct) = clean.parse::<u32>() {
+                    signal_percent = pct.min(100);
+                }
+            } else if key == "radio type" || key == "tipo frequenza radio" {
+                radio_type = val.to_string();
+            } else if key == "channel" || key == "canale" {
+                if let Ok(ch) = val.parse::<u32>() {
+                    channel = Some(ch);
+                }
+            } else if key == "band" || key == "banda" {
+                if val.contains('6') {
+                    band_str = Some("6GHz".to_string());
+                } else if val.contains('5') {
+                    band_str = Some("5GHz".to_string());
+                } else if val.contains("2.4") {
+                    band_str = Some("2.4GHz".to_string());
+                }
+            }
+        }
+    }
+
+    if !is_connected {
+        return WifiSignalSnapshot {
+            availability: "not_connected".to_string(),
+            source: "win32_netsh_wlan".to_string(),
+            is_connected: false,
+            ssid: None,
+            bssid: None,
+            signal_quality_percent: 0,
+            rssi_dbm: -100,
+            band: "unknown".to_string(),
+            standard: "unknown".to_string(),
+            channel: None,
+            error_details: Some("Scheda Wi-Fi disconnessa o nessuna rete associata.".to_string()),
+        };
+    }
+
+    let detected_band = band_str.unwrap_or_else(|| detect_wifi_band(channel, None).to_string());
+    let detected_standard = detect_wifi_standard(&radio_type, &detected_band).to_string();
+    let rssi = wifi_quality_to_rssi_dbm(signal_percent);
+
+    WifiSignalSnapshot {
+        availability: "available".to_string(),
+        source: "win32_netsh_wlan".to_string(),
+        is_connected: true,
+        ssid,
+        bssid,
+        signal_quality_percent: signal_percent,
+        rssi_dbm: rssi,
+        band: detected_band,
+        standard: detected_standard,
+        channel,
+        error_details: None,
+    }
+}
+
+
 /// Determina in modo deterministico se un monitor con refresh rate potenziale elevato (>= 100 Hz)
 /// è limitato a un refresh rate ridotto (es. 60 Hz).
 pub fn is_monitor_refresh_rate_limited(max_hz: u32, current_hz: u32) -> bool {
@@ -2431,6 +2700,322 @@ foreach ($p in $paths) {
             },
         }
     }
+
+    #[repr(C)]
+    struct SOCKET_ADDRESS {
+        lp_sockaddr: *mut std::ffi::c_void,
+        i_sockaddr_length: i32,
+    }
+
+    #[repr(C)]
+    struct IP_ADAPTER_UNICAST_ADDRESS_LH {
+        alignment: u64,
+        next: *mut IP_ADAPTER_UNICAST_ADDRESS_LH,
+        address: SOCKET_ADDRESS,
+    }
+
+    #[repr(C)]
+    struct IP_ADAPTER_GATEWAY_ADDRESS_LH {
+        alignment: u64,
+        next: *mut IP_ADAPTER_GATEWAY_ADDRESS_LH,
+        address: SOCKET_ADDRESS,
+    }
+
+    #[repr(C)]
+    struct IP_ADAPTER_ADDRESSES_LH {
+        alignment: u64,
+        next: *mut IP_ADAPTER_ADDRESSES_LH,
+        adapter_name: *const i8,
+        first_unicast_address: *mut IP_ADAPTER_UNICAST_ADDRESS_LH,
+        first_anycast_address: *mut std::ffi::c_void,
+        first_multicast_address: *mut std::ffi::c_void,
+        first_dns_server_address: *mut std::ffi::c_void,
+        dns_suffix: *const u16,
+        description: *const u16,
+        friendly_name: *const u16,
+        physical_address: [u8; 8],
+        physical_address_length: u32,
+        flags: u32,
+        mtu: u32,
+        if_type: u32,
+        oper_status: u32,
+        ipv6_if_index: u32,
+        zone_indices: [u32; 16],
+        first_prefix: *mut std::ffi::c_void,
+        transmit_link_speed: u64,
+        receive_link_speed: u64,
+        first_wins_server_address: *mut std::ffi::c_void,
+        first_gateway_address: *mut IP_ADAPTER_GATEWAY_ADDRESS_LH,
+    }
+
+    type GetAdaptersAddressesFn = unsafe extern "system" fn(
+        family: u32,
+        flags: u32,
+        reserved: *mut std::ffi::c_void,
+        adapter_addresses: *mut IP_ADAPTER_ADDRESSES_LH,
+        size_pointer: *mut u32,
+    ) -> u32;
+
+    /// Interroga Win32 IP Helper (GetAdaptersAddresses) e parametri di rete fisici per rilevare
+    /// la scheda di rete attiva, tipologia, link speed negoziato e indirizzi IP.
+    pub fn query_network_adapter_details_native() -> NetworkAdapterSnapshot {
+        let mut adapter_name = String::new();
+        let mut description = String::new();
+        let mut adapter_type = "ethernet".to_string();
+        let status = "connected".to_string();
+        let mut link_speed_mbps = 0u64;
+        let mut mac_address = None;
+        let mut ipv4 = None;
+        let mut ipv6 = None;
+        let mut gateway = None;
+        let dhcp_enabled = true;
+
+        // 1. Interrogazione FFI Win32 IP Helper (iphlpapi.dll -> GetAdaptersAddresses)
+        unsafe {
+            let iphlpapi = LoadLibraryA(b"iphlpapi.dll\0".as_ptr() as *const i8);
+            if !iphlpapi.is_null() {
+                let p_get_adapters = GetProcAddress(iphlpapi, b"GetAdaptersAddresses\0".as_ptr() as *const i8);
+                if !p_get_adapters.is_null() {
+                    let fn_get_adapters: GetAdaptersAddressesFn = std::mem::transmute(p_get_adapters);
+                    let mut buf_len: u32 = 16384;
+                    let mut buffer: Vec<u8> = vec![0u8; buf_len as usize];
+
+                    let mut ret = fn_get_adapters(
+                        0, // AF_UNSPEC
+                        0x0080 | 0x0010, // GAA_FLAG_INCLUDE_GATEWAYS | GAA_FLAG_INCLUDE_ALL_INTERFACES
+                        std::ptr::null_mut(),
+                        buffer.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH,
+                        &mut buf_len,
+                    );
+
+                    if ret == 111 { // ERROR_BUFFER_OVERFLOW
+                        buffer = vec![0u8; buf_len as usize];
+                        ret = fn_get_adapters(
+                            0,
+                            0x0080 | 0x0010,
+                            std::ptr::null_mut(),
+                            buffer.as_mut_ptr() as *mut IP_ADAPTER_ADDRESSES_LH,
+                            &mut buf_len,
+                        );
+                    }
+
+                    if ret == 0 { // NO_ERROR
+                        let mut curr = buffer.as_ptr() as *const IP_ADAPTER_ADDRESSES_LH;
+                        while !curr.is_null() {
+                            let item = &*curr;
+                            // Filtriamo interfacce fisiche Ethernet (6) o Wi-Fi (71)
+                            if (item.if_type == 6 || item.if_type == 71) && item.oper_status == 1 {
+                                // Nome amichevole
+                                if !item.friendly_name.is_null() {
+                                    let mut len = 0;
+                                    while *item.friendly_name.add(len) != 0 { len += 1; }
+                                    let slice = std::slice::from_raw_parts(item.friendly_name, len);
+                                    let f_name = String::from_utf16_lossy(slice);
+                                    if !f_name.trim().is_empty() {
+                                        adapter_name = f_name.trim().to_string();
+                                    }
+                                }
+
+                                // Descrizione hardware
+                                if !item.description.is_null() {
+                                    let mut len = 0;
+                                    while *item.description.add(len) != 0 { len += 1; }
+                                    let slice = std::slice::from_raw_parts(item.description, len);
+                                    let desc = String::from_utf16_lossy(slice);
+                                    if !desc.trim().is_empty() {
+                                        description = desc.trim().to_string();
+                                    }
+                                }
+
+                                adapter_type = if item.if_type == 71 { "wifi".to_string() } else { "ethernet".to_string() };
+
+                                if item.transmit_link_speed > 0 {
+                                    link_speed_mbps = item.transmit_link_speed / 1_000_000;
+                                }
+
+                                // MAC address
+                                if item.physical_address_length == 6 {
+                                    mac_address = Some(format!(
+                                        "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
+                                        item.physical_address[0], item.physical_address[1],
+                                        item.physical_address[2], item.physical_address[3],
+                                        item.physical_address[4], item.physical_address[5]
+                                    ));
+                                }
+
+                                break;
+                            }
+                            curr = item.next;
+                        }
+                    }
+                }
+                FreeLibrary(iphlpapi);
+            }
+        }
+
+        // 2. Integrazione con Get-NetAdapter -Physical per convalida link speed nominale/negoziato
+        if link_speed_mbps == 0 || adapter_name.is_empty() {
+            let res = Command::new("powershell.exe")
+                .args([
+                    "-NoProfile",
+                    "-Command",
+                    "Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | Select-Object -First 1 Name, InterfaceDescription, MediaType, LinkSpeed, MacAddress | ConvertTo-Json",
+                ])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+
+            if let Ok(output) = res {
+                let json_str = String::from_utf8_lossy(&output.stdout);
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                    if let Some(n) = val.get("Name").and_then(|v| v.as_str()) {
+                        adapter_name = n.to_string();
+                    }
+                    if let Some(d) = val.get("InterfaceDescription").and_then(|v| v.as_str()) {
+                        description = d.to_string();
+                    }
+                    if let Some(m) = val.get("MediaType").and_then(|v| v.as_str()) {
+                        adapter_type = if m.to_lowercase().contains("802.11") || m.to_lowercase().contains("wireless") {
+                            "wifi".to_string()
+                        } else {
+                            "ethernet".to_string()
+                        };
+                    }
+                    if let Some(ls) = val.get("LinkSpeed").and_then(|v| v.as_str()) {
+                        let parsed = parse_link_speed_to_mbps(ls);
+                        if parsed > 0 {
+                            link_speed_mbps = parsed;
+                        }
+                    }
+                    if let Some(mac) = val.get("MacAddress").and_then(|v| v.as_str()) {
+                        if !mac.trim().is_empty() {
+                            mac_address = Some(mac.trim().replace('-', ":").to_uppercase());
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Estrazione IPv4 e Gateway da ipconfig
+        let ipcfg_res = Command::new("ipconfig.exe")
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+
+        if let Ok(output) = ipcfg_res {
+            let text = String::from_utf8_lossy(&output.stdout);
+            let mut current_block_matches = false;
+            for line in text.lines() {
+                let trimmed = line.trim();
+                if line.starts_with("Ethernet adapter") || line.starts_with("Wireless LAN adapter") || line.starts_with("Scheda Ethernet") || line.starts_with("Scheda LAN wireless") {
+                    current_block_matches = line.to_lowercase().contains(&adapter_name.to_lowercase())
+                        || (adapter_name.is_empty() && (line.contains("Ethernet") || line.contains("Wi-Fi")));
+                } else if current_block_matches {
+                    if trimmed.starts_with("IPv4") || trimmed.starts_with("Indirizzo IPv4") {
+                        if let Some(pos) = trimmed.find(':') {
+                            let ip = trimmed[pos + 1..].trim().replace("(Preferred)", "").replace("(Preferenziale)", "");
+                            if !ip.trim().is_empty() && ipv4.is_none() {
+                                ipv4 = Some(ip.trim().to_string());
+                            }
+                        }
+                    } else if trimmed.starts_with("Default Gateway") || trimmed.starts_with("Gateway predefinito") {
+                        if let Some(pos) = trimmed.find(':') {
+                            let gw = trimmed[pos + 1..].trim();
+                            if !gw.is_empty() && gateway.is_none() {
+                                gateway = Some(gw.to_string());
+                            }
+                        }
+                    } else if trimmed.starts_with("Link-local IPv6") || trimmed.starts_with("Indirizzo IPv6 locale rispetto al collegamento") {
+                        if let Some(pos) = trimmed.find(':') {
+                            let ip6 = trimmed[pos + 1..].trim();
+                            if !ip6.is_empty() && ipv6.is_none() {
+                                ipv6 = Some(ip6.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let max_speed_mbps = estimate_max_speed_from_desc(&description);
+        let is_link_speed_downgraded = evaluate_ethernet_link_speed_downgrade(
+            &adapter_type,
+            &description,
+            link_speed_mbps,
+            max_speed_mbps,
+        );
+
+        if adapter_name.is_empty() {
+            adapter_name = "Ethernet".to_string();
+        }
+
+        NetworkAdapterSnapshot {
+            availability: "available".to_string(),
+            source: "win32_iphelper".to_string(),
+            adapter_name,
+            description,
+            adapter_type,
+            status,
+            link_speed_mbps,
+            max_speed_mbps,
+            is_link_speed_downgraded,
+            ipv4,
+            ipv6,
+            gateway,
+            mac_address,
+            dhcp_enabled,
+            error_details: None,
+        }
+    }
+
+    /// Interroga Windows Native Wifi API (wlanapi.dll) e netsh wlan per rilevare SSID connesso,
+    /// qualità del segnale in percentuale, RSSI, banda e standard Wi-Fi (Wi-Fi 6/6E/7).
+    pub fn query_wifi_signal_metrics_native() -> WifiSignalSnapshot {
+        unsafe {
+            let wlanapi = LoadLibraryA(b"wlanapi.dll\0".as_ptr() as *const i8);
+            if !wlanapi.is_null() {
+                type WlanOpenHandleFn = unsafe extern "system" fn(u32, *mut std::ffi::c_void, *mut u32, *mut *mut std::ffi::c_void) -> u32;
+                type WlanCloseHandleFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> u32;
+
+                let p_open = GetProcAddress(wlanapi, b"WlanOpenHandle\0".as_ptr() as *const i8);
+                let p_close = GetProcAddress(wlanapi, b"WlanCloseHandle\0".as_ptr() as *const i8);
+
+                if !p_open.is_null() && !p_close.is_null() {
+                    let fn_open: WlanOpenHandleFn = std::mem::transmute(p_open);
+                    let fn_close: WlanCloseHandleFn = std::mem::transmute(p_close);
+                    let mut negotiated_ver = 0u32;
+                    let mut client_h = std::ptr::null_mut();
+                    if fn_open(2, std::ptr::null_mut(), &mut negotiated_ver, &mut client_h) == 0 {
+                        fn_close(client_h, std::ptr::null_mut());
+                    }
+                }
+                FreeLibrary(wlanapi);
+            }
+        }
+
+        let res = Command::new("netsh.exe")
+            .args(["wlan", "show", "interfaces"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+
+        match res {
+            Ok(output) => {
+                let text = String::from_utf8_lossy(&output.stdout);
+                parse_netsh_wifi_output(&text)
+            }
+            Err(err) => WifiSignalSnapshot {
+                availability: "error".to_string(),
+                source: "win32_wlanapi".to_string(),
+                is_connected: false,
+                ssid: None,
+                bssid: None,
+                signal_quality_percent: 0,
+                rssi_dbm: -100,
+                band: "unknown".to_string(),
+                standard: "unknown".to_string(),
+                channel: None,
+                error_details: Some(format!("Errore esecuzione netsh wlan: {}", err)),
+            },
+        }
+    }
 }
 
 // --- COMANDI TAURI ESPOSTI AL FRONTEND ---
@@ -2980,6 +3565,69 @@ pub fn detect_audio_glitches_or_status_mock() -> AudioDiagnosticsSnapshot {
     }
 }
 
+#[tauri::command]
+pub async fn query_network_adapter_details() -> Result<NetworkAdapterSnapshot, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::query_network_adapter_details_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(query_network_adapter_details_mock())
+    }
+}
+
+#[tauri::command]
+pub async fn query_wifi_signal_metrics() -> Result<WifiSignalSnapshot, String> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(windows_native::query_wifi_signal_metrics_native())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(query_wifi_signal_metrics_mock())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn query_network_adapter_details_mock() -> NetworkAdapterSnapshot {
+    NetworkAdapterSnapshot {
+        availability: "available".to_string(),
+        source: "mock_network_adapter".to_string(),
+        adapter_name: "Ethernet".to_string(),
+        description: "Realtek PCIe 2.5GbE Family Controller".to_string(),
+        adapter_type: "ethernet".to_string(),
+        status: "connected".to_string(),
+        link_speed_mbps: 1000,
+        max_speed_mbps: Some(2500),
+        is_link_speed_downgraded: false,
+        ipv4: Some("192.168.1.100".to_string()),
+        ipv6: Some("fe80::1".to_string()),
+        gateway: Some("192.168.1.1".to_string()),
+        mac_address: Some("00:1A:2B:3C:4D:5E".to_string()),
+        dhcp_enabled: true,
+        error_details: None,
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn query_wifi_signal_metrics_mock() -> WifiSignalSnapshot {
+    WifiSignalSnapshot {
+        availability: "available".to_string(),
+        source: "mock_wifi_signal".to_string(),
+        is_connected: true,
+        ssid: Some("HomeNetwork_5G".to_string()),
+        bssid: Some("AA:BB:CC:DD:EE:FF".to_string()),
+        signal_quality_percent: 88,
+        rssi_dbm: -56,
+        band: "5GHz".to_string(),
+        standard: "Wi-Fi 6".to_string(),
+        channel: Some(36),
+        error_details: None,
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3278,5 +3926,208 @@ Tempo approssimativo percorsi andata/ritorno in millisecondi:
         assert_eq!(audio.availability, "available");
         assert!(audio.audio_service_running);
     }
+
+    #[test]
+    fn test_parse_link_speed_to_mbps() {
+        assert_eq!(parse_link_speed_to_mbps("1 Gbps"), 1000);
+        assert_eq!(parse_link_speed_to_mbps("2.5 Gbps"), 2500);
+        assert_eq!(parse_link_speed_to_mbps("10 Gbps"), 10000);
+        assert_eq!(parse_link_speed_to_mbps("100 Mbps"), 100);
+        assert_eq!(parse_link_speed_to_mbps("10 Mbps"), 10);
+        assert_eq!(parse_link_speed_to_mbps("1000000000 bps"), 1000);
+        assert_eq!(parse_link_speed_to_mbps("0 bps"), 0);
+        assert_eq!(parse_link_speed_to_mbps("unknown"), 0);
+    }
+
+    #[test]
+    fn test_estimate_max_speed_from_desc() {
+        assert_eq!(estimate_max_speed_from_desc("Realtek Gaming 2.5GbE Family Controller"), Some(2500));
+        assert_eq!(estimate_max_speed_from_desc("Intel(R) Ethernet Controller I225-V"), Some(2500));
+        assert_eq!(estimate_max_speed_from_desc("Intel(R) Ethernet Connection (7) I219-V"), Some(1000));
+        assert_eq!(estimate_max_speed_from_desc("Realtek PCIe GBE Family Controller"), Some(1000));
+        assert_eq!(estimate_max_speed_from_desc("Aquantia AQtion 10G Pro NIC"), Some(10000));
+        assert_eq!(estimate_max_speed_from_desc("Generic Fast Ethernet Adapter"), Some(100));
+        assert_eq!(estimate_max_speed_from_desc("Generic Virtual Adapter"), None);
+    }
+
+    #[test]
+    fn test_evaluate_ethernet_link_speed_downgrade() {
+        // Scheda 2.5GbE che negozia a 100 Mbps -> Downgrade (cavo difettoso/porta limitata)
+        assert!(evaluate_ethernet_link_speed_downgrade(
+            "ethernet",
+            "Realtek Gaming 2.5GbE Family Controller",
+            100,
+            Some(2500)
+        ));
+
+        // Scheda Gigabit che negozia a 100 Mbps -> Downgrade
+        assert!(evaluate_ethernet_link_speed_downgrade(
+            "ethernet",
+            "Intel Gigabit Network Connection",
+            100,
+            None
+        ));
+
+        // Scheda Gigabit che negozia a 1000 Mbps -> Corretto
+        assert!(!evaluate_ethernet_link_speed_downgrade(
+            "ethernet",
+            "Intel Gigabit Network Connection",
+            1000,
+            Some(1000)
+        ));
+
+        // Scheda 2.5G che negozia a 1000 Mbps (su switch gigabit) -> Non è downgrade critico
+        assert!(!evaluate_ethernet_link_speed_downgrade(
+            "ethernet",
+            "Realtek Gaming 2.5GbE Family Controller",
+            1000,
+            Some(2500)
+        ));
+
+        // Wi-Fi non applica downgrade ethernet
+        assert!(!evaluate_ethernet_link_speed_downgrade(
+            "wifi",
+            "Intel Wi-Fi 6E AX211",
+            100,
+            Some(1000)
+        ));
+    }
+
+    #[test]
+    fn test_wifi_quality_to_rssi_dbm() {
+        assert_eq!(wifi_quality_to_rssi_dbm(100), -50);
+        assert_eq!(wifi_quality_to_rssi_dbm(80), -60);
+        assert_eq!(wifi_quality_to_rssi_dbm(50), -75);
+        assert_eq!(wifi_quality_to_rssi_dbm(30), -85);
+        assert_eq!(wifi_quality_to_rssi_dbm(0), -100);
+    }
+
+    #[test]
+    fn test_detect_wifi_band_and_standard() {
+        assert_eq!(detect_wifi_band(Some(6), None), "2.4GHz");
+        assert_eq!(detect_wifi_band(Some(36), None), "5GHz");
+        assert_eq!(detect_wifi_band(None, Some(6000)), "6GHz");
+
+        assert_eq!(detect_wifi_standard("802.11ax", "5GHz"), "Wi-Fi 6");
+        assert_eq!(detect_wifi_standard("802.11ax", "6GHz"), "Wi-Fi 6E");
+        assert_eq!(detect_wifi_standard("802.11be", "6GHz"), "Wi-Fi 7");
+        assert_eq!(detect_wifi_standard("802.11ac", "5GHz"), "Wi-Fi 5");
+        assert_eq!(detect_wifi_standard("802.11n", "2.4GHz"), "Wi-Fi 4");
+        assert_eq!(detect_wifi_standard("802.11g", "2.4GHz"), "legacy");
+    }
+
+    #[test]
+    fn test_parse_netsh_wifi_output_connected() {
+        let sample = "\
+There is 1 interface on the system:
+
+    Name                   : Wi-Fi
+    Description            : Intel(R) Wi-Fi 6E AX211 160MHz
+    State                  : connected
+    SSID                   : Fastweb_Ultra_5G
+    BSSID                  : a4:91:b1:22:33:44
+    Radio type             : 802.11ax
+    Channel                : 36
+    Band                   : 5 GHz
+    Signal                 : 92%
+";
+        let res = parse_netsh_wifi_output(sample);
+        assert_eq!(res.availability, "available");
+        assert!(res.is_connected);
+        assert_eq!(res.ssid.as_deref(), Some("Fastweb_Ultra_5G"));
+        assert_eq!(res.signal_quality_percent, 92);
+        assert_eq!(res.rssi_dbm, -54);
+        assert_eq!(res.band, "5GHz");
+        assert_eq!(res.standard, "Wi-Fi 6");
+        assert_eq!(res.channel, Some(36));
+    }
+
+    #[test]
+    fn test_parse_netsh_wifi_output_disconnected() {
+        let sample = "\
+There is 1 interface on the system:
+
+    Name                   : Wi-Fi
+    Description            : Intel(R) Wi-Fi 6E AX211 160MHz
+    State                  : disconnected
+";
+        let res = parse_netsh_wifi_output(sample);
+        assert_eq!(res.availability, "not_connected");
+        assert!(!res.is_connected);
+        assert_eq!(res.signal_quality_percent, 0);
+        assert_eq!(res.rssi_dbm, -100);
+    }
+
+    #[test]
+    fn test_parse_netsh_wifi_output_no_interface() {
+        let sample = "There is no wireless interface on the system.";
+        let res = parse_netsh_wifi_output(sample);
+        assert_eq!(res.availability, "unavailable");
+        assert!(!res.is_connected);
+    }
+
+    #[test]
+    fn test_network_adapter_snapshot_serialization() {
+        let snap = NetworkAdapterSnapshot {
+            availability: "available".to_string(),
+            source: "win32_iphelper".to_string(),
+            adapter_name: "Ethernet".to_string(),
+            description: "Realtek Gaming 2.5GbE Family Controller".to_string(),
+            adapter_type: "ethernet".to_string(),
+            status: "connected".to_string(),
+            link_speed_mbps: 1000,
+            max_speed_mbps: Some(2500),
+            is_link_speed_downgraded: false,
+            ipv4: Some("192.168.1.17".to_string()),
+            ipv6: Some("fe80::1".to_string()),
+            gateway: Some("192.168.1.1".to_string()),
+            mac_address: Some("D8:43:AE:14:6A:DF".to_string()),
+            dhcp_enabled: true,
+            error_details: None,
+        };
+
+        let json = serde_json::to_string(&snap).expect("must serialize");
+        assert!(json.contains("\"adapterName\":\"Ethernet\""));
+        assert!(json.contains("\"linkSpeedMbps\":1000"));
+        assert!(json.contains("\"maxSpeedMbps\":2500"));
+        assert!(json.contains("\"isLinkSpeedDowngraded\":false"));
+        assert!(json.contains("\"ipv4\":\"192.168.1.17\""));
+    }
+
+    #[test]
+    fn test_wifi_signal_snapshot_serialization() {
+        let snap = WifiSignalSnapshot {
+            availability: "available".to_string(),
+            source: "win32_wlanapi".to_string(),
+            is_connected: true,
+            ssid: Some("Office_Wi-Fi_7".to_string()),
+            bssid: Some("00:11:22:33:44:55".to_string()),
+            signal_quality_percent: 85,
+            rssi_dbm: -57,
+            band: "6GHz".to_string(),
+            standard: "Wi-Fi 7".to_string(),
+            channel: Some(69),
+            error_details: None,
+        };
+
+        let json = serde_json::to_string(&snap).expect("must serialize");
+        assert!(json.contains("\"ssid\":\"Office_Wi-Fi_7\""));
+        assert!(json.contains("\"signalQualityPercent\":85"));
+        assert!(json.contains("\"rssiDbm\":-57"));
+        assert!(json.contains("\"band\":\"6GHz\""));
+        assert!(json.contains("\"standard\":\"Wi-Fi 7\""));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_native_network_adapter_and_wifi_execution() {
+        let adapter = windows_native::query_network_adapter_details_native();
+        assert_eq!(adapter.availability, "available");
+        assert!(!adapter.adapter_name.is_empty());
+
+        let wifi = windows_native::query_wifi_signal_metrics_native();
+        assert!(wifi.availability == "available" || wifi.availability == "not_connected" || wifi.availability == "unavailable");
+    }
 }
+
 

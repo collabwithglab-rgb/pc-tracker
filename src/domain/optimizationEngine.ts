@@ -54,6 +54,9 @@ export function generateOptimizationRecommendations(
   // 3c. Raccomandazioni su Display Diagnostics & Audio Settings (Tranche 11)
   evaluateDisplayAndAudioRecommendations(facts, health, recommendations);
 
+  // 3d. Raccomandazioni su Link Speed Scheda di Rete e Wi-Fi (Tranche 12)
+  evaluateNetworkIntelligenceRecommendations(facts, health, recommendations);
+
   // 4. Raccomandazioni su Termiche e Manutenzione Fisica (con Personal Baseline)
   evaluateThermalAndMaintenanceRecommendations(facts, health, recommendations, refDate);
 
@@ -667,6 +670,88 @@ function evaluateDisplayAndAudioRecommendations(
     });
   }
 }
+
+function evaluateNetworkIntelligenceRecommendations(
+  facts: SystemFactsInput,
+  health: SystemHealthReport,
+  recommendations: OptimizationRecommendation[]
+): void {
+  // A. Verifica fisica cavo Ethernet e porta switch/router in caso di downgrade a 100 Mbps
+  const ethernetDowngraded = health.findings.find(
+    (f) => f.id === 'network-ethernet-link-downgraded'
+  );
+  if (
+    ethernetDowngraded ||
+    (facts.networkAdapter?.adapterType === 'ethernet' &&
+      facts.networkAdapter.isLinkSpeedDowngraded)
+  ) {
+    const adapter = facts.networkAdapter;
+    const speed = adapter?.linkSpeedMbps || 100;
+    const nominal = adapter?.maxSpeedMbps || 1000;
+    recommendations.push({
+      id: 'opt-network-verify-ethernet-cable',
+      title: translate('it', 'opt_network_verify_cable_title'),
+      category: 'system',
+      reason: translate('it', 'opt_network_verify_cable_reason', {
+        speed,
+        nominal,
+      }),
+      evidence: ethernetDowngraded?.evidence || `${speed} Mbps negoziati (nominale: ${nominal} Mbps)`,
+      expectedBenefit: translate('it', 'opt_network_verify_cable_benefit', { nominal }),
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'MANUAL',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'verify-ethernet-cable',
+      actionDescription: translate('it', 'opt_network_verify_cable_action'),
+      verificationMethod: 'Physical CAT5e/CAT6 cable and router switch port check',
+      cadenceType: 'STATE_REMEDIATION',
+      parameters: {
+        currentSpeedMbps: speed,
+        nominalSpeedMbps: nominal,
+      },
+    });
+  }
+
+  // B. Ottimizzazione ricezione e orientamento antenne per segnale Wi-Fi debole (< 45%)
+  const wifiWeak = health.findings.find((f) => f.id === 'network-wifi-weak-signal');
+  if (
+    wifiWeak ||
+    (facts.wifiSignal?.isConnected &&
+      facts.wifiSignal.signalQualityPercent > 0 &&
+      facts.wifiSignal.signalQualityPercent < 45)
+  ) {
+    const wifi = facts.wifiSignal;
+    const pct = wifi?.signalQualityPercent || 35;
+    const rssi = wifi?.rssiDbm || -80;
+    const band = wifi?.band || '5GHz';
+    recommendations.push({
+      id: 'opt-network-optimize-wifi-reception',
+      title: translate('it', 'opt_network_wifi_reception_title'),
+      category: 'system',
+      reason: translate('it', 'opt_network_wifi_reception_reason', {
+        percent: pct,
+        rssi,
+      }),
+      evidence: wifiWeak?.evidence || `${pct}% (${rssi} dBm, banda ${band})`,
+      expectedBenefit: translate('it', 'opt_network_wifi_reception_benefit'),
+      risk: 'NONE',
+      confidence: 'HIGH',
+      actionAvailability: 'MANUAL',
+      rollbackAvailability: 'NOT_APPLICABLE',
+      actionId: 'optimize-wifi-reception',
+      actionDescription: translate('it', 'opt_network_wifi_reception_action'),
+      verificationMethod: 'Wi-Fi antenna orientation and access point positioning check',
+      cadenceType: 'STATE_REMEDIATION',
+      parameters: {
+        signalQualityPercent: pct,
+        rssiDbm: rssi,
+        band,
+      },
+    });
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // 3. PERFORMANCE & CACHE RECOMMENDATIONS
