@@ -28,6 +28,44 @@ export interface ReleaseChangelog {
 
 export const APP_CHANGELOG: ReleaseChangelog[] = [
   {
+    version: '3.2.1',
+    date: '2026-10-04',
+    title: 'Hotfix Desktop Release — Startup Protocol & NSIS Packaging Resolution',
+    summary:
+      'Aggiornamento correttivo per l\'eseguibile desktop Windows: risolto il problema di avvio che poteva causare schermate di errore di connessione localhost, eliminati i binari di test residui dal pacchetto installer e consolidata la feature custom-protocol per l\'esecuzione autonoma offline al 100%.',
+    wikiArticleId: 'release-v3.2.1',
+    wikiUrl: 'https://github.com/collabwithglab-rgb/pc-tracker/wiki',
+    added: [],
+    improved: [
+      {
+        title: 'Avvio Desktop & Custom Protocol Embedded',
+        description:
+          'Risolto il fallback anomalo su localhost:3000 in produzione abilitando permanentemente la feature custom-protocol in Tauri e integrando gli asset grafici direttamente nel binario nativo.',
+        tag: 'Desktop',
+      },
+      {
+        title: 'Pulizia Installer & Collegamenti Windows',
+        description:
+          'Rimosso il binario di test verify_facts dalla cartella di compilazione per assicurare che il collegamento su Desktop e menu Start punti sempre esclusivamente all\'applicazione principale pc-tracker.exe.',
+        tag: 'Packaging',
+      },
+    ],
+    fixed: [
+      {
+        title: 'Risoluzione Errore Connessione Localhost (ERR_CONNECTION_REFUSED)',
+        description:
+          'Eliminata l\'anomalia che provocava la schermata di errore WebView2 dovuta all\'assenza del flag custom-protocol nel binario.',
+        tag: 'Bugfix',
+      },
+      {
+        title: 'Eliminazione Flash PowerShell all\'Avvio',
+        description:
+          'Rimosso il binario di console di test che veniva eseguito erroneamente al posto della GUI di PC Tracker.',
+        tag: 'Bugfix',
+      },
+    ],
+  },
+  {
     version: '3.2.0',
     date: '2026-10-04',
     title: 'PC Care Center Full Release — Deep Diagnostics, Hardware Intelligence & Smart Maintenance Complete',

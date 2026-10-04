@@ -16,7 +16,7 @@
 
 Get the latest signed Windows installer (`.exe`) directly from the official GitHub release:
 
-👉 **[Download PC Tracker v3.2.0 (Latest Release)](https://github.com/collabwithglab-rgb/pc-tracker/releases/latest)**
+👉 **[Download PC Tracker v3.2.1 (Latest Release)](https://github.com/collabwithglab-rgb/pc-tracker/releases/latest)**
 
 - **Zero Admin Rights Required**: Installs seamlessly into the local user space (`%LOCALAPPDATA%`).
 - **Cryptographically Signed Auto-Updates**: Features background update checks verified via Minisign Ed25519 signatures.

@@ -153,8 +153,16 @@ describe('Sistema Notifiche Aggiornamenti & Changelog WhatsNew', () => {
   });
 
   describe('4. Predisposizione Mini-Wiki & Contenuti Release Attuale', () => {
-    it('include nella release attuale (v3.2.0) le funzionalità cardine di PC Care Center e Diagnostica Avanzata', () => {
-      const currentChangelog = getChangelogForVersion(APP_VERSION);
+    it('include nella release v3.2.1 il changelog di hotfix desktop', () => {
+      const v321 = getChangelogForVersion(APP_VERSION);
+      expect(v321.version).toBe('3.2.1');
+      const improvedTitles = v321.improved.map((i) => i.title);
+      expect(improvedTitles).toContain('Avvio Desktop & Custom Protocol Embedded');
+      expect(improvedTitles).toContain('Pulizia Installer & Collegamenti Windows');
+    });
+
+    it('include nella release v3.2.0 le funzionalità cardine di PC Care Center e Diagnostica Avanzata', () => {
+      const currentChangelog = getChangelogForVersion('3.2.0');
       const addedTitles = currentChangelog.added.map((a) => a.title);
 
       expect(addedTitles).toContain('Telemetria AMD Radeon & Hotspot Monitoring');
